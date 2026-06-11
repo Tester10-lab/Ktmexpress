@@ -1,0 +1,445 @@
+import Package from '../models/Package.js';
+import PickupRequest from '../models/PickupRequest.js';
+import Product from '../models/Product.js';
+import Settlement from '../models/Settlement.js';
+import fs from 'fs';
+import csv from 'csv-parser';
+import { generateLabelUrls } from '../services/labelService.js';
+
+// Helper: generate a unique 7-character alphanumeric tracking code
+export function generateTrackingCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 7; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// Helper: generate a tracking code guaranteed to be unique in the DB
+async function uniqueTrackingCode() {
+  let code;
+  let exists = true;
+  while (exists) {
+    code = generateTrackingCode();
+    exists = await Package.exists({ trackingCode: code });
+  }
+  return code;
+}
+
+// GET /api/vendor/dashboard
+export const getVendorDashboard = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [total, delivered, pending, returned, todayPkgs] = await Promise.all([
+      Package.countDocuments({ vendorId }),
+      Package.countDocuments({ vendorId, status: 'Delivered' }),
+      Package.countDocuments({ vendorId, status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } }),
+      Package.countDocuments({ vendorId, status: { $in: ['Returned', 'Returned to Vendor'] } }),
+      Package.countDocuments({ vendorId, createdAt: { $gte: today } }),
+    ]);
+
+    const pickupRequests = await PickupRequest.countDocuments({ vendorId, status: 'pending' });
+
+    res.json({
+      success: true,
+      data: { total, delivered, pending, returned, todayPkgs, pickupRequests },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/vendor/packages
+export const getVendorPackages = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { status, search } = req.query;
+
+    const filter = { vendorId };
+    if (status && status !== 'all') {
+      filter.status = status;
+    }
+    if (search) {
+      filter.$or = [
+        { trackingCode: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { invoiceId: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const packages = await Package.find(filter)
+      .populate('riderId', 'name contact')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: packages });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/pickup-request
+export const createPickupRequest = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { packageIds } = req.body;
+
+    if (!packageIds || !packageIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No packages selected for pickup.',
+      });
+    }
+
+    const results = [];
+
+    for (const pkgId of packageIds) {
+      const pkg = await Package.findOne({ _id: pkgId, vendorId });
+      if (!pkg || pkg.status !== 'Pending') continue;
+
+      // Update package status
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      pkg.status = 'Pick Up Requested';
+      pkg.timeline.push({
+        time: now,
+        status: 'Pick Up Requested',
+        message: 'Vendor requested courier pickup',
+        user: req.user.name,
+      });
+      await pkg.save();
+
+      // Create pickup request
+      const pickup = await PickupRequest.create({
+        packageId: pkg._id,
+        vendorId,
+      });
+
+      results.push({ packageId: pkg._id, trackingCode: pkg.trackingCode, pickupId: pickup._id });
+    }
+
+    res.status(201).json({ success: true, data: results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/packages
+export const createPackage = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { invoiceId, customerName, customerPhone, address, outOfValley, city, weight, items, amount, deliveryCharge, deliveryDate, packageAccess } = req.body;
+
+    if (!customerName || !customerPhone || !address || amount === undefined) {
+      return res.status(400).json({ success: false, message: 'Customer name, phone, address, and amount are required.' });
+    }
+
+    const trackingCode = await uniqueTrackingCode();
+    const labelUrls = generateLabelUrls(trackingCode);
+
+    const pkg = await Package.create({
+      trackingCode,
+      invoiceId: invoiceId || `INV-${Date.now()}`,
+      customerName,
+      customerPhone,
+      address,
+      outOfValley: !!outOfValley,
+      city: city || '',
+      weight: weight || 0.5,
+      packageAccess: packageAccess || 'sealed',
+      items: items || [],
+      amount: Number(amount),
+      deliveryCharge: deliveryCharge || 0,
+      vendorId,
+      ...labelUrls,
+      status: 'Pending',
+      timeline: [{
+        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: 'Invoice Created',
+        message: 'Vendor created package invoice',
+        user: req.user.name,
+      }]
+    });
+
+    res.status(201).json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/vendor/packages/:id
+export const updatePackage = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { amount, address, comments, deliveryDate, outOfValley, city, items } = req.body;
+    
+    const pkg = await Package.findOne({ _id: req.params.id, vendorId });
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+    if (pkg.status !== 'Pending') return res.status(400).json({ success: false, message: 'Can only edit Pending packages' });
+
+    if (amount !== undefined) pkg.amount = amount;
+    if (address !== undefined) pkg.address = address;
+    if (comments !== undefined) pkg.comments = comments;
+    if (outOfValley !== undefined) pkg.outOfValley = outOfValley;
+    if (city !== undefined) pkg.city = city;
+    if (items !== undefined) pkg.items = items;
+
+    await pkg.save();
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/packages/bulk
+export const bulkCreatePackages = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { packages } = req.body;
+    
+    if (!Array.isArray(packages) || packages.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid packages data' });
+    }
+
+    const createdPackages = [];
+    for (const p of packages) {
+      const trackingCode = await uniqueTrackingCode();
+      const labelUrls = generateLabelUrls(trackingCode);
+      const pkg = await Package.create({
+        trackingCode,
+        invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+        customerName: p.customerName,
+        customerPhone: p.customerPhone,
+        address: p.address,
+        outOfValley: !!p.outOfValley,
+        city: p.city || '',
+        weight: Number(p.weight) || 0.5,
+        items: p.items || [],
+        amount: Number(p.amount) || 0,
+        deliveryCharge: Number(p.deliveryCharge) || 0,
+        vendorId,
+        ...labelUrls,
+        status: 'Pending',
+        timeline: [{
+          time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          status: 'Invoice Created',
+          message: `Vendor bulk created package`,
+          user: req.user.name,
+        }]
+      });
+      createdPackages.push(pkg);
+    }
+    
+    res.status(201).json({ success: true, data: createdPackages });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/vendor/packages/:id/return
+export const requestReturn = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const pkg = await Package.findOne({ _id: req.params.id, vendorId });
+    
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+
+    if (!['Pending', 'Cancelled', 'Returned'].includes(pkg.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot request return for this package status' });
+    }
+
+    pkg.status = 'Returned to Vendor';
+    pkg.timeline.push({
+      time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: 'Returned to Vendor',
+      message: 'Vendor requested return of package',
+      user: req.user.name,
+    });
+    
+    await pkg.save();
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/packages/:id/comments
+export const addComment = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { text } = req.body;
+    
+    const pkg = await Package.findOne({ _id: req.params.id, vendorId });
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+
+    pkg.comments = pkg.comments ? `${pkg.comments}\n[${req.user.name}]: ${text}` : `[${req.user.name}]: ${text}`;
+    await pkg.save();
+    
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/vendor/finance
+export const getFinance = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: false });
+    
+    const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + pkg.amount, 0);
+    const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + pkg.deliveryCharge, 0);
+    const totalPayable = pendingCOD - pendingDeliveryCharges;
+
+    res.json({
+      success: true,
+      data: {
+        pendingPackagesCount: deliveredPkgs.length,
+        pendingCOD,
+        pendingDeliveryCharges,
+        totalPayable
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/settlements
+export const requestSettlement = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: false });
+    
+    if (deliveredPkgs.length === 0) {
+      return res.status(400).json({ success: false, message: 'No unreconciled delivered packages found.' });
+    }
+
+    const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + pkg.amount, 0);
+    const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + pkg.deliveryCharge, 0);
+    const totalPayable = pendingCOD - pendingDeliveryCharges;
+
+    const settlement = await Settlement.create({
+      vendorId,
+      requestedAmount: totalPayable,
+      packageIds: deliveredPkgs.map(p => p._id)
+    });
+
+    res.status(201).json({ success: true, data: settlement });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/vendor/products
+export const getProducts = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const products = await Product.find({ vendorId });
+    res.json({ success: true, data: products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/products
+export const createProduct = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const product = await Product.create({ ...req.body, vendorId });
+    res.status(201).json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/vendor/products/:id
+export const updateProduct = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const product = await Product.findOneAndUpdate({ _id: req.params.id, vendorId }, req.body, { new: true });
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    res.json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/packages/upload-csv
+export const uploadCsv = async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+  const results = [];
+  const vendorId = req.user._id;
+
+  // Helper to safely get value from object with various possible header names (case-insensitive)
+  const getVal = (row, keys) => {
+    for (const k of keys) {
+      if (row[k] !== undefined && row[k] !== '') return row[k];
+      const lowerRow = Object.keys(row).reduce((acc, key) => {
+        acc[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = row[key];
+        return acc;
+      }, {});
+      const lowerK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (lowerRow[lowerK] !== undefined && lowerRow[lowerK] !== '') return lowerRow[lowerK];
+    }
+    return undefined;
+  };
+
+  fs.createReadStream(req.file.path)
+    .pipe(csv())
+    .on('data', (data) => results.push(data))
+    .on('end', async () => {
+      try {
+        const createdPackages = [];
+        for (const raw of results) {
+          const trackingCode = generateTrackingCode();
+          const labelUrls = generateLabelUrls(trackingCode);
+          
+          const p = {
+            invoiceId: getVal(raw, ['invoiceId', 'invoice', 'reference']),
+            customerName: getVal(raw, ['customerName', 'customer name', 'name']),
+            customerPhone: getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact']),
+            address: getVal(raw, ['address', 'delivery address', 'location']),
+            outOfValley: getVal(raw, ['outOfValley', 'out of valley', 'outside valley']),
+            city: getVal(raw, ['city', 'area', 'district']),
+            weight: getVal(raw, ['weight', 'kg']),
+            amount: getVal(raw, ['amount', 'cod', 'price']),
+            deliveryCharge: getVal(raw, ['deliveryCharge', 'delivery charge', 'shipping'])
+          };
+
+          const pkg = await Package.create({
+            trackingCode,
+            invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+            customerName: p.customerName || 'Unknown Customer',
+            customerPhone: p.customerPhone || '0000000000',
+            address: p.address || 'Unknown Address',
+            outOfValley: String(p.outOfValley).toLowerCase() === 'true' || p.outOfValley === '1' || String(p.outOfValley).toLowerCase() === 'yes',
+            city: p.city || '',
+            weight: Number(p.weight) || 0.5,
+            items: [], // Simplified for bulk upload CSV
+            amount: Number(p.amount) || 0,
+            deliveryCharge: Number(p.deliveryCharge) || 0,
+            vendorId,
+            ...labelUrls,
+            status: 'Pending',
+            timeline: [{
+              time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+              status: 'Invoice Created',
+              message: 'Vendor created package via CSV upload',
+              user: req.user.name || 'Vendor',
+            }]
+          });
+          createdPackages.push(pkg);
+        }
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
+        res.status(201).json({ success: true, data: createdPackages, message: `Successfully imported ${createdPackages.length} packages` });
+      } catch (err) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
+        const isValidation = err.name === 'ValidationError';
+        res.status(isValidation ? 400 : 500).json({ success: false, message: isValidation ? err.message : 'Server error during upload' });
+      }
+    });
+};
