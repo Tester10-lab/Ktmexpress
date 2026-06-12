@@ -27,6 +27,6 @@ const outsideValleyFeeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-outsideValleyFeeSchema.index({ city: 1 });
+// city index is created automatically by unique:true above
 
 export default mongoose.model('OutsideValleyFee', outsideValleyFeeSchema);
