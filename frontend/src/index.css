@@ -155,6 +155,30 @@ input:checked + .slider:before { transform: translateX(18px); }
 .slider.round { border-radius: 22px; }
 .slider.round:before { border-radius: 50%; }
 
+/* Mobile Fullscreen Scanner */
+@media (max-width: 768px) {
+  .mobile-fullscreen-scanner {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 9999;
+    background: #000 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    padding: 16px !important;
+    display: flex;
+    flex-direction: column;
+  }
+  .mobile-fullscreen-scanner h3 {
+    color: #fff !important;
+  }
+  .mobile-fullscreen-scanner .camera-container {
+    flex: 1;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    border-radius: 8px !important;
+  }
+}
+
 /* ==================== BADGES ==================== */
 .badge {
   display: inline-flex; align-items: center; gap: 4px;

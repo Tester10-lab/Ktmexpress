@@ -138,7 +138,7 @@ const CameraScanner = ({ onDetected, active }) => {
       {error && (
         <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fee2e2', color: '#991b1b', fontSize: 13, marginBottom: 12 }}>{error}</div>
       )}
-      <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#111', aspectRatio: '4/3', maxHeight: 300 }}>
+      <div className="camera-container" style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#111', aspectRatio: '4/3', maxHeight: 300 }}>
         <video ref={videoRef} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <canvas ref={canvasRef} style={{ display: 'none' }} />
         {/* Scan overlay */}
@@ -276,6 +276,9 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
   // Camera scan detected
   const onCameraDetected = useCallback(async (detectedCode) => {
     setCode(detectedCode);
+    if (window.innerWidth <= 768) {
+      setTab('manual'); // Switch back so they can see the scanned package and take action
+    }
     await lookupPackage(detectedCode);
   }, [lookupPackage]);
 
@@ -359,8 +362,11 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
 
           {/* Camera Tab */}
           {tab === 'camera' && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20 }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Mobile Camera Scanner</h3>
+            <div className="mobile-fullscreen-scanner" style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Mobile Camera Scanner</h3>
+                <button onClick={() => setTab('manual')} className="btn btn-outline btn-sm" style={{ display: window.innerWidth <= 768 ? 'block' : 'none' }}>Close</button>
+              </div>
               <CameraScanner onDetected={onCameraDetected} active={tab === 'camera'} />
               {code && (
                 <div style={{ marginTop: 12, padding: '8px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, fontWeight: 600, color: '#166534' }}>
