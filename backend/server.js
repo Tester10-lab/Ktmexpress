@@ -17,19 +17,45 @@ import scanRoutes from './routes/scanRoutes.js';
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || ['http://localhost:5173', 'http://127.0.0.1:5173'],
+// ─── CORS — must be first, before any routes ─────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://delivery-system-sand-seven.vercel.app',
+  // Also accept any FRONTEND_URL set in the environment (e.g. custom domain later)
+  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, Postman, mobile apps)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: Origin "${origin}" is not allowed.`));
+  },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Request-Id'],
+  maxAge: 86400, // Cache preflight response for 24 hours
+};
+
+app.use(cors(corsOptions));
+
+// Explicitly handle OPTIONS preflight on all routes
+app.options('*', cors(corsOptions));
+
+// ─── Body parsers ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Request logger (dev)
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  next();
-});
+// Request logger (dev only to reduce noise in production)
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+    next();
+  });
+}
 
 // Mount routes
 app.use('/api/auth', authRoutes);

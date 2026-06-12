@@ -132,6 +132,6 @@ const packageSchema = new mongoose.Schema(
 // Index for fast lookups
 packageSchema.index({ vendorId: 1, status: 1 });
 packageSchema.index({ riderId: 1, status: 1 });
-packageSchema.index({ trackingCode: 1 });
+// trackingCode index is created automatically by unique:true above
 
 export default mongoose.model('Package', packageSchema);
