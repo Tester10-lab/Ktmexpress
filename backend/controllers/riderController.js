@@ -106,6 +106,15 @@ export const updateDeliveryStatus = async (req, res) => {
     }
 
     await pkg.save();
+
+    if (action === 'deliver' && req.io) {
+      req.io.to(`user_${pkg.vendorId}`).emit('notification', {
+        title: 'Package Delivered!',
+        message: `Your package ${pkg.trackingCode} has been successfully delivered.`,
+        type: 'package_delivered'
+      });
+    }
+
     res.json({ success: true, data: pkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

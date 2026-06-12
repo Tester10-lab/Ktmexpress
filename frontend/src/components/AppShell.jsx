@@ -81,7 +81,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
         
         socket.on('notification', (data) => {
           showToast(data.message || data.title || 'New Notification', 'info');
-          if (data.type === 'pickup_request' || data.type === 'new_order') {
+          if (data.type === 'pickup_request' || data.type === 'new_order' || data.type === 'package_delivered') {
             playNotification();
           } else if (data.type === 'alert') {
             playAlert();
