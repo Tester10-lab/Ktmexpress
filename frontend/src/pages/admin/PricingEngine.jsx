@@ -62,6 +62,15 @@ const PricingEngine = () => {
   // -- State: Confirmation Modal --
   const [confirmModal, setConfirmModal] = useState({ open: false, title: '', message: '', onConfirm: null });
 
+  // -- State: Delivery Charge Rules --
+  const [dcRules, setDcRules] = useState([]);
+  const [loadingDc, setLoadingDc] = useState(true);
+  const [dcModalOpen, setDcModalOpen] = useState(false);
+  const BRANCH_OPTIONS = ['HEAD OFFICE', 'Kathmandu Branch', 'Pokhara Branch', 'Chitwan Branch', 'Lalitpur Branch', 'Bhaktapur Branch', 'Dharan Branch', 'Biratnagar Branch'];
+  const EMPTY_DC_FORM = { id: null, fromBranch: '', toBranch: '', baseCharge: 0, perKgCharge: 0, weightLimit: 0, isActive: true };
+  const [dcForm, setDcForm] = useState(EMPTY_DC_FORM);
+  const [dcSaving, setDcSaving] = useState(false);
+
   // ─── Fetch Data Functions ──────────────────────────────────────────────────
   
   const fetchSummary = async () => {
@@ -112,6 +121,7 @@ const PricingEngine = () => {
     fetchSummary();
     fetchOvFees();
     fetchVendors();
+    fetchDcRules();
   }, []);
 
   // Debounced Searches
@@ -125,6 +135,80 @@ const PricingEngine = () => {
   const handleVendorSearchChange = (e) => {
     setVendorSearch(e.target.value);
     debouncedFetchVendors(e.target.value);
+  };
+
+  // ─── Fetch: Delivery Charge Rules ─────────────────────────────────────────
+  const fetchDcRules = async () => {
+    setLoadingDc(true);
+    try {
+      const res = await api.get('/admin/delivery-charges');
+      setDcRules(res.data.data || []);
+    } catch (err) {
+      showToast('Failed to load delivery charge rules', 'error');
+    } finally {
+      setLoadingDc(false);
+    }
+  };
+
+  const openDcModal = (rule = null) => {
+    if (rule) {
+      setDcForm({ id: rule._id, fromBranch: rule.fromBranch, toBranch: rule.toBranch,
+        baseCharge: rule.baseCharge, perKgCharge: rule.perKgCharge || 0,
+        weightLimit: rule.weightLimit || 0, isActive: rule.isActive });
+    } else {
+      setDcForm(EMPTY_DC_FORM);
+    }
+    setDcModalOpen(true);
+  };
+
+  const handleSaveDcRule = async (e) => {
+    e.preventDefault();
+    if (!dcForm.fromBranch || !dcForm.toBranch) return showToast('Please select both branches', 'error');
+    if (dcForm.fromBranch === dcForm.toBranch) return showToast('From and To cannot be the same branch', 'error');
+    setDcSaving(true);
+    try {
+      if (dcForm.id) {
+        await api.put(`/admin/delivery-charges/${dcForm.id}`, dcForm);
+        showToast('Rule updated', 'success');
+      } else {
+        await api.post('/admin/delivery-charges', dcForm);
+        showToast('Rule created', 'success');
+      }
+      setDcModalOpen(false);
+      fetchDcRules();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to save rule', 'error');
+    } finally {
+      setDcSaving(false);
+    }
+  };
+
+  const handleToggleDcRule = async (rule) => {
+    try {
+      await api.patch(`/admin/delivery-charges/${rule._id}/toggle`);
+      showToast(`Rule ${rule.isActive ? 'deactivated' : 'activated'}`, 'success');
+      fetchDcRules();
+    } catch (err) {
+      showToast('Failed to toggle rule', 'error');
+    }
+  };
+
+  const handleDeleteDcRule = (rule) => {
+    setConfirmModal({
+      open: true,
+      title: 'Delete Delivery Charge Rule',
+      message: `Delete rule for ${rule.fromBranch} → ${rule.toBranch}?`,
+      onConfirm: async () => {
+        try {
+          await api.delete(`/admin/delivery-charges/${rule._id}`);
+          showToast('Rule deleted', 'success');
+          fetchDcRules();
+        } catch (err) {
+          showToast('Failed to delete rule', 'error');
+        }
+        setConfirmModal({ open: false });
+      },
+    });
   };
 
   // ─── Handlers: Global Settings ──────────────────────────────────────────────
@@ -357,6 +441,64 @@ const PricingEngine = () => {
         </div>
       </div>
 
+      {/* ─── Delivery Charge Rules ─────────────────────────────────────────── */}
+      <div className="card p-0 mt-4">
+        <div className="card-header border-b" style={{ padding: 20 }}>
+          <div className="header-title-group">
+            <h3>🚚 Branch-to-Branch Delivery Charge Rules</h3>
+            <p>Auto-applied in the New Order modal based on route + weight. Read-only for vendors.</p>
+          </div>
+          <div className="header-controls">
+            <button className="btn btn-primary btn-sm" onClick={() => openDcModal()}>+ Add Rule</button>
+          </div>
+        </div>
+
+        {loadingDc ? <SkeletonTable rows={4} /> : (
+          <div className="table-container">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>From Branch</th>
+                  <th>To Branch</th>
+                  <th>Base Charge</th>
+                  <th>Free Weight (kg)</th>
+                  <th>Per kg above</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dcRules.length === 0 ? (
+                  <tr><td colSpan="7" className="text-center text-muted" style={{ padding: 32 }}>No rules yet. Click <strong>+ Add Rule</strong> to create one.</td></tr>
+                ) : dcRules.map(rule => (
+                  <tr key={rule._id} style={{ opacity: rule.isActive ? 1 : 0.5 }}>
+                    <td className="semibold">{rule.fromBranch}</td>
+                    <td className="semibold">{rule.toBranch}</td>
+                    <td className="text-primary-color semibold">Rs. {rule.baseCharge}</td>
+                    <td>{rule.weightLimit || 0} kg</td>
+                    <td>{rule.perKgCharge > 0 ? `Rs. ${rule.perKgCharge}` : '—'}</td>
+                    <td>
+                      <span className={`badge ${rule.isActive ? 'badge-success' : 'badge-secondary'}`}>
+                        {rule.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button className="btn btn-sm btn-outline" onClick={() => handleToggleDcRule(rule)}>
+                          {rule.isActive ? 'Disable' : 'Enable'}
+                        </button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => openDcModal(rule)}>Edit</button>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleDeleteDcRule(rule)}>Del</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* 4. Vendor-Specific Pricing Matrix */}
       <div className="card p-0 mt-4">
         <div className="card-header border-b" style={{ padding: 20 }}>
@@ -445,6 +587,77 @@ const PricingEngine = () => {
 
       {/* --- Modals --- */}
       
+      {/* Delivery Charge Rule Modal */}
+      {dcModalOpen && (
+        <div className="modal-backdrop" onClick={() => setDcModalOpen(false)}>
+          <div className="modal-content" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{dcForm.id ? 'Edit Rule' : 'Add Delivery Charge Rule'}</h3>
+              <button className="modal-close" onClick={() => setDcModalOpen(false)}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSaveDcRule}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label>From Branch *</label>
+                    <select required className="form-select" value={dcForm.fromBranch} onChange={e => setDcForm({...dcForm, fromBranch: e.target.value})}>
+                      <option value="">Select branch...</option>
+                      {BRANCH_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>To Branch *</label>
+                    <select required className="form-select" value={dcForm.toBranch} onChange={e => setDcForm({...dcForm, toBranch: e.target.value})}>
+                      <option value="">Select branch...</option>
+                      {BRANCH_OPTIONS.filter(b => b !== dcForm.fromBranch).map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Base Charge (Rs.) *</label>
+                    <input type="number" required min="0" className="form-control"
+                      value={dcForm.baseCharge} onChange={e => setDcForm({...dcForm, baseCharge: Number(e.target.value)})} />
+                    <p className="font-xs text-muted mt-1">Fixed charge for this route.</p>
+                  </div>
+                  <div className="form-group">
+                    <label>Free Weight Limit (kg)</label>
+                    <input type="number" min="0" step="0.1" className="form-control"
+                      value={dcForm.weightLimit} onChange={e => setDcForm({...dcForm, weightLimit: Number(e.target.value)})} />
+                    <p className="font-xs text-muted mt-1">Weight included in base charge (0 = none).</p>
+                  </div>
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Per kg Charge above weight limit (Rs.)</label>
+                    <input type="number" min="0" step="0.5" className="form-control"
+                      value={dcForm.perKgCharge} onChange={e => setDcForm({...dcForm, perKgCharge: Number(e.target.value)})} />
+                    <p className="font-xs text-muted mt-1">0 = weight-based surcharge disabled.</p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 20px' }}>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={dcForm.isActive} onChange={e => setDcForm({...dcForm, isActive: e.target.checked})} />
+                    <span className="toggle-slider"></span>
+                  </label>
+                  <span className="font-sm semibold">Active</span>
+                </div>
+                {/* Preview */}
+                {dcForm.fromBranch && dcForm.toBranch && (
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+                    <strong>Preview:</strong> {dcForm.fromBranch} → {dcForm.toBranch} · base Rs.{dcForm.baseCharge}
+                    {dcForm.perKgCharge > 0 && ` + Rs.${dcForm.perKgCharge}/kg above ${dcForm.weightLimit}kg`}
+                    {dcForm.weightLimit === 0 && dcForm.perKgCharge === 0 && ' (fixed charge)'}
+                  </div>
+                )}
+                <div className="confirm-modal-actions">
+                  <button type="button" className="btn btn-outline" onClick={() => setDcModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={dcSaving}>{dcSaving ? 'Saving...' : 'Save Rule'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* OV Fee Modal */}
       {ovModalOpen && (
         <div className="modal-backdrop" onClick={() => setOvModalOpen(false)}>

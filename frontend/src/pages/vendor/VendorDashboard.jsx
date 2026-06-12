@@ -5,6 +5,7 @@ import MetricCard from '../../components/MetricCard';
 import PrintLabel from '../../components/PrintLabel';
 import api from '../../api/axios';
 import { useToast } from '../../context/ToastContext';
+import { useDeliveryCharge } from '../../hooks/useDeliveryCharge';
 
 const navLinks = [
   { name: 'Dashboard', path: '/vendor', exact: true, icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
@@ -178,13 +179,25 @@ const PackageList = () => {
   const printRef = useRef();
   const { showToast } = useToast();
 
+  // ── Auto-fetch delivery charge from admin rules ──
+  const {
+    charge: fetchedCharge,
+    loading: chargeLoading,
+    error: chargeError,
+    ruleDetail,
+  } = useDeliveryCharge(
+    createForm.branch,
+    createForm.destinationBranch,
+    createForm.weight
+  );
+
+  // Sync fetched charge into form state
   useEffect(() => {
-    // Auto-calculate delivery charge based on destination branch
-    if (createForm.destinationBranch && createForm.destinationBranch !== '--------') {
-      const charge = createForm.destinationBranch === 'HEAD OFFICE' ? 100 : 150;
-      setCreateForm(prev => ({ ...prev, deliveryCharge: charge }));
+    if (fetchedCharge !== null && fetchedCharge !== undefined) {
+      setCreateForm(prev => ({ ...prev, deliveryCharge: fetchedCharge }));
     }
-  }, [createForm.destinationBranch]);
+  }, [fetchedCharge]);
+
 
   const fetchPackages = async () => {
     setLoading(true);
@@ -593,9 +606,58 @@ const PackageList = () => {
                         <input type="number" step="0.1" name="weight" value={f.weight} onChange={handleFormChange} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-lg placeholder:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
                         {formErrors.weight && <span className="text-xs text-red-500 mt-1 block">{formErrors.weight}</span>}
                       </div>
+                      {/* ── Delivery Charge — Admin rate (read-only) ── */}
                       <div>
-                        <label className="block text-base font-medium text-gray-600 mb-1">Delivery Charge <span className="text-red-500">*</span></label>
-                        <input type="number" name="deliveryCharge" value={f.deliveryCharge} onChange={handleFormChange} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-lg placeholder:text-base focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" />
+                        <label className="block text-base font-medium text-gray-600 mb-1" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          🚚 Delivery Charges (Rs.)
+                          <span style={{ fontSize: 10, background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: 4, padding: '1px 6px', fontWeight: 600, letterSpacing: '0.03em' }}>Admin rate</span>
+                        </label>
+                        <div style={{
+                          position: 'relative',
+                          borderRadius: 8,
+                          border: chargeError
+                            ? '1.5px solid #ef4444'
+                            : fetchedCharge !== null
+                            ? '1.5px solid #10b981'
+                            : '1px solid #e5e7eb',
+                          background: chargeError
+                            ? '#fef2f2'
+                            : fetchedCharge !== null
+                            ? '#f0fdf4'
+                            : '#f9fafb',
+                          padding: '10px 14px',
+                          minHeight: 44,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                        }}>
+                          {chargeLoading ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6b7280', fontSize: 14 }}>
+                              <svg style={{ animation: 'spin 1s linear infinite' }} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                              Fetching rate...
+                            </span>
+                          ) : chargeError ? (
+                            <span style={{ color: '#ef4444', fontSize: 13, fontWeight: 500 }}>{chargeError}</span>
+                          ) : fetchedCharge !== null ? (
+                            <span style={{ fontWeight: 700, fontSize: 16, color: fetchedCharge === 0 ? '#10b981' : '#1d4ed8' }}>
+                              {fetchedCharge === 0 ? '🎉 Free delivery' : `Rs. ${fetchedCharge.toFixed(2)}`}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#9ca3af', fontSize: 13 }}>
+                              {(!f.branch || !f.destinationBranch || f.destinationBranch === '--------')
+                                ? 'Select both branches'
+                                : 'Enter weight to calculate'}
+                            </span>
+                          )}
+                        </div>
+                        {/* Route + weight info line */}
+                        {ruleDetail && !chargeError && (
+                          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+                            ℹ️ {ruleDetail.fromBranch} → {ruleDetail.toBranch} · {ruleDetail.weight}kg
+                            {ruleDetail.perKgCharge > 0 && ` · Rs.${ruleDetail.perKgCharge}/kg above ${ruleDetail.weightLimit}kg`}
+                          </p>
+                        )}
                         {formErrors.deliveryCharge && <span className="text-xs text-red-500 mt-1 block">{formErrors.deliveryCharge}</span>}
                       </div>
                     </div>

@@ -18,6 +18,7 @@ import packageRoutes from './routes/packageRoutes.js';
 import expenseRoutes from './routes/expenseRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import scanRoutes from './routes/scanRoutes.js';
+import deliveryChargeRoutes from './routes/deliveryChargeRoutes.js';
 
 // ─── Validate critical env variables at startup ───────────────────────────────
 const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
@@ -127,6 +128,7 @@ app.use('/api/packages', packageRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/scan', scanRoutes);
+app.use('/api/delivery-charges', deliveryChargeRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {

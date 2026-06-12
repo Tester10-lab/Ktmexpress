@@ -29,6 +29,13 @@ import {
   updateVendorPricing,
   previewCalculateFee
 } from '../controllers/pricingController.js';
+import {
+  getAllDeliveryChargeRules,
+  createDeliveryChargeRule,
+  updateDeliveryChargeRule,
+  deleteDeliveryChargeRule,
+  toggleDeliveryChargeRule,
+} from '../controllers/deliveryChargeController.js';
 
 import { validateGlobalSettings, validateOutsideValleyFee } from '../middleware/pricingValidation.js';
 
@@ -50,6 +57,13 @@ router.delete('/pricing-engine/outside-valley/:id', deleteOutsideValleyFee);
 router.get('/pricing-engine/vendors', getVendorsPricing);
 router.put('/pricing-engine/vendors/:id', updateVendorPricing);
 router.post('/pricing-engine/calculate', previewCalculateFee);
+
+// --- Delivery Charge Rules (branch-to-branch) ---
+router.get('/delivery-charges', getAllDeliveryChargeRules);
+router.post('/delivery-charges', createDeliveryChargeRule);
+router.put('/delivery-charges/:id', updateDeliveryChargeRule);
+router.delete('/delivery-charges/:id', deleteDeliveryChargeRule);
+router.patch('/delivery-charges/:id/toggle', toggleDeliveryChargeRule);
 
 // User management
 router.get('/users', getAllUsers);
