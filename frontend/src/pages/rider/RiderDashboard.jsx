@@ -115,9 +115,18 @@ const MyDeliveries = () => {
       )}
       <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div className="task-info">
-          <h4>{pkg.trackingCode}</h4>
-          <p>{pkg.customerName} — {pkg.city||''} {pkg.address}</p>
-          <p style={{marginTop:4}}>{statusBadge(pkg.status)} &nbsp; Rs. {pkg.amount}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <h4 style={{ margin: 0 }}>{pkg.trackingCode}</h4>
+            <span style={{ fontSize: '11px', padding: '2px 6px', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', borderRadius: 4, fontWeight: 600 }}>
+              🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
+            </span>
+          </div>
+          <div style={{ fontSize: 'var(--font-size-sm)' }}>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>👤 {pkg.customerName}</div>
+            <div style={{ color: 'var(--text-muted)' }}>📞 {pkg.customerPhone || 'No Phone'}</div>
+            <div style={{ color: 'var(--text-secondary)' }}>📍 {pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</div>
+          </div>
+          <div style={{marginTop:8}}>{statusBadge(pkg.status)} <span style={{ marginLeft: 8, fontWeight: 600, color: 'var(--color-primary)' }}>Rs. {pkg.amount}</span></div>
         </div>
         <div className="task-actions">
           {isPickup
