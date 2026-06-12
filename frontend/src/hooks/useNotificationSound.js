@@ -15,10 +15,10 @@ const useNotificationSound = () => {
 
   // Create Howl instances
   const [sounds] = useState({
-    notification: new Howl({ src: ['/sounds/notification.mp3'], html5: true, volume }),
-    alert: new Howl({ src: ['/sounds/alert.mp3'], html5: true, volume }),
-    success: new Howl({ src: ['/sounds/success.mp3'], html5: true, volume }),
-    error: new Howl({ src: ['/sounds/error.mp3'], html5: true, volume }),
+    notification: new Howl({ src: ['/sounds/notification.ogg'], html5: true, volume }),
+    alert: new Howl({ src: ['/sounds/alert.ogg'], html5: true, volume }),
+    success: new Howl({ src: ['/sounds/success.ogg'], html5: true, volume }),
+    error: new Howl({ src: ['/sounds/error.ogg'], html5: true, volume }),
   });
 
   // Update volume for all sounds when it changes
