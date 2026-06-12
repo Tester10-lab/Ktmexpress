@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
 import connectDB from './config/db.js';
@@ -15,49 +16,71 @@ import expenseRoutes from './routes/expenseRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import scanRoutes from './routes/scanRoutes.js';
 
+// ─── Validate critical env variables at startup ───────────────────────────────
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missing.length > 0) {
+  console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 const app = express();
 
-// ─── CORS — must be first, before any routes ─────────────────────────────────
+// ─── CORS — first middleware, before any routes ───────────────────────────────
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'https://delivery-system-sand-seven.vercel.app',
-  // Also accept any FRONTEND_URL set in the environment (e.g. custom domain later)
   ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
 ];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, curl, Postman, mobile apps)
+    // Allow requests with no Origin header (Postman, curl, server-to-server)
     if (!origin) return callback(null, true);
     if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: Origin "${origin}" is not allowed.`));
+    console.warn(`[CORS] Blocked request from origin: ${origin}`);
+    callback(new Error(`CORS policy: Origin "${origin}" is not allowed.`));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  exposedHeaders: ['Content-Length', 'X-Request-Id'],
-  maxAge: 86400, // Cache preflight response for 24 hours
+  exposedHeaders: ['Content-Length'],
+  maxAge: 86400,
 };
 
+// Apply CORS globally and handle all preflight OPTIONS requests
 app.use(cors(corsOptions));
-
-// Explicitly handle OPTIONS preflight on all routes
 app.options('*', cors(corsOptions));
 
 // ─── Body parsers ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Request logger (dev only to reduce noise in production)
-if (process.env.NODE_ENV !== 'production') {
-  app.use((req, res, next) => {
+// ─── Request logger ───────────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== 'production') {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-    next();
-  });
-}
+  }
+  next();
+});
 
-// Mount routes
+// ─── Root health check (for Render uptime monitoring) ────────────────────────
+app.get('/', (req, res) => {
+  res.json({ message: 'Logistic API is running ✓', status: 'ok' });
+});
+
+// ─── Detailed health check ────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    mongoConnected: true,
+  });
+});
+
+// ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/vendor', vendorRoutes);
@@ -68,31 +91,36 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/scan', scanRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// 404 handler
+// ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found.' });
+  res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
-// Global error handler
+// ─── Global error handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('[ERROR]', err.stack);
+  console.error('[ERROR]', err.stack || err.message);
+  // CORS errors from our policy
+  if (err.message && err.message.startsWith('CORS policy')) {
+    return res.status(403).json({ success: false, message: err.message });
+  }
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal server error.',
   });
 });
 
-// Start server
+// ─── Start server ─────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`[SERVER] Logistic API running on port ${PORT}`);
-    console.log(`[SERVER] Health check: http://localhost:${PORT}/api/health`);
+connectDB()
+  .then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[SERVER] ✓ Running on port ${PORT}`);
+      console.log(`[SERVER] Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`[SERVER] Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+    });
+  })
+  .catch((err) => {
+    console.error('[SERVER] Failed to connect to MongoDB. Exiting.', err.message);
+    process.exit(1);
   });
-});
