@@ -13,7 +13,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useState } from 'react';
 
-const AppShell = ({ navLinks, currentTitle, children, roleBadge }) => {
+const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications = [], onNotificationClick }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -38,6 +38,8 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge }) => {
   const initials = user?.name
     ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
     : '??';
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="app-shell">
@@ -121,13 +123,41 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge }) => {
             <div style={{ position: 'relative' }}>
               <button className="header-icon-btn" title="Notifications" onClick={() => setNotificationsOpen(!notificationsOpen)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <span className="notification-dot" />
+                {unreadCount > 0 && (
+                  <span style={{ position: 'absolute', top: 6, right: 6, background: '#ef4444', color: '#fff', fontSize: 9, fontWeight: 800, width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {unreadCount}
+                  </span>
+                )}
               </button>
               {notificationsOpen && (
-                <div style={{ position: 'absolute', top: 48, right: 0, width: 320, background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)', zIndex: 100, overflow: 'hidden' }}>
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>Recent Notifications</div>
-                  <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>
-                    No new notifications right now.
+                <div style={{ position: 'absolute', top: 48, right: 0, width: 340, background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)', zIndex: 100, overflow: 'hidden' }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Recent Notifications</span>
+                    {unreadCount > 0 && <span style={{ fontSize: 11, background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: 10 }}>{unreadCount} new</span>}
+                  </div>
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: 16, textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>
+                        No new notifications right now.
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id} 
+                          onClick={() => { setNotificationsOpen(false); if (onNotificationClick) onNotificationClick(n); }}
+                          style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', cursor: 'pointer', background: n.read ? 'transparent' : '#f0fdf4', transition: 'background 0.2s', display: 'flex', gap: 12 }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                          onMouseLeave={e => e.currentTarget.style.background = n.read ? 'transparent' : '#f0fdf4'}
+                        >
+                          <div style={{ fontSize: 18, marginTop: 2 }}>{n.icon || '🔔'}</div>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>{n.title}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>{n.message}</div>
+                            {n.time && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{n.time}</div>}
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}

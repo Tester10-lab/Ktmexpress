@@ -704,12 +704,52 @@ const ReverseLogistics = () => {
 // ─── Dispatcher Dashboard Shell ───────────────────────────────────────────
 const DispatcherDashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [pendingPickups, setPendingPickups] = useState([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get('/dispatcher/pickups');
+        const pickups = res.data.data || [];
+        const pending = pickups.filter(p => p.status === 'pending');
+        setPendingPickups(pending);
+      } catch (e) {
+        console.error('Failed to fetch notifications', e);
+      }
+    };
+    
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const notifications = pendingPickups.map(p => ({
+    id: p._id,
+    title: 'New Pickup Request',
+    message: `${p.vendorId?.name || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
+    time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+    read: false,
+    icon: '🚚',
+    path: '/dispatcher/pickup-requests'
+  }));
+
+  const handleNotificationClick = (n) => {
+    if (n.path) navigate(n.path);
+  };
+
   const title = Object.entries(titleMap)
     .sort((a, b) => b[0].length - a[0].length)
     .find(([p]) => location.pathname.startsWith(p))?.[1] || 'Warehouse Staff';
 
   return (
-    <AppShell navLinks={navLinks} currentTitle={title} roleBadge="Warehouse Staff">
+    <AppShell 
+      navLinks={navLinks} 
+      currentTitle={title} 
+      roleBadge="Warehouse Staff"
+      notifications={notifications}
+      onNotificationClick={handleNotificationClick}
+    >
       <Routes>
         <Route path="/" element={<DispatcherHome />} />
         <Route path="/pickup-requests" element={<PickupRequests />} />
