@@ -57,8 +57,13 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
     let socket;
     if (user?.role) {
       import('socket.io-client').then(({ io }) => {
-        socket = io(import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000', {
-          withCredentials: true
+        // Strip /api from the end of the URL if it exists, as Socket.io needs the base domain
+        const rawUrl = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000';
+        const socketUrl = rawUrl.replace(/\/api\/?$/, '');
+        
+        socket = io(socketUrl, {
+          withCredentials: true,
+          transports: ['websocket'] // Force websocket to prevent 404s on load balancers (like Render) without sticky sessions
         });
         
         socket.emit('join_role', user.role);
