@@ -18,6 +18,7 @@ import { useZoom } from '../hooks/useZoom';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import ThemeToggle from './ThemeToggle';
 import ZoomBar from './ZoomBar';
+import { useToast } from '../context/ToastContext';
 
 const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications = [], onNotificationClick }) => {
   const { user, logout } = useAuth();
@@ -26,6 +27,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [liveClock, setLiveClock] = useState('');
+  const { showToast } = useToast();
 
   // Initialize hooks
   const { playSound, soundEnabled, setSoundEnabled, volume, setVolume, playNotification, playAlert, playSuccess, playError } = useNotificationSound();
@@ -55,7 +57,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
     let socket;
     if (user?.role) {
       import('socket.io-client').then(({ io }) => {
-        socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+        socket = io(import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000', {
           withCredentials: true
         });
         
@@ -65,6 +67,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
         }
         
         socket.on('notification', (data) => {
+          showToast(data.message || data.title || 'New Notification', 'info');
           if (data.type === 'pickup_request' || data.type === 'new_order') {
             playNotification();
           } else if (data.type === 'alert') {
@@ -80,7 +83,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
       clearInterval(timer);
       if (socket) socket.disconnect();
     };
-  }, [user, playNotification, playAlert]);
+  }, [user, playNotification, playAlert, showToast]);
 
   const handleLogout = () => {
     logout();
