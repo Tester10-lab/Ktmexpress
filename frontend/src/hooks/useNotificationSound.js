@@ -13,12 +13,9 @@ const useNotificationSound = () => {
     return saved !== null ? parseFloat(saved) : 0.7;
   });
 
-  // Create Howl instances
+  // Create Howl instances - only keeping success sound as requested
   const [sounds] = useState({
-    notification: new Howl({ src: ['/sounds/notification.ogg'], html5: true, volume }),
-    alert: new Howl({ src: ['/sounds/alert.ogg'], html5: true, volume }),
     success: new Howl({ src: ['/sounds/success.ogg'], html5: true, volume }),
-    error: new Howl({ src: ['/sounds/error.ogg'], html5: true, volume }),
   });
 
   // Update volume for all sounds when it changes
@@ -55,12 +52,12 @@ const useNotificationSound = () => {
     };
   }, []);
 
-  const playSound = useCallback((type) => {
+  const playSound = useCallback(() => {
     if (!soundEnabled) return;
     
-    // Check if document is hidden or user has not interacted (fallback logic can go here)
-    if (sounds[type]) {
-      sounds[type].play();
+    // Always play the success sound regardless of type
+    if (sounds.success) {
+      sounds.success.play();
     }
   }, [soundEnabled, sounds]);
 
@@ -70,10 +67,10 @@ const useNotificationSound = () => {
     setSoundEnabled,
     volume,
     setVolume,
-    playNotification: () => playSound('notification'),
-    playAlert: () => playSound('alert'),
-    playSuccess: () => playSound('success'),
-    playError: () => playSound('error')
+    playNotification: playSound,
+    playAlert: playSound,
+    playSuccess: playSound,
+    playError: playSound
   };
 };
 
