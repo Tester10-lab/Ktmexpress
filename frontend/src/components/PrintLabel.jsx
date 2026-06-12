@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * PrintLabel Component
@@ -113,12 +114,13 @@ const PrintLabel = React.forwardRef(({ packages = [] }, ref) => {
 
   if (!packages.length) return null;
 
-  return (
+  return createPortal(
     <div ref={containerRef} className="print-only print-label-container">
       {packages.map((pkg, idx) => (
         <LabelCard key={pkg._id || idx} pkg={pkg} />
       ))}
-    </div>
+    </div>,
+    document.body
   );
 });
 

@@ -955,7 +955,7 @@ body, .sidebar, .main-content, .content-header, .card, .modal-content,
 /* ── @media print: Full label render ── */
 @media print {
   /* Hide everything on the page except the labels */
-  body > * { display: none !important; }
+  body > *:not(.print-only) { display: none !important; }
   .print-only { display: block !important; }
   .print-label-container { display: block !important; }
 
