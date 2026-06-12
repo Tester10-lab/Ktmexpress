@@ -851,7 +851,7 @@ const Inventory = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', barcode: '', category: '', price: 0, threshold: 5 });
+  const [form, setForm] = useState({ name: '', barcode: '', category: '', price: 0, threshold: 5, stockReceived: 0 });
   const { showToast } = useToast();
 
   const fetchProducts = () => {
@@ -867,7 +867,7 @@ const Inventory = () => {
       await api.post('/vendor/products', form);
       showToast('Product added to inventory','success');
       setFormOpen(false);
-      setForm({ name: '', barcode: '', category: '', price: 0, threshold: 5 });
+      setForm({ name: '', barcode: '', category: '', price: 0, threshold: 5, stockReceived: 0 });
       fetchProducts();
     } catch(err) { showToast(err.response?.data?.message || 'Failed to add product','error'); }
   };
@@ -886,6 +886,7 @@ const Inventory = () => {
             <div className="form-group"><label>Barcode / SKU</label><input type="text" className="form-control" value={form.barcode} onChange={e=>setForm({...form, barcode:e.target.value})} required /></div>
             <div className="form-group"><label>Category</label><input type="text" className="form-control" value={form.category} onChange={e=>setForm({...form, category:e.target.value})} required /></div>
             <div className="form-group"><label>Price (Rs.)</label><input type="number" min="0" className="form-control" value={form.price} onChange={e=>setForm({...form, price:Number(e.target.value)})} required /></div>
+            <div className="form-group"><label>Initial Quantity</label><input type="number" min="0" className="form-control" value={form.stockReceived} onChange={e=>setForm({...form, stockReceived:Number(e.target.value)})} required /></div>
             <div className="form-group" style={{display:'flex', alignItems:'flex-end'}}>
               <div style={{display:'flex', gap:8, width:'100%'}}>
                 <button type="button" className="btn btn-outline" style={{flex:1}} onClick={()=>setFormOpen(false)}>Cancel</button>
