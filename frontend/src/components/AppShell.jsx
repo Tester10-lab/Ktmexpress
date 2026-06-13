@@ -72,7 +72,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
         }
         
         socket.on('connect', () => {
-          showToast('Real-time connection established', 'success');
+          // showToast('Real-time connection established', 'success');
         });
         
         socket.on('connect_error', (err) => {
