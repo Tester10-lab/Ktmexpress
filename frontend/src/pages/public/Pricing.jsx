@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const PublicNav = ({ active }) => (
-  <header style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border-color)', position: 'sticky', top: 0, zIndex: 200, boxShadow: 'var(--shadow-sm)' }}>
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+  <header style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 200, boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
+    <div className="public-header-inner">
       <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
         <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--color-primary)' }}><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.35rem', background: 'linear-gradient(135deg, var(--color-primary) 0%, #6366f1 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>ktmexpress</span>
+        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem', background: 'linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>ktmexpress</span>
       </Link>
-      <nav style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <nav className="public-nav-links">
         {[{ label: 'Pricing', path: '/pricing' }, { label: 'Contact', path: '/contact' }].map(({ label, path }) => (
-          <Link key={path} to={path} style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-heading)', fontWeight: 500, fontSize: 'var(--font-size-sm)', textDecoration: 'none', color: active === path ? 'var(--color-primary)' : 'var(--text-secondary)', background: active === path ? 'var(--color-primary-soft)' : 'transparent' }}>{label}</Link>
+          <Link key={path} to={path} style={{ padding: '8px 16px', borderRadius: '12px', fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', color: active === path ? 'var(--color-primary)' : 'var(--text-secondary)', background: active === path ? 'rgba(37,99,235,0.08)' : 'transparent', transition: 'all 0.2s ease' }}>{label}</Link>
         ))}
-        <Link to="/login" className="btn btn-primary btn-sm" style={{ marginLeft: 8 }}>Login</Link>
+        <Link to="/login" className="btn btn-primary btn-sm" style={{ borderRadius: '12px', padding: '10px 20px', fontWeight: 700 }}>Login</Link>
       </nav>
     </div>
   </header>
@@ -72,15 +72,17 @@ const plans = [
 ];
 
 const Pricing = () => (
-  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>
+  <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', top: -200, left: -100, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)', zIndex: 0 }} />
+    <div style={{ position: 'absolute', bottom: -200, right: -150, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)', zIndex: 0 }} />
+
     <PublicNav active="/pricing" />
 
-    <section style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)', padding: '64px 24px', textAlign: 'center' }}>
-      <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', fontWeight: 700, color: '#fff', marginBottom: 12 }}>Simple, Transparent Pricing</h1>
-      <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 'var(--font-size-base)', maxWidth: 500, margin: '0 auto' }}>No hidden fees. No contracts. Pay as you grow.</p>
-    </section>
-
-    <main style={{ flex: 1, padding: '48px 24px', marginTop: -32 }}>
+    <main style={{ flex: 1, padding: '80px 24px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ textAlign: 'center', marginBottom: 56 }}>
+        <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', fontWeight: 800, background: 'linear-gradient(135deg, #0f172a 0%, #3b82f6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 16 }}>Simple, Transparent Pricing</h1>
+        <p style={{ color: '#475569', fontSize: '1.1rem', maxWidth: 600, margin: '0 auto', lineHeight: 1.6 }}>No hidden fees. No contracts. Pay as you grow with the most reliable logistics network.</p>
+      </div>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, alignItems: 'start' }}>
           {plans.map(p => (
