@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import MetricCard from '../../components/MetricCard';
 import PrintLabel from '../../components/PrintLabel';
+import Pagination from '../../components/Pagination';
 import api from '../../api/axios';
 import { useToast } from '../../context/ToastContext';
 import { useDeliveryCharge } from '../../hooks/useDeliveryCharge';
@@ -167,6 +168,9 @@ const PackageList = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
   const [commentModal, setCommentModal] = useState({open:false,packageId:null,text:''});
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -198,15 +202,28 @@ const PackageList = () => {
     }
   }, [fetchedCharge]);
 
-
   const fetchPackages = async () => {
     setLoading(true);
-    try { const r = await api.get(`/vendor/packages?status=${statusFilter}&search=${search}`); setPackages(r.data.data||[]); }
-    catch { showToast('Failed to load packages','error'); }
-    finally { setLoading(false); }
+    try { 
+      const r = await api.get(`/vendor/packages?status=${statusFilter}&search=${search}&page=${page}&limit=${limit}`); 
+      setPackages(r.data.data||[]);
+      setPagination(r.data.pagination);
+    } catch { 
+      showToast('Failed to load packages','error'); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  useEffect(() => { const t = setTimeout(fetchPackages, 400); return () => clearTimeout(t); }, [search, statusFilter]);
+  useEffect(() => { 
+    const t = setTimeout(fetchPackages, 400); 
+    return () => clearTimeout(t); 
+  }, [search, statusFilter, page, limit]);
+
+  // Reset page when search or filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter]);
 
   const handleSelectAll = e => setSelected(e.target.checked ? packages.filter(p=>p.status==='Pending').map(p=>p._id) : []);
   const handleSelect = id => setSelected(s => s.includes(id) ? s.filter(x=>x!==id) : [...s,id]);
@@ -357,6 +374,12 @@ const PackageList = () => {
             </tbody>
           </table>
         </div>
+        <Pagination 
+          pagination={pagination} 
+          onPageChange={setPage} 
+          limit={limit} 
+          onLimitChange={setLimit} 
+        />
       </div>
 
       {/* Comment Modal */}

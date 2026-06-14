@@ -6,13 +6,25 @@ import Settlement from '../models/Settlement.js';
 // GET /api/admin/dashboard
 export const getDashboardStats = async (req, res) => {
   try {
-    const [total, delivered, pending, cancelled, returned] = await Promise.all([
-      Package.countDocuments(),
-      Package.countDocuments({ status: 'Delivered' }),
-      Package.countDocuments({ status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } }),
-      Package.countDocuments({ status: 'Cancelled' }),
-      Package.countDocuments({ status: { $in: ['Returned', 'Returned to Vendor'] } }),
+    const [pkgStatsAgg] = await Package.aggregate([
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          delivered: [{ $match: { status: 'Delivered' } }, { $count: "count" }],
+          pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } } }, { $count: "count" }],
+          cancelled: [{ $match: { status: 'Cancelled' } }, { $count: "count" }],
+          returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: "count" }],
+        }
+      }
     ]);
+
+    const stats = {
+      total: pkgStatsAgg.total[0]?.count || 0,
+      delivered: pkgStatsAgg.delivered[0]?.count || 0,
+      pending: pkgStatsAgg.pending[0]?.count || 0,
+      cancelled: pkgStatsAgg.cancelled[0]?.count || 0,
+      returned: pkgStatsAgg.returned[0]?.count || 0,
+    };
 
     const activeVendors = await User.countDocuments({ role: 'vendor', status: 'Active' });
     const activeRiders = await User.countDocuments({ role: 'rider', status: 'Active' });
@@ -28,11 +40,11 @@ export const getDashboardStats = async (req, res) => {
     res.json({
       success: true,
       data: {
-        totalPackages: total,
-        delivered,
-        pending,
-        cancelled,
-        returned,
+        totalPackages: stats.total,
+        delivered: stats.delivered,
+        pending: stats.pending,
+        cancelled: stats.cancelled,
+        returned: stats.returned,
         activeVendors,
         activeRiders,
         totalRevenue: revenue.totalRevenue,
@@ -105,8 +117,28 @@ export const updatePricing = async (req, res) => {
 // GET /api/admin/users
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ role: 1, name: 1 });
-    res.json({ success: true, data: users });
+    const { page = 1, limit = 20, search, role, status } = req.query;
+    const filter = {};
+    if (role && role !== 'all') filter.role = role;
+    if (status && status !== 'all') filter.status = status;
+    if (search) filter.name = { $regex: search, $options: 'i' };
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [users, total] = await Promise.all([
+      User.find(filter).select('-password').sort({ role: 1, name: 1 }).skip(skip).limit(parseInt(limit)).lean(),
+      User.countDocuments(filter)
+    ]);
+
+    res.json({
+      success: true,
+      data: users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -219,7 +251,7 @@ export const getAllPackagesAdmin = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [packages, total] = await Promise.all([
-      Package.find(filter).populate('vendorId','name').populate('riderId','name').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+      Package.find(filter).populate('vendorId','name').populate('riderId','name').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
       Package.countDocuments(filter),
     ]);
 
@@ -246,8 +278,23 @@ export const reconcileRiderCOD = async (req, res) => {
 // GET /api/admin/expenses
 export const getAllExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find().populate('riderId', 'name contact').sort({ date: -1 });
-    res.json({ success: true, data: expenses });
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const [expenses, total] = await Promise.all([
+      Expense.find().populate('riderId', 'name contact').sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Expense.countDocuments()
+    ]);
+
+    res.json({
+      success: true,
+      data: expenses,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -256,8 +303,23 @@ export const getAllExpenses = async (req, res) => {
 // GET /api/admin/settlements
 export const getSettlements = async (req, res) => {
   try {
-    const settlements = await Settlement.find().populate('vendorId', 'name vendorMeta').populate('packageIds').sort({ createdAt: -1 });
-    res.json({ success: true, data: settlements });
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const [settlements, total] = await Promise.all([
+      Settlement.find().populate('vendorId', 'name vendorMeta').populate('packageIds').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Settlement.countDocuments()
+    ]);
+
+    res.json({
+      success: true,
+      data: settlements,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

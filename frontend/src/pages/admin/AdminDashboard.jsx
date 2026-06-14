@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../components/AppShell';
 import api from '../../api/axios';
 import MetricCard from '../../components/MetricCard';
 import { useToast } from '../../context/ToastContext';
 import PricingEngine from './PricingEngine';
 import ScanStation from '../../components/ScanStation';
+import Pagination from '../../components/Pagination';
 
 // Nav icons
 const Icon = ({ d, d2, d3 }) => (
@@ -106,14 +107,23 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [createModal, setCreateModal] = useState(false);
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '' });
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState(null);
   const { showToast } = useToast();
 
   const fetchUsers = () => {
     setLoading(true);
-    api.get('/admin/users').then(r => setUsers(r.data.data || [])).catch(() => showToast('Failed to load users', 'error')).finally(() => setLoading(false));
+    api.get(`/admin/users?page=${page}&limit=${limit}`)
+      .then(r => {
+        setUsers(r.data.data || []);
+        setPagination(r.data.pagination);
+      })
+      .catch(() => showToast('Failed to load users', 'error'))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [page, limit]);
 
   const toggle = async (id) => {
     try {
@@ -180,6 +190,7 @@ const ManageUsers = () => {
             </tbody>
           </table>
         </div>
+        <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
       </div>
 
       {createModal && (
@@ -236,7 +247,7 @@ const PricingRules = () => {
   const { showToast } = useToast();
 
   useEffect(() => {
-    api.get('/admin/users').then(r => {
+    api.get('/admin/users?role=vendor&limit=500').then(r => {
       const vendors = (r.data.data || []).filter(u => u.role === 'vendor');
       setUsers(vendors);
       if (vendors.length) { setVendorId(vendors[0]._id); setForm({ defaultKtmRate: vendors[0].vendorMeta?.defaultKtmRate || 150, defaultOutsideRate: vendors[0].vendorMeta?.defaultOutsideRate || 200, weightSurcharge: vendors[0].vendorMeta?.weightSurcharge || 50 }); }
@@ -389,14 +400,23 @@ const AdminReports = () => {
 const AdminSettlements = () => {
   const [settlements, setSettlements] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState(null);
   const { showToast } = useToast();
 
   const fetchSettlements = () => {
     setLoading(true);
-    api.get('/admin/settlements').then(r => setSettlements(r.data.data || [])).catch(() => showToast('Failed to load settlements', 'error')).finally(() => setLoading(false));
+    api.get(`/admin/settlements?page=${page}&limit=${limit}`)
+      .then(r => {
+        setSettlements(r.data.data || []);
+        setPagination(r.data.pagination);
+      })
+      .catch(() => showToast('Failed to load settlements', 'error'))
+      .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchSettlements(); }, []);
+  useEffect(() => { fetchSettlements(); }, [page, limit]);
 
   const handleAction = async (id, status) => {
     try {
@@ -436,6 +456,7 @@ const AdminSettlements = () => {
           </tbody>
         </table>
       </div>
+      <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
     </div>
   );
 };
@@ -444,10 +465,19 @@ const AdminSettlements = () => {
 const AdminExpenses = () => {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [pagination, setPagination] = useState(null);
 
   useEffect(() => {
-    api.get('/admin/expenses').then(r => setExpenses(r.data.data || [])).finally(() => setLoading(false));
-  }, []);
+    setLoading(true);
+    api.get(`/admin/expenses?page=${page}&limit=${limit}`)
+      .then(r => {
+        setExpenses(r.data.data || []);
+        setPagination(r.data.pagination);
+      })
+      .finally(() => setLoading(false));
+  }, [page, limit]);
 
   return (
     <div className="card p-0">
@@ -472,6 +502,7 @@ const AdminExpenses = () => {
           </tbody>
         </table>
       </div>
+      <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
     </div>
   );
 };

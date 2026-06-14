@@ -1,5 +1,5 @@
 import Package from '../models/Package.js';
-import { generateTrackingCode } from './vendorController.js';
+import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 
 // GET /api/packages
@@ -28,7 +28,8 @@ export const getAllPackages = async (req, res) => {
         .populate('riderId', 'name contact')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(parseInt(limit))
+        .lean(),
       Package.countDocuments(filter),
     ]);
 
@@ -58,7 +59,8 @@ export const getPackageByCode = async (req, res) => {
       ],
     })
       .populate('vendorId', 'name vendorMeta')
-      .populate('riderId', 'name contact');
+      .populate('riderId', 'name contact')
+      .lean();
 
     if (!pkg) {
       return res.status(404).json({
@@ -121,15 +123,11 @@ export const createPackage = async (req, res) => {
     } = req.body;
 
     // Generate unique tracking code
-    let trackingCode = generateTrackingCode();
-    while (await Package.findOne({ trackingCode })) {
-      trackingCode = generateTrackingCode();
-    }
+    const trackingCode = await uniqueTrackingCode();
     const labelUrls = generateLabelUrls(trackingCode);
 
-    // Generate invoice ID
-    const count = await Package.countDocuments();
-    const invoiceId = `INV-${1001 + count}`;
+    // Generate concurrency-safe invoice ID
+    const invoiceId = generateInvoiceId();
 
     const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
 

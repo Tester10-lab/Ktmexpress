@@ -6,26 +6,7 @@ import fs from 'fs';
 import csv from 'csv-parser';
 import { generateLabelUrls } from '../services/labelService.js';
 
-// Helper: generate a unique 7-character alphanumeric tracking code
-export function generateTrackingCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  for (let i = 0; i < 7; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
-// Helper: generate a tracking code guaranteed to be unique in the DB
-async function uniqueTrackingCode() {
-  let code;
-  let exists = true;
-  while (exists) {
-    code = generateTrackingCode();
-    exists = await Package.exists({ trackingCode: code });
-  }
-  return code;
-}
+import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 
 // GET /api/vendor/dashboard
 export const getVendorDashboard = async (req, res) => {
@@ -34,19 +15,32 @@ export const getVendorDashboard = async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [total, delivered, pending, returned, todayPkgs] = await Promise.all([
-      Package.countDocuments({ vendorId }),
-      Package.countDocuments({ vendorId, status: 'Delivered' }),
-      Package.countDocuments({ vendorId, status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } }),
-      Package.countDocuments({ vendorId, status: { $in: ['Returned', 'Returned to Vendor'] } }),
-      Package.countDocuments({ vendorId, createdAt: { $gte: today } }),
+    const [aggResult] = await Package.aggregate([
+      { $match: { vendorId } },
+      {
+        $facet: {
+          total: [{ $count: "count" }],
+          delivered: [{ $match: { status: 'Delivered' } }, { $count: "count" }],
+          pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } } }, { $count: "count" }],
+          returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: "count" }],
+          todayPkgs: [{ $match: { createdAt: { $gte: today } } }, { $count: "count" }],
+        }
+      }
     ]);
+
+    const stats = {
+      total: aggResult.total[0]?.count || 0,
+      delivered: aggResult.delivered[0]?.count || 0,
+      pending: aggResult.pending[0]?.count || 0,
+      returned: aggResult.returned[0]?.count || 0,
+      todayPkgs: aggResult.todayPkgs[0]?.count || 0,
+    };
 
     const pickupRequests = await PickupRequest.countDocuments({ vendorId, status: 'pending' });
 
     res.json({
       success: true,
-      data: { total, delivered, pending, returned, todayPkgs, pickupRequests },
+      data: { ...stats, pickupRequests },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -57,7 +51,7 @@ export const getVendorDashboard = async (req, res) => {
 export const getVendorPackages = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const { status, search } = req.query;
+    const { status, search, page = 1, limit = 20 } = req.query;
 
     const filter = { vendorId };
     if (status && status !== 'all') {
@@ -71,11 +65,27 @@ export const getVendorPackages = async (req, res) => {
       ];
     }
 
-    const packages = await Package.find(filter)
-      .populate('riderId', 'name contact')
-      .sort({ createdAt: -1 });
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    res.json({ success: true, data: packages });
+    const [packages, total] = await Promise.all([
+      Package.find(filter)
+        .populate('riderId', 'name contact')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Package.countDocuments(filter),
+    ]);
+
+    res.json({
+      success: true,
+      data: packages,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -303,7 +313,7 @@ export const addComment = async (req, res) => {
 export const getFinance = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: false });
+    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: false }).lean();
     
     const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + pkg.amount, 0);
     const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + pkg.deliveryCharge, 0);
@@ -353,7 +363,7 @@ export const requestSettlement = async (req, res) => {
 export const getProducts = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const products = await Product.find({ vendorId });
+    const products = await Product.find({ vendorId }).lean();
     res.json({ success: true, data: products });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -409,9 +419,9 @@ export const uploadCsv = async (req, res) => {
     .on('data', (data) => results.push(data))
     .on('end', async () => {
       try {
-        const createdPackages = [];
+        const packageDocs = [];
         for (const raw of results) {
-          const trackingCode = generateTrackingCode();
+          const trackingCode = await uniqueTrackingCode();
           const labelUrls = generateLabelUrls(trackingCode);
           
           const p = {
@@ -426,9 +436,9 @@ export const uploadCsv = async (req, res) => {
             deliveryCharge: getVal(raw, ['deliveryCharge', 'delivery charge', 'shipping'])
           };
 
-          const pkg = await Package.create({
+          packageDocs.push({
             trackingCode,
-            invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+            invoiceId: p.invoiceId || generateInvoiceId(),
             customerName: p.customerName || 'Unknown Customer',
             customerPhone: p.customerPhone || '0000000000',
             address: p.address || 'Unknown Address',
@@ -448,8 +458,8 @@ export const uploadCsv = async (req, res) => {
               user: req.user.name || 'Vendor',
             }]
           });
-          createdPackages.push(pkg);
         }
+        const createdPackages = await Package.insertMany(packageDocs);
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
         res.status(201).json({ success: true, data: createdPackages, message: `Successfully imported ${createdPackages.length} packages` });
       } catch (err) {

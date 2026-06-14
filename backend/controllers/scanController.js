@@ -1,5 +1,6 @@
 import Package from '../models/Package.js';
 import ScanEvent from '../models/ScanEvent.js';
+import logger from '../utils/logger.js';
 
 // ─── Status Transition Machine ───────────────────────────────────────────────
 // Defines valid next statuses for each current status, per role
@@ -131,7 +132,7 @@ export const scanPackage = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('[SCAN ERROR]', err);
+    logger.error('[SCAN ERROR]', { stack: err.stack, error: err.message });
     res.status(500).json({ success: false, message: err.message });
   }
 };

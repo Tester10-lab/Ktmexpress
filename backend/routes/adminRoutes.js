@@ -2,6 +2,7 @@ import express from 'express';
 const router = express.Router();
 import auth from '../middleware/auth.js';
 import roleGuard from '../middleware/roleGuard.js';
+import { auditAction } from '../middleware/auditMiddleware.js';
 import { 
   getDashboardStats,
   getFinancialAnalytics,
@@ -41,6 +42,9 @@ import { validateGlobalSettings, validateOutsideValleyFee } from '../middleware/
 
 // All routes require auth + admin role
 router.use(auth, roleGuard('admin'));
+
+// Apply audit middleware to record admin state changes
+router.use(auditAction);
 
 router.get('/dashboard', getDashboardStats);
 router.get('/analytics', getFinancialAnalytics);

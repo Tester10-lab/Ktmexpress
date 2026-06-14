@@ -125,6 +125,10 @@ const packageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -132,6 +136,22 @@ const packageSchema = new mongoose.Schema(
 // Index for fast lookups
 packageSchema.index({ vendorId: 1, status: 1 });
 packageSchema.index({ riderId: 1, status: 1 });
+packageSchema.index({ status: 1 });
+packageSchema.index({ createdAt: -1 });
+packageSchema.index({ invoiceId: 1 });
+packageSchema.index({ deletedAt: 1 });
 // trackingCode index is created automatically by unique:true above
+
+// Soft delete query middleware
+const excludeSoftDeleted = function(next) {
+  if (this.getQuery().deletedAt === undefined) {
+    this.where({ deletedAt: null });
+  }
+  next();
+};
+packageSchema.pre('find', excludeSoftDeleted);
+packageSchema.pre('findOne', excludeSoftDeleted);
+packageSchema.pre('findOneAndUpdate', excludeSoftDeleted);
+packageSchema.pre('countDocuments', excludeSoftDeleted);
 
 export default mongoose.model('Package', packageSchema);

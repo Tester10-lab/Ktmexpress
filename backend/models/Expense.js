@@ -22,6 +22,15 @@ const expenseSchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    status: {
+      type: String,
+      enum: ['Pending', 'Approved', 'Rejected'],
+      default: 'Pending',
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
     date: {
       type: Date,
       default: Date.now,
@@ -30,7 +39,21 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-expenseSchema.index({ riderId: 1, date: -1 });
-expenseSchema.index({ riderId: 1, category: 1 });
+// Indexes
+expenseSchema.index({ date: -1 });
+expenseSchema.index({ riderId: 1 });
+expenseSchema.index({ deletedAt: 1 });
+
+// Soft delete query middleware
+const excludeSoftDeleted = function(next) {
+  if (this.getQuery().deletedAt === undefined) {
+    this.where({ deletedAt: null });
+  }
+  next();
+};
+expenseSchema.pre('find', excludeSoftDeleted);
+expenseSchema.pre('findOne', excludeSoftDeleted);
+expenseSchema.pre('findOneAndUpdate', excludeSoftDeleted);
+expenseSchema.pre('countDocuments', excludeSoftDeleted);
 
 export default mongoose.model('Expense', expenseSchema);
