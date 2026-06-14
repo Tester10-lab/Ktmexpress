@@ -9,13 +9,17 @@ function nowStr() {
 export const getMyDeliveries = async (req, res) => {
   try {
     const riderId = req.user._id;
-    const { type } = req.query; // 'pickup' or 'delivery'
+    const { type, status } = req.query; // 'pickup' or 'delivery' or 'all'
 
     let filter = { riderId };
 
-    if (type === 'pickup') {
+    if (status && status !== 'all') {
+      filter.status = status;
+    } else if (type === 'pickup') {
       filter.status = { $in: ['Pick Up Requested', 'Picked Up'] };
-    } else {
+    } else if (type === 'delivery') {
+      filter.status = { $nin: ['Pick Up Requested', 'Picked Up', 'Pending'] }; // all deliveries
+    } else if (type === 'active_delivery') {
       filter.status = { $in: ['Out for Delivery', 'Postponed'] };
     }
 

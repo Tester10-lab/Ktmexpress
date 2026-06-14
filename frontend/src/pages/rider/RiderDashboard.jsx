@@ -59,22 +59,38 @@ const MyDeliveries = () => {
   const [actionModal, setActionModal] = useState({open:false,pkg:null,action:''});
   const [form, setForm] = useState({comment:'',cashCollected:'',newDate:''});
   const [selectedPickups, setSelectedPickups] = useState([]);
+  
+  // UI State for Filters
+  const [activeTab, setActiveTab] = useState('deliveries'); // 'deliveries' or 'pickups'
+  const [deliveryFilter, setDeliveryFilter] = useState('all'); // 'all', 'pending', 'active', 'completed', 'failed'
+  const [pickupFilter, setPickupFilter] = useState('pending'); // 'all', 'pending', 'completed'
+  
   const { showToast } = useToast();
 
   const fetchAll = async () => {
     setLoading(true);
     try {
-      const [d, p] = await Promise.all([api.get('/rider/deliveries?type=delivery'), api.get('/rider/deliveries?type=pickup')]);
+      // Fetch all deliveries and pickups
+      const [d, p] = await Promise.all([
+        api.get('/rider/deliveries?type=delivery'), 
+        api.get('/rider/deliveries?type=pickup')
+      ]);
       setDeliveries(d.data.data||[]);
       setPickups(p.data.data||[]);
       setSelectedPickups([]);
-    } catch { showToast('Failed to load deliveries','error'); }
-    finally { setLoading(false); }
+    } catch { 
+      showToast('Failed to load deliveries','error'); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   useEffect(() => { fetchAll(); }, []);
 
-  const openModal = (pkg, action) => { setActionModal({open:true,pkg,action}); setForm({comment:'',cashCollected:pkg.amount,newDate:''}); };
+  const openModal = (pkg, action) => { 
+    setActionModal({open:true,pkg,action}); 
+    setForm({comment:'',cashCollected:pkg.amount,newDate:''}); 
+  };
 
   const submitAction = async e => {
     e.preventDefault();
@@ -103,76 +119,192 @@ const MyDeliveries = () => {
 
   const actionLabel = { deliver:'Mark Delivered',postpone:'Postpone',cancel:'Cancel',return:'Mark Return',pickup_complete:'Confirm Pickup' };
 
-  const TaskCard = ({ pkg, isPickup }) => (
-    <div className="rider-task-card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-      {isPickup && (
-        <input 
-          type="checkbox" 
-          checked={selectedPickups.includes(pkg._id)} 
-          onChange={() => toggleSelect(pkg._id)} 
-          style={{ width: 20, height: 20, accentColor: 'var(--color-primary)' }} 
-        />
-      )}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div className="task-info">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <h4 style={{ margin: 0 }}>{pkg.trackingCode}</h4>
-            <span style={{ fontSize: '11px', padding: '2px 6px', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', borderRadius: 4, fontWeight: 600 }}>
-              🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
-            </span>
+  // Filtering Logic
+  const filteredDeliveries = deliveries.filter(d => {
+    if (deliveryFilter === 'pending') return ['In Warehouse', 'Sorted'].includes(d.status);
+    if (deliveryFilter === 'active') return ['Out for Delivery', 'Postponed'].includes(d.status);
+    if (deliveryFilter === 'completed') return ['Delivered'].includes(d.status);
+    if (deliveryFilter === 'failed') return ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status);
+    return true; // 'all'
+  });
+
+  const filteredPickups = pickups.filter(p => {
+    if (pickupFilter === 'pending') return p.status === 'Pick Up Requested';
+    if (pickupFilter === 'completed') return p.status === 'Picked Up';
+    return true; // 'all'
+  });
+
+  const TaskCard = ({ pkg, isPickup }) => {
+    const isPendingPickup = isPickup && pkg.status === 'Pick Up Requested';
+    const isActiveDelivery = !isPickup && ['Out for Delivery', 'Postponed'].includes(pkg.status);
+
+    return (
+      <div className="rider-task-card" style={{ display: 'flex', gap: 12, alignItems: 'center', opacity: (!isPendingPickup && !isActiveDelivery) ? 0.8 : 1, transition: 'all 0.3s ease' }}>
+        {isPendingPickup && (
+          <input 
+            type="checkbox" 
+            checked={selectedPickups.includes(pkg._id)} 
+            onChange={() => toggleSelect(pkg._id)} 
+            style={{ width: 22, height: 22, accentColor: 'var(--color-primary)', cursor: 'pointer' }} 
+          />
+        )}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div className="task-info">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <h4 style={{ margin: 0, fontWeight: 700 }}>{pkg.trackingCode}</h4>
+              <span style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', borderRadius: 6, fontWeight: 600 }}>
+                🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
+              </span>
+              {statusBadge(pkg.status)}
+            </div>
+            <div style={{ fontSize: 'var(--font-size-sm)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', display:'flex', alignItems:'center', gap:6 }}>
+                👤 {pkg.customerName}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', display:'flex', alignItems:'center', gap:6 }}>
+                📞 {pkg.customerPhone || 'No Phone'}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', display:'flex', alignItems:'center', gap:6, gridColumn: '1 / -1' }}>
+                📍 {pkg.city ? `${pkg.city}, ` : ''}{pkg.address}
+              </div>
+            </div>
+            <div style={{marginTop:12, fontSize:'14px', fontWeight:700}}>
+              To Collect: <span style={{ color: 'var(--color-primary)' }}>Rs. {pkg.amount}</span>
+            </div>
           </div>
-          <div style={{ fontSize: 'var(--font-size-sm)' }}>
-            <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>👤 {pkg.customerName}</div>
-            <div style={{ color: 'var(--text-muted)' }}>📞 {pkg.customerPhone || 'No Phone'}</div>
-            <div style={{ color: 'var(--text-secondary)' }}>📍 {pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</div>
-          </div>
-          <div style={{marginTop:8}}>{statusBadge(pkg.status)} <span style={{ marginLeft: 8, fontWeight: 600, color: 'var(--color-primary)' }}>Rs. {pkg.amount}</span></div>
-        </div>
-        <div className="task-actions">
-          {isPickup
-            ? <button className="btn btn-success btn-sm" onClick={()=>openModal(pkg,'pickup_complete')}>Confirm Pickup</button>
-            : <>
-                <button className="btn btn-success btn-sm" onClick={()=>openModal(pkg,'deliver')}>Delivered</button>
-                <button className="btn btn-warning btn-sm" onClick={()=>openModal(pkg,'postpone')}>Postpone</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>openModal(pkg,'cancel')}>Cancel</button>
+          
+          <div className="task-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {isPendingPickup && (
+              <button className="btn btn-success btn-sm" onClick={()=>openModal(pkg,'pickup_complete')} style={{fontWeight:600}}>
+                Confirm Pickup
+              </button>
+            )}
+            {isActiveDelivery && (
+              <>
+                <button className="btn btn-success btn-sm" onClick={()=>openModal(pkg,'deliver')} style={{fontWeight:600}}>Delivered</button>
+                <button className="btn btn-warning btn-sm" onClick={()=>openModal(pkg,'postpone')} style={{fontWeight:600}}>Postpone</button>
+                <button className="btn btn-danger btn-sm" onClick={()=>openModal(pkg,'cancel')} style={{fontWeight:600}}>Cancel</button>
               </>
-          }
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:28}}>
-      <div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:12}}>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <h3>My Assigned Pickups</h3>
-            <span className="badge badge-primary">{pickups.length}</span>
+    <div style={{display:'flex',flexDirection:'column',gap:24}}>
+      
+      {/* Tab Navigation */}
+      <div style={{ display: 'flex', gap: 16, borderBottom: '2px solid var(--border-color)', marginBottom: 8 }}>
+        <button 
+          onClick={() => setActiveTab('deliveries')}
+          style={{
+            background: 'none', border: 'none', padding: '12px 16px', fontSize: '16px', fontWeight: 600, cursor: 'pointer',
+            color: activeTab === 'deliveries' ? 'var(--color-primary)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'deliveries' ? '3px solid var(--color-primary)' : '3px solid transparent',
+            marginBottom: '-2px', transition: 'all 0.2s'
+          }}
+        >
+          Deliveries ({deliveries.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('pickups')}
+          style={{
+            background: 'none', border: 'none', padding: '12px 16px', fontSize: '16px', fontWeight: 600, cursor: 'pointer',
+            color: activeTab === 'pickups' ? 'var(--color-primary)' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'pickups' ? '3px solid var(--color-primary)' : '3px solid transparent',
+            marginBottom: '-2px', transition: 'all 0.2s'
+          }}
+        >
+          Pickups ({pickups.length})
+        </button>
+      </div>
+
+      {activeTab === 'deliveries' && (
+        <div className="tab-pane animate-fade-in">
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
+            {['all', 'pending', 'active', 'completed', 'failed'].map(f => {
+              const count = f === 'all' ? deliveries.length : deliveries.filter(d => 
+                f === 'pending' ? ['In Warehouse', 'Sorted'].includes(d.status) :
+                f === 'active' ? ['Out for Delivery', 'Postponed'].includes(d.status) :
+                f === 'completed' ? ['Delivered'].includes(d.status) :
+                ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status)
+              ).length;
+              
+              return (
+                <button 
+                  key={f}
+                  className={`btn btn-sm ${deliveryFilter === f ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ borderRadius: 20, textTransform: 'capitalize', fontWeight: 600 }}
+                  onClick={() => setDeliveryFilter(f)}
+                >
+                  {f} ({count})
+                </button>
+              );
+            })}
           </div>
-          {selectedPickups.length > 0 && (
-            <button className="btn btn-primary" onClick={handleBulkPickup}>Confirm Selected Pickups ({selectedPickups.length})</button>
-          )}
-        </div>
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {loading ? <p style={{color:'var(--text-muted)'}}>Loading...</p>
-          : pickups.length===0 ? <div className="empty-state" style={{padding:32}}><p>No pending pickups</p></div>
-          : pickups.map(p=><TaskCard key={p._id} pkg={p} isPickup={true}/>)}
-        </div>
-      </div>
 
-      <div>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-          <h3>My Deliveries (Active)</h3>
-          <span className="badge badge-primary">{deliveries.length}</span>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {loading ? <p style={{color:'var(--text-muted)'}}>Loading...</p>
+            : filteredDeliveries.length === 0 ? (
+              <div className="empty-state" style={{padding:40, background: 'var(--surface-color)', borderRadius: 12, border: '1px solid var(--border-color)'}}>
+                <div style={{fontSize:40, marginBottom:16}}>📦</div>
+                <h4>No deliveries found</h4>
+                <p style={{color:'var(--text-muted)'}}>Try changing the filter or check back later.</p>
+              </div>
+            )
+            : filteredDeliveries.map(p => <TaskCard key={p._id} pkg={p} isPickup={false}/>)}
+          </div>
         </div>
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {loading ? <p style={{color:'var(--text-muted)'}}>Loading...</p>
-          : deliveries.length===0 ? <div className="empty-state" style={{padding:32}}><p>No active deliveries</p></div>
-          : deliveries.map(p=><TaskCard key={p._id} pkg={p} isPickup={false}/>)}
-        </div>
-      </div>
+      )}
 
+      {activeTab === 'pickups' && (
+        <div className="tab-pane animate-fade-in">
+          {/* Filters & Bulk Action */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+              {['all', 'pending', 'completed'].map(f => {
+                const count = f === 'all' ? pickups.length : pickups.filter(p => 
+                  f === 'pending' ? p.status === 'Pick Up Requested' : p.status === 'Picked Up'
+                ).length;
+                
+                return (
+                  <button 
+                    key={f}
+                    className={`btn btn-sm ${pickupFilter === f ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ borderRadius: 20, textTransform: 'capitalize', fontWeight: 600 }}
+                    onClick={() => setPickupFilter(f)}
+                  >
+                    {f} ({count})
+                  </button>
+                );
+              })}
+            </div>
+            
+            {selectedPickups.length > 0 && (
+              <button className="btn btn-primary" onClick={handleBulkPickup} style={{fontWeight: 700}}>
+                Confirm {selectedPickups.length} Pickups
+              </button>
+            )}
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {loading ? <p style={{color:'var(--text-muted)'}}>Loading...</p>
+            : filteredPickups.length === 0 ? (
+              <div className="empty-state" style={{padding:40, background: 'var(--surface-color)', borderRadius: 12, border: '1px solid var(--border-color)'}}>
+                <div style={{fontSize:40, marginBottom:16}}>🚚</div>
+                <h4>No pickups found</h4>
+                <p style={{color:'var(--text-muted)'}}>Try changing the filter or check back later.</p>
+              </div>
+            )
+            : filteredPickups.map(p => <TaskCard key={p._id} pkg={p} isPickup={true}/>)}
+          </div>
+        </div>
+      )}
+
+      {/* Action Modal */}
       {actionModal.open && (
         <div className="modal-backdrop" onClick={()=>setActionModal({open:false,pkg:null,action:''})}>
           <div className="modal-content" onClick={e=>e.stopPropagation()}>
@@ -185,13 +317,20 @@ const MyDeliveries = () => {
             <div className="modal-body">
               <form onSubmit={submitAction}>
                 {actionModal.action === 'deliver' && (
-                  <div className="form-group"><label>COD Cash Collected (Rs.)</label><input type="number" className="form-control" value={form.cashCollected} onChange={e=>setForm(f=>({...f,cashCollected:e.target.value}))}/><p style={{fontSize:'var(--font-size-xs)',color:'var(--text-muted)',marginTop:4}}>Expected: Rs. {actionModal.pkg?.amount}</p></div>
+                  <div className="form-group">
+                    <label>COD Cash Collected (Rs.)</label>
+                    <div style={{position: 'relative'}}>
+                      <span style={{position:'absolute', left:12, top:10, color:'var(--text-muted)'}}>Rs.</span>
+                      <input type="number" className="form-control" style={{paddingLeft: 36}} value={form.cashCollected} onChange={e=>setForm(f=>({...f,cashCollected:e.target.value}))}/>
+                    </div>
+                    <p style={{fontSize:'var(--font-size-xs)',color:'var(--text-muted)',marginTop:6}}>Expected: Rs. {actionModal.pkg?.amount}</p>
+                  </div>
                 )}
                 {actionModal.action === 'postpone' && (
                   <div className="form-group"><label>Reschedule Date</label><input type="date" className="form-control" value={form.newDate} onChange={e=>setForm(f=>({...f,newDate:e.target.value}))}/></div>
                 )}
                 <div className="form-group"><label>Remarks / Reason {actionModal.action!=='deliver'&&'*'}</label><textarea className="form-control" rows="3" placeholder="Explain reason..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required={actionModal.action!=='deliver'}/></div>
-                <button type="submit" className="btn btn-primary btn-block">Submit</button>
+                <button type="submit" className="btn btn-primary btn-block" style={{marginTop: 16, padding: 12, fontSize: '16px'}}>Submit Update</button>
               </form>
             </div>
           </div>
