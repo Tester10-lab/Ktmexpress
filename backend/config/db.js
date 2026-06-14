@@ -3,6 +3,14 @@ import logger from '../utils/logger.js';
 
 const connectDB = async () => {
   try {
+    mongoose.connection.on('disconnected', () => {
+      logger.warn('[DB] MongoDB disconnected! Attempting to reconnect...');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      logger.info('[DB] MongoDB reconnected successfully.');
+    });
+
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,

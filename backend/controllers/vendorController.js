@@ -2,8 +2,11 @@ import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
 import Product from '../models/Product.js';
 import Settlement from '../models/Settlement.js';
+import Comment from '../models/Comment.js';
+import ReturnRequest from '../models/ReturnRequest.js';
 import fs from 'fs';
 import csv from 'csv-parser';
+import * as xlsx from 'xlsx';
 import { generateLabelUrls } from '../services/labelService.js';
 
 import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
@@ -51,16 +54,23 @@ export const getVendorDashboard = async (req, res) => {
 export const getVendorPackages = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const { status, search, page = 1, limit = 20 } = req.query;
+    const { status, search, page = 1, limit = 20, startDate, endDate } = req.query;
 
     const filter = { vendorId };
     if (status && status !== 'all') {
       filter.status = status;
     }
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
     if (search) {
       filter.$or = [
         { trackingCode: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } },
         { invoiceId: { $regex: search, $options: 'i' } },
       ];
     }
@@ -86,6 +96,24 @@ export const getVendorPackages = async (req, res) => {
         pages: Math.ceil(total / parseInt(limit)),
       },
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/vendor/packages/:id
+export const getPackageDetails = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const pkg = await Package.findOne({ _id: req.params.id, vendorId })
+      .populate('riderId', 'name contact')
+      .lean();
+      
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+
+    const comments = await Comment.find({ packageId: pkg._id }).sort({ createdAt: -1 }).lean();
+    
+    res.json({ success: true, data: { ...pkg, commentList: comments } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -230,41 +258,62 @@ export const bulkCreatePackages = async (req, res) => {
     }
 
     const createdPackages = [];
+    const errors = [];
+    
+    // In a real prod scenario, use insertMany for speed, but we must generate tracking codes uniquely first.
+    // To do it safely with bulk operations, pre-generate all tracking codes.
+    const packageDocs = [];
     for (const p of packages) {
-      const trackingCode = await uniqueTrackingCode();
-      const labelUrls = generateLabelUrls(trackingCode);
-      const pkg = await Package.create({
-        trackingCode,
-        invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-        customerName: p.customerName,
-        customerPhone: p.customerPhone,
-        address: p.address,
-        outOfValley: !!p.outOfValley,
-        city: p.city || '',
-        weight: Number(p.weight) || 0.5,
-        items: p.items || [],
-        amount: Number(p.amount) || 0,
-        deliveryCharge: Number(p.deliveryCharge) || 0,
-        vendorId,
-        ...labelUrls,
-        status: 'Pending',
-        timeline: [{
-          time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          status: 'Invoice Created',
-          message: `Vendor bulk created package`,
-          user: req.user.name,
-        }]
-      });
-      createdPackages.push(pkg);
+      try {
+        const trackingCode = await uniqueTrackingCode();
+        const labelUrls = generateLabelUrls(trackingCode);
+        packageDocs.push({
+          trackingCode,
+          invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          customerName: p.customerName,
+          customerPhone: String(p.customerPhone),
+          address: p.address,
+          outOfValley: !!p.outOfValley,
+          city: p.city || '',
+          weight: Number(p.weight) || 0.5,
+          items: p.items || [],
+          amount: Number(p.amount) || 0,
+          deliveryCharge: Number(p.deliveryCharge) || 0,
+          vendorId,
+          ...labelUrls,
+          status: 'Pending',
+          timeline: [{
+            time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+            status: 'Invoice Created',
+            message: `Vendor bulk created package`,
+            user: req.user.name,
+          }]
+        });
+      } catch (err) {
+        errors.push({ invoiceId: p.invoiceId, error: err.message });
+      }
     }
     
-    res.status(201).json({ success: true, data: createdPackages });
+    if (packageDocs.length > 0) {
+      const inserted = await Package.insertMany(packageDocs);
+      createdPackages.push(...inserted);
+    }
+    
+    if (req.io && createdPackages.length > 0) {
+      req.io.to('role_admin').emit('notification', {
+        title: 'Bulk Orders Created',
+        message: `Vendor ${req.user.name} created ${createdPackages.length} orders`,
+        type: 'new_order'
+      });
+    }
+    
+    res.status(201).json({ success: true, data: createdPackages, errors });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// PUT /api/vendor/packages/:id/return
+// PUT /api/vendor/packages/:id/return (Legacy route)
 export const requestReturn = async (req, res) => {
   try {
     const vendorId = req.user._id;
@@ -291,6 +340,43 @@ export const requestReturn = async (req, res) => {
   }
 };
 
+// POST /api/vendor/returns
+export const createReturnRequest = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { packageId, reason, notes } = req.body;
+    
+    const pkg = await Package.findOne({ _id: packageId, vendorId });
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+
+    const existingReturn = await ReturnRequest.findOne({ packageId });
+    if (existingReturn) return res.status(400).json({ success: false, message: 'Return request already exists for this package' });
+
+    const returnReq = await ReturnRequest.create({
+      packageId,
+      vendorId,
+      reason,
+      notes
+    });
+
+    res.status(201).json({ success: true, data: returnReq });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/vendor/returns
+export const getReturnRequests = async (req, res) => {
+  try {
+    const returns = await ReturnRequest.find({ vendorId: req.user._id })
+      .populate('packageId', 'trackingCode customerName amount status')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, data: returns });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // POST /api/vendor/packages/:id/comments
 export const addComment = async (req, res) => {
   try {
@@ -300,10 +386,15 @@ export const addComment = async (req, res) => {
     const pkg = await Package.findOne({ _id: req.params.id, vendorId });
     if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
 
-    pkg.comments = pkg.comments ? `${pkg.comments}\n[${req.user.name}]: ${text}` : `[${req.user.name}]: ${text}`;
-    await pkg.save();
+    const comment = await Comment.create({
+      packageId: pkg._id,
+      userId: vendorId,
+      userName: req.user.name,
+      userRole: req.user.role,
+      text
+    });
     
-    res.json({ success: true, data: pkg });
+    res.json({ success: true, data: comment });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -319,13 +410,16 @@ export const getFinance = async (req, res) => {
     const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + pkg.deliveryCharge, 0);
     const totalPayable = pendingCOD - pendingDeliveryCharges;
 
+    const settlements = await Settlement.find({ vendorId }).sort({ createdAt: -1 }).lean();
+
     res.json({
       success: true,
       data: {
         pendingPackagesCount: deliveredPkgs.length,
         pendingCOD,
         pendingDeliveryCharges,
-        totalPayable
+        totalPayable,
+        settlements
       }
     });
   } catch (error) {
@@ -350,6 +444,10 @@ export const requestSettlement = async (req, res) => {
     const settlement = await Settlement.create({
       vendorId,
       requestedAmount: totalPayable,
+      totalOrders: deliveredPkgs.length,
+      totalCOD: pendingCOD,
+      totalFees: pendingDeliveryCharges,
+      netAmount: totalPayable,
       packageIds: deliveredPkgs.map(p => p._id)
     });
 
@@ -393,12 +491,11 @@ export const updateProduct = async (req, res) => {
   }
 };
 
-// POST /api/vendor/packages/upload-csv
-export const uploadCsv = async (req, res) => {
+// POST /api/vendor/packages/upload-csv (Parses and returns validation preview)
+export const uploadCsvPreview = async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
   const results = [];
-  const vendorId = req.user._id;
 
   // Helper to safely get value from object with various possible header names (case-insensitive)
   const getVal = (row, keys) => {
@@ -414,58 +511,51 @@ export const uploadCsv = async (req, res) => {
     return undefined;
   };
 
-  fs.createReadStream(req.file.path)
-    .pipe(csv())
-    .on('data', (data) => results.push(data))
-    .on('end', async () => {
-      try {
-        const packageDocs = [];
-        for (const raw of results) {
-          const trackingCode = await uniqueTrackingCode();
-          const labelUrls = generateLabelUrls(trackingCode);
-          
-          const p = {
-            invoiceId: getVal(raw, ['invoiceId', 'invoice', 'reference']),
-            customerName: getVal(raw, ['customerName', 'customer name', 'name']),
-            customerPhone: getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact']),
-            address: getVal(raw, ['address', 'delivery address', 'location']),
-            outOfValley: getVal(raw, ['outOfValley', 'out of valley', 'outside valley']),
-            city: getVal(raw, ['city', 'area', 'district']),
-            weight: getVal(raw, ['weight', 'kg']),
-            amount: getVal(raw, ['amount', 'cod', 'price']),
-            deliveryCharge: getVal(raw, ['deliveryCharge', 'delivery charge', 'shipping'])
-          };
+  try {
+    // Read file (XLSX or CSV)
+    const workbook = xlsx.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const jsonData = xlsx.utils.sheet_to_json(sheet, { defval: '' });
 
-          packageDocs.push({
-            trackingCode,
-            invoiceId: p.invoiceId || generateInvoiceId(),
-            customerName: p.customerName || 'Unknown Customer',
-            customerPhone: p.customerPhone || '0000000000',
-            address: p.address || 'Unknown Address',
-            outOfValley: String(p.outOfValley).toLowerCase() === 'true' || p.outOfValley === '1' || String(p.outOfValley).toLowerCase() === 'yes',
-            city: p.city || '',
-            weight: Number(p.weight) || 0.5,
-            items: [], // Simplified for bulk upload CSV
-            amount: Number(p.amount) || 0,
-            deliveryCharge: Number(p.deliveryCharge) || 0,
-            vendorId,
-            ...labelUrls,
-            status: 'Pending',
-            timeline: [{
-              time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-              status: 'Invoice Created',
-              message: 'Vendor created package via CSV upload',
-              user: req.user.name || 'Vendor',
-            }]
-          });
-        }
-        const createdPackages = await Package.insertMany(packageDocs);
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
-        res.status(201).json({ success: true, data: createdPackages, message: `Successfully imported ${createdPackages.length} packages` });
-      } catch (err) {
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
-        const isValidation = err.name === 'ValidationError';
-        res.status(isValidation ? 400 : 500).json({ success: false, message: isValidation ? err.message : 'Server error during upload' });
-      }
+    const validatedData = [];
+
+    jsonData.forEach((raw, idx) => {
+      // Find mappings
+      const customerName = getVal(raw, ['customerName', 'customer name', 'name', 'recipient']);
+      const customerPhone = getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact']);
+      const address = getVal(raw, ['address', 'delivery address', 'location']);
+      const city = getVal(raw, ['city', 'area', 'district']);
+      const amount = getVal(raw, ['amount', 'cod', 'price']);
+      
+      const errors = [];
+      if (!customerName) errors.push('Missing Name');
+      if (!customerPhone) errors.push('Missing Phone');
+      if (!address) errors.push('Missing Address');
+      if (amount === undefined || isNaN(Number(amount))) errors.push('Invalid COD Amount');
+
+      validatedData.push({
+        row: idx + 2, // Excel rows are 1-indexed, +1 for header
+        data: {
+          invoiceId: getVal(raw, ['invoiceId', 'invoice', 'reference']) || '',
+          customerName: customerName || '',
+          customerPhone: customerPhone || '',
+          address: address || '',
+          outOfValley: getVal(raw, ['outOfValley', 'out of valley', 'outside valley']) || false,
+          city: city || '',
+          weight: getVal(raw, ['weight', 'kg']) || 0.5,
+          amount: amount || 0,
+          deliveryCharge: getVal(raw, ['deliveryCharge', 'delivery charge', 'shipping']) || 0,
+        },
+        errors,
+        isValid: errors.length === 0
+      });
     });
+
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
+    res.status(200).json({ success: true, data: validatedData });
+  } catch (err) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
+    res.status(500).json({ success: false, message: 'Failed to process file: ' + err.message });
+  }
 };

@@ -5,18 +5,21 @@ import roleGuard from '../middleware/roleGuard.js';
 import { 
   getVendorDashboard,
   getVendorPackages,
+  getPackageDetails,
   createPickupRequest,
   createPackage,
   updatePackage,
   bulkCreatePackages,
   requestReturn,
+  createReturnRequest,
+  getReturnRequests,
   addComment,
   getFinance,
   getProducts,
   createProduct,
   updateProduct,
   requestSettlement,
-  uploadCsv
+  uploadCsvPreview
  } from '../controllers/vendorController.js';
 import multer from 'multer';
 
@@ -28,12 +31,15 @@ router.use(auth, roleGuard('vendor'));
 
 router.get('/dashboard', getVendorDashboard);
 router.get('/packages', getVendorPackages);
+router.get('/packages/:id', getPackageDetails);
 router.post('/packages', createPackage);
 router.put('/packages/:id', updatePackage);
 router.post('/packages/bulk', bulkCreatePackages);
-router.post('/packages/upload-csv', upload.single('file'), uploadCsv);
+router.post('/packages/upload-csv', upload.single('file'), uploadCsvPreview);
 router.post('/pickup-request', createPickupRequest);
 router.put('/packages/:id/return', requestReturn);
+router.post('/returns', createReturnRequest);
+router.get('/returns', getReturnRequests);
 router.post('/packages/:id/comments', addComment);
 router.get('/finance', getFinance);
 

@@ -45,6 +45,10 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
   });
 
   React.useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     // Clock setup
     const tick = () => {
       const now = new Date();
@@ -81,12 +85,28 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
         
         socket.on('notification', (data) => {
           showToast(data.message || data.title || 'New Notification', 'info');
+          
           if (data.type === 'pickup_request' || data.type === 'new_order' || data.type === 'package_delivered') {
             playNotification();
           } else if (data.type === 'alert') {
             playAlert();
           } else {
             playNotification();
+          }
+
+          // Browser Notification Support
+          if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            const browserNotif = new Notification(data.title || 'KTM Express', {
+              body: data.message || 'You have a new notification',
+              icon: '/vite.svg'
+            });
+            browserNotif.onclick = () => {
+              window.focus();
+              // Optionally navigate based on type
+              if (data.type === 'new_order' || data.type === 'package_delivered') navigate('/vendor/packages');
+              if (data.type === 'pickup_request') navigate('/vendor/packages');
+              browserNotif.close();
+            };
           }
         });
       });

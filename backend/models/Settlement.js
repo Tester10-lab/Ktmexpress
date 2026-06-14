@@ -10,9 +10,25 @@ const settlementSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  totalOrders: {
+    type: Number,
+    default: 0,
+  },
+  totalCOD: {
+    type: Number,
+    default: 0,
+  },
+  totalFees: {
+    type: Number,
+    default: 0,
+  },
+  netAmount: {
+    type: Number,
+    default: 0,
+  },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
+    enum: ['Pending', 'Approved', 'Paid', 'Rejected'],
     default: 'Pending',
   },
   deletedAt: {

@@ -143,23 +143,25 @@ app.use(morgan(morganFormat, {
   }
 }));
 
-// ─── Root health check (for Render uptime monitoring) ────────────────────────
-app.get('/', (req, res) => {
-  res.json({ message: 'Logistic API is running ✓', status: 'ok' });
-});
-
-// ─── Detailed health check ────────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
+// ─── Health & Uptime Checks ───────────────────────────────────────────────────
+app.get(['/', '/health', '/api/health'], (req, res) => {
+  const isDbConnected = mongoose.connection.readyState === 1;
+  const status = isDbConnected ? 200 : 503;
+  
+  res.status(status).json({
+    message: 'Logistic API is running ✓',
+    status: isDbConnected ? 'OK' : 'ERROR',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    mongoConnected: true,
+    mongoConnected: isDbConnected,
   });
 });
 
 // ─── Security Middleware ────────────────────────────────────────────────────────
 app.use(helmet());
+
+// Trust proxy (required for Render/Vercel)
+app.set('trust proxy', 1);
 
 // Global Rate Limiting
 const globalLimiter = rateLimit({
@@ -198,20 +200,6 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.originalUrl}` });
 });
 
-// ─── Health Check ────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
-  const isDbConnected = mongoose.connection.readyState === 1;
-  if (isDbConnected) {
-    res.status(200).json({ status: 'OK', message: 'API and Database are healthy', timestamp: new Date() });
-  } else {
-    res.status(503).json({ status: 'ERROR', message: 'Database connection is down', timestamp: new Date() });
-  }
-});
-
-app.get('/', (req, res) => {
-  res.send('Logistic System API is running...');
-});
-
 // ─── Error Handling ───────────────────────────────────────────────────────────
 app.use(errorHandler);
 
@@ -236,6 +224,13 @@ if (process.env.NODE_ENV !== 'test') {
 // Graceful Shutdown implementation
 const shutdown = (signal) => {
   logger.info(`[SERVER] Received ${signal}. Closing HTTP server...`);
+  
+  // Close socket connections
+  if (global.io) {
+    logger.info('[SERVER] Closing Socket.io connections...');
+    global.io.close();
+  }
+
   server.close(async () => {
     logger.info('[SERVER] HTTP server closed.');
     try {
