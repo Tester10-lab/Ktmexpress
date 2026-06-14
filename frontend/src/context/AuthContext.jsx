@@ -4,21 +4,26 @@ import api from '../api/axios';
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
+  const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('user');
     const token = localStorage.getItem('token');
     if (storedUser && token) {
       try {
-        setUser(JSON.parse(storedUser));
+        return JSON.parse(storedUser);
       } catch (e) {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        return null;
       }
     }
-    setLoading(false);
+    return null;
+  });
+
+  const [loading, setLoading] = useState(false); // No longer needed for sync init
+
+  useEffect(() => {
+    // If you need to validate token with backend, do it here.
+    // For now, sync initialization is enough.
   }, []);
 
   const login = async (email, password) => {
