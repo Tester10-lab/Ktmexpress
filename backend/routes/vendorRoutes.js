@@ -16,6 +16,7 @@ import {
   createProduct,
   updateProduct,
   requestSettlement,
+  getSettlements,
   uploadCsv
  } from '../controllers/vendorController.js';
 import multer from 'multer';
@@ -38,6 +39,7 @@ router.post('/packages/:id/comments', addComment);
 router.get('/finance', getFinance);
 
 // Settlements
+router.get('/settlements', getSettlements);
 router.post('/settlements', requestSettlement);
 
 // Products (Inventory)

@@ -13,8 +13,10 @@ import {
   deleteUser,
   updateUser,
   getAllPackagesAdmin,
+  updatePackageAdmin,
   reconcileRiderCOD,
   getAllExpenses,
+  updateExpenseStatus,
   getSettlements,
   updateSettlement
 } from '../controllers/adminController.js';
@@ -78,12 +80,14 @@ router.put('/users/:id/toggle-status', toggleUserStatus);
 
 // Package overview
 router.get('/packages', getAllPackagesAdmin);
+router.put('/packages/:id', updatePackageAdmin);
 
 // COD reconciliation
 router.post('/reconcile/:riderId', reconcileRiderCOD);
 
 // Expenses & Settlements
 router.get('/expenses', getAllExpenses);
+router.put('/expenses/:id/status', updateExpenseStatus);
 router.get('/settlements', getSettlements);
 router.put('/settlements/:id', updateSettlement);
 

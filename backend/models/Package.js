@@ -154,4 +154,5 @@ packageSchema.pre('findOne', excludeSoftDeleted);
 packageSchema.pre('findOneAndUpdate', excludeSoftDeleted);
 packageSchema.pre('countDocuments', excludeSoftDeleted);
 
-export default mongoose.model('Package', packageSchema);
+const Package = mongoose.model('Package', packageSchema);
+export default Package;

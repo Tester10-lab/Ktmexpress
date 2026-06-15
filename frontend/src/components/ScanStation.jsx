@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api/axios';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../store/ToastContext';
 
 // ─── Role-to-allowed-actions map ─────────────────────────────────────────────
 const ROLE_ACTIONS = {
@@ -65,6 +65,9 @@ const CameraScanner = ({ onDetected, active }) => {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setScanning(false);
   }, []);
 
@@ -74,10 +77,17 @@ const CameraScanner = ({ onDetected, active }) => {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
+      
+      // If component unmounted or stopped while we were waiting for permissions
+      if (!active || !videoRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+      
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        await videoRef.current.play().catch(()=>{});
         setScanning(true);
       }
 

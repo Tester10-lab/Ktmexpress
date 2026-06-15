@@ -1,24 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
-import AppShell from '../../components/AppShell';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import ScanStation from '../../components/ScanStation';
 import api from '../../api/axios';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../store/ToastContext';
 
 const navLinks = [
-  { name: 'Dashboard', path: '/rider', exact: true, icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
   { name: 'My Deliveries', path: '/rider/deliveries', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
-  { name: '📷 Scan Station', path: '/rider/scan-station', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9V6a3 3 0 0 1 3-3h3"/><path d="M15 3h3a3 3 0 0 1 3 3v3"/><path d="M3 15v3a3 3 0 0 0 3 3h3"/><path d="M15 21h3a3 3 0 0 0 3-3v-3"/><line x1="8" y1="12" x2="16" y2="12"/></svg> },
   { name: 'COD Wallet', path: '/rider/wallet', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg> },
   { name: 'Log Expense', path: '/rider/expenses', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
   { name: 'Expense History', path: '/rider/expense-history', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
 ];
 
 const titleMap = {
-  '/rider': 'Rider Dashboard',
   '/rider/deliveries': 'My Deliveries & Pickups',
-  '/rider/scan-station': '📷 Scan Station — Delivery Rider',
   '/rider/wallet': 'COD Wallet',
   '/rider/expenses': 'Log Expense',
   '/rider/expense-history': 'Expense History',
@@ -29,28 +25,6 @@ function statusBadge(status) {
   return <span className={`badge ${m[status]||'badge-secondary'}`}>{status}</span>;
 }
 
-// ─── Rider Home ──────────────────────────────────────────────────────────
-const RiderHome = () => {
-  const [stats, setStats] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get('/rider/summary').then(r=>setStats(r.data.data||{})).catch(console.error).finally(()=>setLoading(false));
-  }, []);
-
-  if (loading) return <div className="empty-state"><p>Loading...</p></div>;
-
-  return (
-    <div className="metrics-grid">
-      <MetricCard title="Today's Deliveries" value={stats.delivered??0} color="primary" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>}/>
-      <MetricCard title="Remaining" value={stats.pending??0} color="warning" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}/>
-      <MetricCard title="Completed" value={stats.delivered??0} color="success" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>}/>
-      <MetricCard title="Returns" value={stats.postponed??0} color="danger" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg>}/>
-      <MetricCard title="COD Collected" value={`Rs. ${stats.totalCOD??0}`} color="success" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>}/>
-    </div>
-  );
-};
-
 // ─── My Deliveries ────────────────────────────────────────────────────────
 const MyDeliveries = () => {
   const [deliveries, setDeliveries] = useState([]);
@@ -59,6 +33,7 @@ const MyDeliveries = () => {
   const [actionModal, setActionModal] = useState({open:false,pkg:null,action:''});
   const [form, setForm] = useState({comment:'',cashCollected:'',newDate:''});
   const [selectedPickups, setSelectedPickups] = useState([]);
+  const [selectedDeliveries, setSelectedDeliveries] = useState([]);
   
   // UI State for Filters
   const [activeTab, setActiveTab] = useState('deliveries'); // 'deliveries' or 'pickups'
@@ -78,6 +53,7 @@ const MyDeliveries = () => {
       setDeliveries(d.data.data||[]);
       setPickups(p.data.data||[]);
       setSelectedPickups([]);
+      setSelectedDeliveries([]);
     } catch { 
       showToast('Failed to load deliveries','error'); 
     } finally { 
@@ -117,12 +93,36 @@ const MyDeliveries = () => {
     setSelectedPickups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const toggleSelectDelivery = (id) => {
+    setSelectedDeliveries(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleBulkDelivery = async () => {
+    if (!selectedDeliveries.length) return;
+    let count = 0;
+    try {
+      await Promise.all(selectedDeliveries.map(async (id) => {
+        const pkg = deliveries.find(d => d._id === id);
+        if (pkg) {
+          await api.put('/rider/update-status', { packageId: id, action: 'deliver', cashCollected: pkg.amount, comment: 'Bulk delivered' });
+          count++;
+        }
+      }));
+      showToast(`${count} deliveries marked as Completed!`, 'success');
+      setSelectedDeliveries([]);
+      fetchAll();
+    } catch (err) {
+      showToast('Some deliveries failed to update', 'error');
+      fetchAll();
+    }
+  };
+
   const actionLabel = { deliver:'Mark Delivered',postpone:'Postpone',cancel:'Cancel',return:'Mark Return',pickup_complete:'Confirm Pickup' };
 
   // Filtering Logic
   const filteredDeliveries = deliveries.filter(d => {
-    if (deliveryFilter === 'pending') return ['In Warehouse', 'Sorted'].includes(d.status);
-    if (deliveryFilter === 'active') return ['Out for Delivery', 'Postponed'].includes(d.status);
+    if (deliveryFilter === 'pending') return ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status);
+    if (deliveryFilter === 'active') return ['Out for Delivery'].includes(d.status);
     if (deliveryFilter === 'completed') return ['Delivered'].includes(d.status);
     if (deliveryFilter === 'failed') return ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status);
     return true; // 'all'
@@ -136,7 +136,7 @@ const MyDeliveries = () => {
 
   const TaskCard = ({ pkg, isPickup }) => {
     const isPendingPickup = isPickup && pkg.status === 'Pick Up Requested';
-    const isActiveDelivery = !isPickup && ['Out for Delivery', 'Postponed'].includes(pkg.status);
+    const isActiveDelivery = !isPickup && ['Out for Delivery'].includes(pkg.status);
 
     return (
       <div className="rider-task-card" style={{ display: 'flex', gap: 12, alignItems: 'center', opacity: (!isPendingPickup && !isActiveDelivery) ? 0.8 : 1, transition: 'all 0.3s ease' }}>
@@ -146,6 +146,14 @@ const MyDeliveries = () => {
             checked={selectedPickups.includes(pkg._id)} 
             onChange={() => toggleSelect(pkg._id)} 
             style={{ width: 22, height: 22, accentColor: 'var(--color-primary)', cursor: 'pointer' }} 
+          />
+        )}
+        {isActiveDelivery && (
+          <input 
+            type="checkbox" 
+            checked={selectedDeliveries.includes(pkg._id)} 
+            onChange={() => toggleSelectDelivery(pkg._id)} 
+            style={{ width: 22, height: 22, accentColor: 'var(--color-success)', cursor: 'pointer' }} 
           />
         )}
         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -175,15 +183,25 @@ const MyDeliveries = () => {
           
           <div className="task-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {isPendingPickup && (
-              <button className="btn btn-success btn-sm" onClick={()=>openModal(pkg,'pickup_complete')} style={{fontWeight:600}}>
-                Confirm Pickup
+              <button className="btn btn-success btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'pickup_complete')} style={{fontWeight:600}} title="Confirm Pickup">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                <span className="btn-text">Confirm Pickup</span>
               </button>
             )}
             {isActiveDelivery && (
               <>
-                <button className="btn btn-success btn-sm" onClick={()=>openModal(pkg,'deliver')} style={{fontWeight:600}}>Delivered</button>
-                <button className="btn btn-warning btn-sm" onClick={()=>openModal(pkg,'postpone')} style={{fontWeight:600}}>Postpone</button>
-                <button className="btn btn-danger btn-sm" onClick={()=>openModal(pkg,'cancel')} style={{fontWeight:600}}>Cancel</button>
+                <button className="btn btn-success btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'deliver')} style={{fontWeight:600}} title="Delivered">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span className="btn-text">Delivered</span>
+                </button>
+                <button className="btn btn-warning btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'postpone')} style={{fontWeight:600}} title="Postpone">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span className="btn-text">Postpone</span>
+                </button>
+                <button className="btn btn-danger btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'cancel')} style={{fontWeight:600}} title="Cancel">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  <span className="btn-text">Cancel</span>
+                </button>
               </>
             )}
           </div>
@@ -227,8 +245,8 @@ const MyDeliveries = () => {
           <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
             {['all', 'pending', 'active', 'completed', 'failed'].map(f => {
               const count = f === 'all' ? deliveries.length : deliveries.filter(d => 
-                f === 'pending' ? ['In Warehouse', 'Sorted'].includes(d.status) :
-                f === 'active' ? ['Out for Delivery', 'Postponed'].includes(d.status) :
+                f === 'pending' ? ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status) :
+                f === 'active' ? ['Out for Delivery'].includes(d.status) :
                 f === 'completed' ? ['Delivered'].includes(d.status) :
                 ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status)
               ).length;
@@ -244,6 +262,12 @@ const MyDeliveries = () => {
                 </button>
               );
             })}
+            
+            {selectedDeliveries.length > 0 && (
+              <button className="btn btn-success" onClick={handleBulkDelivery} style={{fontWeight: 700, marginLeft: 'auto'}}>
+                Mark {selectedDeliveries.length} Delivered
+              </button>
+            )}
           </div>
 
           <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -480,14 +504,57 @@ const ExpenseHistory = () => {
 // ─── Rider Dashboard Shell ───────────────────────────────────────────────
 const RiderDashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get('/rider/deliveries?type=all');
+        const pkgs = res.data.data || [];
+        
+        const notifs = pkgs
+          .filter(p => ['Pick Up Requested', 'Out for Delivery'].includes(p.status))
+          .map(p => ({
+            id: p._id,
+            title: p.status === 'Pick Up Requested' ? 'New Pickup Assigned' : 'New Delivery Assigned',
+            message: p.status === 'Pick Up Requested' 
+              ? `Collect package from ${p.vendorId?.name || 'Vendor'}`
+              : `Deliver ${p.trackingCode} to ${p.customerName}`,
+            time: new Date(p.updatedAt || p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon: p.status === 'Pick Up Requested' ? '🚚' : '📦',
+            path: '/rider/deliveries'
+          }));
+          
+        setNotifications(notifs);
+      } catch (e) {
+        console.error('Failed to fetch notifications', e);
+      }
+    };
+    
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotificationClick = (n) => {
+    if (n.path) navigate(n.path);
+  };
+
   const title = Object.entries(titleMap).sort((a,b)=>b[0].length-a[0].length).find(([p])=>location.pathname.startsWith(p))?.[1] || 'Rider';
 
   return (
-    <AppShell navLinks={navLinks} currentTitle={title} roleBadge="Rider Portal">
+    <AppShell 
+      navLinks={navLinks} 
+      currentTitle={title} 
+      roleBadge="Rider Portal"
+      notifications={notifications}
+      onNotificationClick={handleNotificationClick}
+    >
       <Routes>
-        <Route path="/" element={<RiderHome />} />
+        <Route path="/" element={<Navigate to="/rider/deliveries" replace />} />
         <Route path="/deliveries" element={<MyDeliveries />} />
-        <Route path="/scan-station" element={<ScanStation role="rider" />} />
         <Route path="/wallet" element={<CODWallet />} />
         <Route path="/expenses" element={<ExpenseLog />} />
         <Route path="/expense-history" element={<ExpenseHistory />} />

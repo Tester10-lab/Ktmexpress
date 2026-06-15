@@ -113,7 +113,7 @@ userSchema.pre('findOneAndUpdate', excludeSoftDeleted);
 userSchema.pre('countDocuments', excludeSoftDeleted);
 
 userSchema.index({ role: 1 });
-userSchema.index({ status: 1 });
 userSchema.index({ deletedAt: 1 });
 
-export default mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema);
+export default User;

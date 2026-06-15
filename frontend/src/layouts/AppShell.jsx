@@ -16,9 +16,9 @@ import useNotificationSound from '../hooks/useNotificationSound';
 import { useTheme } from '../hooks/useTheme';
 import { useZoom } from '../hooks/useZoom';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
-import ThemeToggle from './ThemeToggle';
-import ZoomBar from './ZoomBar';
-import { useToast } from '../context/ToastContext';
+import ThemeToggle from '../components/ThemeToggle';
+import ZoomBar from '../components/ZoomBar';
+import { useToast } from '../store/ToastContext';
 
 const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications = [], onNotificationClick }) => {
   const { user, logout } = useAuth();
@@ -26,7 +26,6 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [liveClock, setLiveClock] = useState('');
   const { showToast } = useToast();
 
   // Initialize hooks
@@ -45,13 +44,6 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
   });
 
   React.useEffect(() => {
-    // Clock setup
-    const tick = () => {
-      const now = new Date();
-      setLiveClock(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
 
     // Socket.io setup
     let socket;
@@ -63,7 +55,10 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
         
         socket = io(socketUrl, {
           withCredentials: true,
-          transports: ['websocket'] // Force websocket to prevent 404s on load balancers (like Render) without sticky sessions
+          transports: ['websocket'], // Force websocket to prevent 404s on load balancers (like Render) without sticky sessions
+          auth: {
+            token: localStorage.getItem('token')
+          }
         });
         
         socket.emit('join_role', user.role);
@@ -93,7 +88,6 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
     }
 
     return () => {
-      clearInterval(timer);
       if (socket) socket.disconnect();
     };
   }, [user, playNotification, playAlert, showToast]);
@@ -262,67 +256,6 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
             {/* ── Theme Toggle ── */}
             <ThemeToggle />
 
-            {/* Sound Settings Dropdown */}
-            <div style={{ position: 'relative' }}>
-              <button
-                className="header-icon-btn"
-                title="Sound Settings"
-                aria-label={soundEnabled ? 'Sound enabled. Click to open sound settings.' : 'Sound muted. Click to open sound settings.'}
-                aria-expanded={settingsOpen}
-                onClick={() => { setSettingsOpen(!settingsOpen); setNotificationsOpen(false); }}
-              >
-                {soundEnabled ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{color:'var(--color-danger)'}} aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-                )}
-              </button>
-              {settingsOpen && (
-                <div
-                  role="dialog"
-                  aria-label="Sound settings"
-                  style={{ position: 'absolute', top: 48, right: 0, width: 280, background: 'var(--bg-surface-elevated)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)', zIndex: 100, overflow: 'hidden' }}
-                >
-                  <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                    Sound Settings
-                  </div>
-                  <div style={{ padding: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                      <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>Enable Sounds</span>
-                      <label className="toggle-switch" aria-label="Toggle notification sounds">
-                        <input type="checkbox" checked={soundEnabled} onChange={(e) => setSoundEnabled(e.target.checked)} />
-                        <span className="slider round"></span>
-                      </label>
-                    </div>
-                    {soundEnabled && (
-                      <>
-                        <div style={{ marginBottom: 16 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: 8 }}>
-                            <span>Volume</span><span>{Math.round(volume * 100)}%</span>
-                          </div>
-                          <input type="range" min="0" max="1" step="0.1" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} style={{ width: '100%', accentColor: 'var(--color-primary)' }} aria-label="Volume control" />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                          <button onClick={() => playSuccess()} className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: 4 }}>✅ Success</button>
-                          <button onClick={() => playNotification()} className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: 4 }}>🔔 Notify</button>
-                          <button onClick={() => playAlert()} className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: 4 }}>⚠️ Alert</button>
-                          <button onClick={() => playError()} className="btn btn-outline btn-sm" style={{ fontSize: 11, padding: 4 }}>❌ Error</button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 'var(--font-size-xs)', fontFamily: 'Inter, monospace' }} className="header-clock" aria-label={`Current time: ${liveClock}`}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span aria-live="off">{liveClock}</span>
-            </div>
-            <div className="header-badge" role="status" aria-label="Connection status: Online">
-              <span className="pulse-dot" aria-hidden="true" />
-              <span>Online</span>
-            </div>
           </div>
         </header>
 

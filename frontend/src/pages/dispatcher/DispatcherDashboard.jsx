@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import AppShell from '../../components/AppShell';
+import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import ScanStation from '../../components/ScanStation';
 import api from '../../api/axios';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
@@ -15,6 +15,7 @@ const navLinks = [
   { name: 'Inbound Scan', path: '/dispatcher/inbound-scan', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 20h20"/><path d="M3 20V7l9-5 9 5v13"/><path d="M9 20v-6h6v6"/></svg> },
   { name: 'Routing & Assign', path: '/dispatcher/routing-assign', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.94 11A8 8 0 1 0 12 20"/><path d="M12 12l6-6"/></svg> },
   { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> },
+  { name: 'Active Riders', path: '/dispatcher/riders', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M15 15.5l-2.5-3.5H9L6.5 15.5"/><circle cx="12" cy="7" r="2"/></svg> },
 ];
 
 const titleMap = {
@@ -71,7 +72,7 @@ const tdStyle = { padding: '11px 14px', borderBottom: '1px solid #f3f4f6', verti
 const cardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 20 };
 const cardHeaderStyle = { padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' };
 
-function ActionBtn({ onClick, children, variant = 'primary', disabled = false, size = 'sm' }) {
+function ActionBtn({ onClick, children, variant = 'primary', disabled = false, size = 'sm', icon }) {
   const colors = {
     primary: { bg: '#2563eb', hover: '#1d4ed8', text: '#fff' },
     success: { bg: '#059669', hover: '#047857', text: '#fff' },
@@ -84,13 +85,16 @@ function ActionBtn({ onClick, children, variant = 'primary', disabled = false, s
   const [hov, setHov] = useState(false);
   return (
     <button
+      className={icon ? 'btn-mobile-icon' : ''}
       onClick={onClick}
       disabled={disabled}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{ padding: pad, fontSize: 12, fontWeight: 600, color: c.text, background: hov && !disabled ? c.hover : c.bg, border: c.border || 'none', borderRadius: 7, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'background 0.15s', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}
+      title={typeof children === 'string' ? children : undefined}
     >
-      {children}
+      {icon}
+      <span className={icon ? 'btn-text' : ''}>{children}</span>
     </button>
   );
 }
@@ -192,6 +196,11 @@ const PickupRequests = () => {
   const [loading, setLoading] = useState(true);
   const [assignMap, setAssignMap] = useState({});
   const [actionLoading, setActionLoading] = useState({});
+  const [selected, setSelected] = useState([]);
+  const [selectedAssigned, setSelectedAssigned] = useState([]);
+  const [bulkRiderId, setBulkRiderId] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
   const { showToast } = useToast();
 
   const fetchData = useCallback(async () => {
@@ -231,10 +240,53 @@ const PickupRequests = () => {
     finally { setActionLoading(s => ({ ...s, [pickupId]: null })); }
   };
 
+  const handleSelectAll = (e, items, setter) => setter(e.target.checked ? items.map(p => p._id) : []);
+  const handleSelect = (id, setter) => setter(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+
+  const bulkAssign = async () => {
+    if (!selected.length || !bulkRiderId) return showToast('Select pickups and a rider first', 'warning');
+    setBulkAssigning(true);
+    let successCount = 0;
+    try {
+      await Promise.all(selected.map(async (pickupId) => {
+        try {
+          await api.put('/dispatcher/assign-pickup', { pickupId, riderId: bulkRiderId });
+          successCount++;
+        } catch (e) {}
+      }));
+      showToast(`✓ ${successCount} pickup(s) assigned!`, 'success');
+      setSelected([]);
+      setBulkRiderId('');
+      fetchData();
+    } catch (e) { showToast('Bulk assign failed', 'error'); }
+    finally { setBulkAssigning(false); }
+  };
+
+  const bulkConfirmWarehouse = async () => {
+    if (!selectedAssigned.length) return showToast('Select pickups first', 'warning');
+    setBulkConfirming(true);
+    let successCount = 0;
+    try {
+      await Promise.all(selectedAssigned.map(async (pickupId) => {
+        const p = assigned.find(x => x._id === pickupId);
+        if (p?.packageId?._id) {
+          try {
+            await api.put('/dispatcher/confirm-warehouse', { packageId: p.packageId._id });
+            successCount++;
+          } catch (e) {}
+        }
+      }));
+      showToast(`✓ ${successCount} package(s) confirmed at warehouse!`, 'success');
+      setSelectedAssigned([]);
+      fetchData();
+    } catch (e) { showToast('Bulk confirm failed', 'error'); }
+    finally { setBulkConfirming(false); }
+  };
+
   const pending = pickups.filter(p => p.status === 'pending');
   const assigned = pickups.filter(p => p.status === 'assigned');
 
-  const PickupTable = ({ items, title, color }) => (
+  const PickupTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
     <div style={cardStyle}>
       <div style={cardHeaderStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -248,6 +300,11 @@ const PickupRequests = () => {
         <table style={tableStyle}>
           <thead>
             <tr>
+              {showCheckboxes && (
+                <th style={{ ...thStyle, width: 44 }}>
+                  <input type="checkbox" onChange={e => onSelectAll(e, items)} checked={items.length > 0 && items.every(i => selectedIds.includes(i._id))} />
+                </th>
+              )}
               {['Tracking', 'Vendor', 'Customer', 'Address', 'Requested', 'Assigned Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
             </tr>
           </thead>
@@ -258,7 +315,18 @@ const PickupRequests = () => {
                 const isAssigned = p.status === 'assigned';
                 const aLoading = actionLoading[p._id];
                 return (
-                  <tr key={p._id} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  <tr 
+                    key={p._id} 
+                    style={{ cursor: showCheckboxes ? 'pointer' : 'default', background: selectedIds.includes(p._id) ? '#eff6ff' : '' }} 
+                    onClick={() => showCheckboxes && onSelect(p._id)} 
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} 
+                    onMouseLeave={e => e.currentTarget.style.background = selectedIds.includes(p._id) ? '#eff6ff' : ''}
+                  >
+                    {showCheckboxes && (
+                      <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" checked={selectedIds.includes(p._id)} onChange={() => onSelect(p._id)} />
+                      </td>
+                    )}
                     <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.packageId?.trackingCode || '—'}</td>
                     <td style={tdStyle}><div style={{ fontWeight: 600 }}>{p.vendorId?.name || '—'}</div></td>
                     <td style={tdStyle}>{p.packageId?.customerName || '—'}</td>
@@ -280,7 +348,12 @@ const PickupRequests = () => {
                             <option value="">Select Rider</option>
                             {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
                           </select>
-                          <ActionBtn onClick={() => assignPickup(p._id)} disabled={aLoading === 'assigning'} variant="primary">
+                          <ActionBtn 
+                            onClick={() => assignPickup(p._id)} 
+                            disabled={aLoading === 'assigning'} 
+                            variant="primary"
+                            icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5.5"/><polyline points="8 11 3 16 8 21"/><circle cx="16.5" cy="7.5" r="3.5"/></svg>}
+                          >
                             {aLoading === 'assigning' ? '...' : 'Assign'}
                           </ActionBtn>
                         </div>
@@ -302,10 +375,73 @@ const PickupRequests = () => {
     </div>
   );
 
+  const selectedRider = riders.find(r => r._id === bulkRiderId);
+
   return (
     <div>
-      <PickupTable items={pending} title="Pending Pickup Requests" color="#f59e0b" />
-      <PickupTable items={assigned} title="Assigned — Awaiting Warehouse Confirmation" color="#3b82f6" />
+      {/* Bulk Assign Toolbar for Pending Requests */}
+      <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
+        <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, flex: 1 }}>Bulk Assign Pickups</h3>
+        <select
+          value={bulkRiderId}
+          onChange={e => setBulkRiderId(e.target.value)}
+          style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none', minWidth: 180 }}
+        >
+          <option value="">— Select Rider —</option>
+          {riders.map(r => <option key={r._id} value={r._id}>{r.name}{r.contact ? ` (${r.contact})` : ''}</option>)}
+        </select>
+        <ActionBtn
+          onClick={bulkAssign}
+          disabled={!selected.length || !bulkRiderId || bulkAssigning}
+          variant="primary"
+          size="md"
+        >
+          {bulkAssigning ? 'Assigning...' : `🚀 Assign ${selected.length > 0 ? `${selected.length} ` : ''}Selected`}
+        </ActionBtn>
+      </div>
+
+      {selected.length > 0 && (
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
+            {selected.length} pickup(s) selected
+            {selectedRider ? ` → Assigning to ${selectedRider.name}` : ' — pick a rider'}
+          </span>
+          <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+        </div>
+      )}
+
+      {selectedAssigned.length > 0 && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#059669' }}>
+            {selectedAssigned.length} assigned pickup(s) selected
+          </span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <ActionBtn onClick={bulkConfirmWarehouse} disabled={bulkConfirming} variant="success">
+              {bulkConfirming ? 'Confirming...' : '✓ Confirm Arrival at Warehouse'}
+            </ActionBtn>
+            <button onClick={() => setSelectedAssigned([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+          </div>
+        </div>
+      )}
+
+      <PickupTable 
+        items={pending} 
+        title="Pending Pickup Requests" 
+        color="#f59e0b" 
+        showCheckboxes={true} 
+        selectedIds={selected} 
+        onSelectAll={(e, items) => handleSelectAll(e, items, setSelected)} 
+        onSelect={(id) => handleSelect(id, setSelected)} 
+      />
+      <PickupTable 
+        items={assigned} 
+        title="Assigned — Awaiting Warehouse Confirmation" 
+        color="#3b82f6" 
+        showCheckboxes={true} 
+        selectedIds={selectedAssigned} 
+        onSelectAll={(e, items) => handleSelectAll(e, items, setSelectedAssigned)} 
+        onSelect={(id) => handleSelect(id, setSelectedAssigned)} 
+      />
     </div>
   );
 };
@@ -313,17 +449,26 @@ const PickupRequests = () => {
 // ─── 3. Inbound Scan / Warehouse (Grouped by Vendor) ─────────────────────
 const InboundScan = () => {
   const [packages, setPackages] = useState([]);
+  const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState([]);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [riderId, setRiderId] = useState('');
   const { showToast } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await api.get('/dispatcher/packages?status=Pick Up Requested,Picked Up,In Warehouse');
-      setPackages(r.data.data || []);
+      const [pRes, rRes] = await Promise.all([
+        api.get('/dispatcher/packages?status=Pick Up Requested,Picked Up,In Warehouse'),
+        api.get('/dispatcher/riders')
+      ]);
+      setPackages(pRes.data.data || []);
+      setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load packages', 'error'); }
     finally { setLoading(false); }
   }, []);
@@ -354,6 +499,47 @@ const InboundScan = () => {
 
   const toggleGroup = (vid) => setCollapsed(s => ({ ...s, [vid]: !s[vid] }));
 
+  const handleSelectAll = (e) => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
+  const handleSelect = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+
+  const bulkConfirmArrival = async () => {
+    const toConfirm = selected.filter(id => packages.find(p => p._id === id)?.status !== 'In Warehouse');
+    if (!toConfirm.length) return showToast('No packages to confirm', 'warning');
+    setBulkConfirming(true);
+    let count = 0;
+    try {
+      await Promise.all(toConfirm.map(async (packageId) => {
+        try {
+          await api.put('/dispatcher/confirm-warehouse', { packageId });
+          count++;
+        } catch(e) {}
+      }));
+      showToast(`✓ ${count} package(s) confirmed!`, 'success');
+      setSelected([]);
+      fetchData();
+    } catch { showToast('Bulk confirm failed', 'error'); }
+    finally { setBulkConfirming(false); }
+  };
+
+  const bulkSendForDelivery = async () => {
+    const toSend = selected.filter(id => packages.find(p => p._id === id)?.status === 'In Warehouse');
+    if (!toSend.length) return showToast('No warehouse packages selected', 'warning');
+    if (!riderId) return showToast('Select a rider first', 'warning');
+    setBulkAssigning(true);
+    try {
+      const res = await api.put('/dispatcher/bulk-assign', { packageIds: toSend, riderId });
+      showToast(`✓ ${res.data.data?.count || toSend.length} package(s) sent for delivery!`, 'success');
+      setSelected([]);
+      setRiderId('');
+      fetchData();
+    } catch { showToast('Bulk send failed', 'error'); }
+    finally { setBulkAssigning(false); }
+  };
+
+  const selectedPackages = filtered.filter(p => selected.includes(p._id));
+  const hasUnconfirmed = selectedPackages.some(p => p.status !== 'In Warehouse');
+  const hasInWarehouse = selectedPackages.some(p => p.status === 'In Warehouse');
+
   return (
     <div>
       {/* Search + Stats Bar */}
@@ -379,68 +565,89 @@ const InboundScan = () => {
         <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
       </div>
 
-      {loading ? <Spinner /> : Object.keys(grouped).length === 0 ? (
-        <EmptyState message="No incoming packages found." icon="🏭" />
-      ) : Object.entries(grouped).map(([vid, { vendor, packages: pkgs }]) => {
-        const isOpen = !collapsed[vid];
-        const inWarehouseCount = pkgs.filter(p => p.status === 'In Warehouse').length;
-        return (
-          <div key={vid} style={cardStyle}>
-            {/* Vendor Group Header */}
-            <div
-              style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: isOpen ? '1px solid #e5e7eb' : 'none', userSelect: 'none' }}
-              onClick={() => toggleGroup(vid)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏪</div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{vendor?.name || 'Unknown Vendor'}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1 }}>{pkgs.length} packages — {inWarehouseCount} confirmed in warehouse</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#f0fdf4', color: '#059669' }}>{inWarehouseCount}/{pkgs.length} scanned</span>
-                <svg style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-            </div>
-
-            {/* Package Rows */}
-            {isOpen && (
-              <table style={tableStyle}>
-                <thead>
-                  <tr>
-                    {['Tracking', 'Customer', 'Address', 'Weight', 'COD', 'Status', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {pkgs.map(p => (
-                    <tr key={p._id} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.trackingCode}</td>
-                      <td style={tdStyle}>{p.customerName}</td>
-                      <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address}</td>
-                      <td style={tdStyle}>{p.weight} kg</td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
-                      <td style={tdStyle}><StatusBadge status={p.status} /></td>
-                      <td style={tdStyle}>
-                        {p.status !== 'In Warehouse' ? (
-                          <ActionBtn onClick={() => confirmArrival(p._id)} disabled={actionLoading[p._id]} variant="primary" size="sm">
-                            {actionLoading[p._id] ? '...' : '✓ Confirm Arrival'}
-                          </ActionBtn>
-                        ) : (
-                          <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                            In Warehouse
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {selected.length > 0 && (
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
+            {selected.length} package(s) selected
+          </span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            {hasUnconfirmed && (
+              <ActionBtn onClick={bulkConfirmArrival} disabled={bulkConfirming} variant="success" size="sm">
+                {bulkConfirming ? '...' : '✓ Confirm Arrival at Warehouse'}
+              </ActionBtn>
             )}
+            {hasInWarehouse && (
+              <>
+                <select
+                  value={riderId}
+                  onChange={e => setRiderId(e.target.value)}
+                  style={{ border: '1px solid #bfdbfe', borderRadius: 6, padding: '6px 10px', fontSize: 12, outline: 'none' }}
+                >
+                  <option value="">— Select Rider —</option>
+                  {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                </select>
+                <ActionBtn onClick={bulkSendForDelivery} disabled={bulkAssigning || !riderId} variant="primary" size="sm">
+                  {bulkAssigning ? '...' : '🚀 Send for Delivery'}
+                </ActionBtn>
+              </>
+            )}
+            <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
           </div>
-        );
-      })}
+        </div>
+      )}
+
+      {loading ? <Spinner /> : filtered.length === 0 ? (
+        <EmptyState message="No incoming packages found." icon="🏭" />
+      ) : (
+        <div style={cardStyle}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Inbound Packages</h3>
+            <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#eff6ff', color: '#1d4ed8' }}>
+              {filtered.length} total
+            </span>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr>
+                  <th style={{ ...thStyle, width: 44 }}>
+                    <input type="checkbox" onChange={handleSelectAll} checked={filtered.length > 0 && selected.length === filtered.length} />
+                  </th>
+                  {['Tracking', 'Vendor', 'Customer', 'Address', 'Weight', 'COD', 'Status', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => (
+                  <tr key={p._id} style={{ cursor: 'pointer', background: selected.includes(p._id) ? '#eff6ff' : '' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
+                    <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.trackingCode}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || 'Unknown'}</td>
+                    <td style={tdStyle}>{p.customerName}</td>
+                    <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city ? `${p.city}, ` : ''}{p.address}</td>
+                    <td style={tdStyle}>{p.weight} kg</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
+                    <td style={tdStyle}><StatusBadge status={p.status} /></td>
+                    <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                      {p.status !== 'In Warehouse' ? (
+                        <ActionBtn onClick={() => confirmArrival(p._id)} disabled={actionLoading[p._id]} variant="primary" size="sm">
+                          {actionLoading[p._id] ? '...' : '✓ Confirm Arrival'}
+                        </ActionBtn>
+                      ) : (
+                        <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                          In Warehouse
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -460,7 +667,7 @@ const Routing = () => {
     setLoading(true);
     try {
       const [pRes, rRes] = await Promise.all([
-        api.get('/dispatcher/packages?status=In Warehouse'),
+        api.get('/dispatcher/packages?status=In Warehouse,Out for Delivery,Postponed'),
         api.get('/dispatcher/riders'),
       ]);
       setPackages(pRes.data.data || []);
@@ -543,12 +750,12 @@ const Routing = () => {
                 <th style={{ ...thStyle, width: 44 }}>
                   <input type="checkbox" onChange={handleSelectAll} checked={filtered.length > 0 && selected.length === filtered.length} />
                 </th>
-                {['Tracking', 'Vendor', 'Customer', 'Destination', 'Weight', 'COD (Rs.)', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                {['Tracking', 'Vendor', 'Customer', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan="8"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="8"><EmptyState message="No packages in warehouse ready for assignment." icon="📦" /></td></tr>
+              {loading ? <tr><td colSpan="9"><Spinner /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="9"><EmptyState message="No packages found." icon="📦" /></td></tr>
                 : filtered.map(p => (
                   <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
@@ -560,6 +767,7 @@ const Routing = () => {
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{p.amount?.toLocaleString()}</td>
+                    <td style={tdStyle}><StatusBadge status={p.status} /></td>
                     <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: 12 }}>None</span>}</td>
                   </tr>
                 ))}
@@ -702,6 +910,54 @@ const ReverseLogistics = () => {
   );
 };
 
+// ─── 6. Active Riders ───────────────────────────────────────────────────────
+const ActiveRiders = () => {
+  const [riders, setRiders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
+
+  const fetchRiders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await api.get('/dispatcher/riders');
+      setRiders(res.data.data || []);
+    } catch { showToast('Failed to load riders', 'error'); }
+    finally { setLoading(false); }
+  }, [showToast]);
+
+  useEffect(() => { fetchRiders(); }, [fetchRiders]);
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Active Riders</h2>
+        <ActionBtn onClick={fetchRiders} variant="ghost">↻ Refresh</ActionBtn>
+      </div>
+      
+      {riders.length === 0 ? (
+        <EmptyState message="No active riders found." icon="🏍️" />
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          {riders.map(rider => (
+            <div key={rider._id} style={{ ...cardStyle, padding: 20, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }}>
+                {rider.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>{rider.name}</h3>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>📧 {rider.email}</div>
+                <div style={{ fontSize: 13, color: '#6b7280' }}>📞 {rider.contact || 'No contact info'}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Dispatcher Dashboard Shell ───────────────────────────────────────────
 const DispatcherDashboard = () => {
   const location = useLocation();
@@ -759,6 +1015,7 @@ const DispatcherDashboard = () => {
         <Route path="/inbound-scan" element={<InboundScan />} />
         <Route path="/routing-assign" element={<Routing />} />
         <Route path="/reverse-logistics" element={<ReverseLogistics />} />
+        <Route path="/riders" element={<ActiveRiders />} />
       </Routes>
     </AppShell>
   );

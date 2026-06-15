@@ -12,6 +12,7 @@ const PublicNav = ({ active }) => (
       </Link>
       <nav className="public-nav-links">
         {[
+          { label: 'Branches', path: '/branches' },
           { label: 'Pricing', path: '/pricing' },
           { label: 'Contact', path: '/contact' },
         ].map(({ label, path }) => (

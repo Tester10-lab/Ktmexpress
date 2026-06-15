@@ -359,6 +359,17 @@ export const requestSettlement = async (req, res) => {
   }
 };
 
+// GET /api/vendor/settlements
+export const getSettlements = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const settlements = await Settlement.find({ vendorId }).sort({ createdAt: -1 }).lean();
+    res.json({ success: true, data: settlements });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/vendor/products
 export const getProducts = async (req, res) => {
   try {

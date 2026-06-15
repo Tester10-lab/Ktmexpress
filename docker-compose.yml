@@ -1,46 +1,23 @@
-version: '3.8'
-
+version: '3.9'
 services:
-  mongodb:
-    image: mongo:6
-    container_name: logistic-mongodb
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-
   backend:
-    build:
-      context: ./backend
-    container_name: logistic-backend
-    restart: unless-stopped
+    build: ./backend
     ports:
       - "5000:5000"
-    depends_on:
-      - mongodb
     environment:
       - NODE_ENV=production
-      - PORT=5000
-      - MONGO_URI=mongodb://admin:password@mongodb:27017/logistic?authSource=admin
-      - JWT_SECRET=supersecretjwtkey_please_change_in_production
-      - FRONTEND_URL=http://localhost:5173
-      - CORS_ORIGIN=http://localhost:5173,http://localhost
-      - SMTP_HOST=smtp.ethereal.email
-      - SMTP_PORT=587
+      - MONGO_URI=${MONGO_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - CLIENT_URL=${CLIENT_URL}
+    restart: unless-stopped
+    volumes:
+      - ./backend/logs:/app/logs
 
   frontend:
-    build:
-      context: ./frontend
-    container_name: logistic-frontend
-    restart: unless-stopped
+    build: ./frontend
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - backend
-
-volumes:
-  mongodb_data:
+    restart: unless-stopped

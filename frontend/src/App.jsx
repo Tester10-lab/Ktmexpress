@@ -1,81 +1,63 @@
-import React, { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { ToastProvider } from './context/ToastContext';
-import PrivateRoute from './components/PrivateRoute';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import PrivateRoute from './layouts/PrivateRoute';
+import AppShell from './layouts/AppShell';
+import ErrorBoundary from './components/ErrorBoundary';
 
-import Login from './pages/auth/Login';
-import Home from './pages/public/Home';
-import Tracking from './pages/public/Tracking';
-import Pricing from './pages/public/Pricing';
-import Contact from './pages/public/Contact';
+import { AuthProvider } from './store/AuthContext';
+import { ToastProvider } from './store/ToastContext';
 
-// Lazy loaded modules
-const AdminDashboard = React.lazy(() => import('./pages/admin/AdminDashboard'));
-const VendorDashboard = React.lazy(() => import('./pages/vendor/VendorDashboard'));
-const DispatcherDashboard = React.lazy(() => import('./pages/dispatcher/DispatcherDashboard'));
-const RiderDashboard = React.lazy(() => import('./pages/rider/RiderDashboard'));
+// Public pages
+const Login = lazy(() => import('./pages/auth/Login'));
+const TrackPackage = lazy(() => import('./pages/public/Tracking'));
+const Home = lazy(() => import('./pages/public/Home'));
+const Pricing = lazy(() => import('./pages/public/Pricing'));
+const Branches = lazy(() => import('./pages/public/Branches'));
+const Contact = lazy(() => import('./pages/public/Contact'));
 
-// Lightweight Spinner component
-const PageSpinner = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc' }}>
-    <div style={{ width: '40px', height: '40px', border: '4px solid #e2e8f0', borderTop: '4px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-    <style>
-      {`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}
-    </style>
+// Role-based dashboards
+const VendorDashboard = lazy(() => import('./pages/vendor/VendorDashboard'));
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const DispatcherDashboard = lazy(() => import('./pages/dispatcher/DispatcherDashboard'));
+const RiderDashboard = lazy(() => import('./pages/rider/RiderDashboard'));
+
+const Loader = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
   </div>
 );
 
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <BrowserRouter>
-          <Suspense fallback={<PageSpinner />}>
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<Home />} />
-              <Route path="/track" element={<Tracking />} />
-              <Route path="/pricing" element={<Pricing />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/login" element={<Login />} />
+    <BrowserRouter>
+      <ErrorBoundary>
+        <AuthProvider>
+          <ToastProvider>
+            <Suspense fallback={<Loader />}>
+              <Routes>
+            {/* Public */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/tracking" element={<TrackPackage />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/branches" element={<Branches />} />
+            <Route path="/contact" element={<Contact />} />
 
-              {/* Admin */}
-              <Route path="/admin/*" element={
-                <PrivateRoute allowedRoles={['admin']}>
-                  <AdminDashboard />
-                </PrivateRoute>
-              } />
+            {/* Protected */}
+            <Route element={<PrivateRoute />}>
+              <Route path="/vendor/*" element={<VendorDashboard />} />
+              <Route path="/admin/*" element={<AdminDashboard />} />
+              <Route path="/dispatcher/*" element={<DispatcherDashboard />} />
+              <Route path="/rider/*" element={<RiderDashboard />} />
+            </Route>
 
-              {/* Vendor */}
-              <Route path="/vendor/*" element={
-                <PrivateRoute allowedRoles={['vendor']}>
-                  <VendorDashboard />
-                </PrivateRoute>
-              } />
-
-              {/* Dispatcher */}
-              <Route path="/dispatcher/*" element={
-                <PrivateRoute allowedRoles={['dispatcher']}>
-                  <DispatcherDashboard />
-                </PrivateRoute>
-              } />
-
-              {/* Rider */}
-              <Route path="/rider/*" element={
-                <PrivateRoute allowedRoles={['rider']}>
-                  <RiderDashboard />
-                </PrivateRoute>
-              } />
-
-              {/* Fallbacks */}
-              <Route path="/unauthorized" element={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'Inter,sans-serif',color:'#64748b'}}><div style={{textAlign:'center'}}><h1 style={{fontSize:'3rem',fontWeight:800,color:'#ef4444'}}>403</h1><p style={{fontSize:'1.1rem'}}>You don't have permission to access this page.</p><a href="/login" style={{color:'#2563eb',marginTop:16,display:'inline-block'}}>← Back to Login</a></div></div>} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-      </ToastProvider>
-    </AuthProvider>
+            <Route path="*" element={<div>404 - Page Not Found</div>} />
+              </Routes>
+            </Suspense>
+          </ToastProvider>
+        </AuthProvider>
+      </ErrorBoundary>
+    </BrowserRouter>
   );
 }
 

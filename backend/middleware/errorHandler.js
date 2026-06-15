@@ -1,17 +1,43 @@
-import logger from '../utils/logger.js';
+import { logger } from '../config/logger.js';
 
 export const errorHandler = (err, req, res, next) => {
-  logger.error(`${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`, { stack: err.stack });
+  logger.error(err);
 
-  if (err.message && err.message.startsWith('CORS policy')) {
+  // Mongoose validation error
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: Object.values(err.errors).map(e => e.message),
+    });
+  }
+
+  // Mongoose duplicate key
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue)[0];
+    return res.status(409).json({
+      success: false,
+      message: `Duplicate value for field: ${field}`,
+    });
+  }
+
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({ success: false, message: 'Token expired' });
+  }
+
+  // CORS error
+  if (err.message?.startsWith('CORS blocked')) {
     return res.status(403).json({ success: false, message: err.message });
   }
 
-  const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  
-  res.status(err.status || statusCode).json({
+  // Default 500
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal server error.',
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack,
+    message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
   });
 };

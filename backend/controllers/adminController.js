@@ -60,11 +60,23 @@ export const getDashboardStats = async (req, res) => {
 // GET /api/admin/analytics
 export const getFinancialAnalytics = async (req, res) => {
   try {
-    const { vendor, timeframe } = req.query;
+    const { vendor, startDate, endDate } = req.query;
 
     const matchFilter = { status: 'Delivered' };
     if (vendor && vendor !== 'all') {
       matchFilter.vendorId = vendor;
+    }
+
+    if (startDate || endDate) {
+      matchFilter.createdAt = {};
+      if (startDate) matchFilter.createdAt.$gte = new Date(startDate);
+      // To include the entire end day, we can set the time to 23:59:59 if we wanted to,
+      // or assume the client passes an inclusive date. We'll set the time to end of day if endDate is provided.
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        matchFilter.createdAt.$lte = end;
+      }
     }
 
     const analytics = await Package.aggregate([
@@ -87,7 +99,7 @@ export const getFinancialAnalytics = async (req, res) => {
       },
     ]);
 
-    res.json({ success: true, data: analytics, timeframe: timeframe || 'weekly' });
+    res.json({ success: true, data: analytics, startDate, endDate });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -261,6 +273,41 @@ export const getAllPackagesAdmin = async (req, res) => {
   }
 };
 
+// PUT /api/admin/packages/:id - Update package details
+export const updatePackageAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { customerName, customerPhone, address, city, amount, weight } = req.body;
+
+    const pkg = await Package.findById(id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    const updates = [];
+    if (customerName && customerName !== pkg.customerName) { updates.push('Customer Name'); pkg.customerName = customerName; }
+    if (customerPhone && customerPhone !== pkg.customerPhone) { updates.push('Customer Phone'); pkg.customerPhone = customerPhone; }
+    if (address && address !== pkg.address) { updates.push('Address'); pkg.address = address; }
+    if (city && city !== pkg.city) { updates.push('City'); pkg.city = city; }
+    if (amount !== undefined && amount !== pkg.amount) { updates.push('Amount'); pkg.amount = amount; }
+    if (weight !== undefined && weight !== pkg.weight) { updates.push('Weight'); pkg.weight = weight; }
+
+    if (updates.length > 0) {
+      pkg.timeline.push({
+        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: pkg.status,
+        message: `Admin updated details: ${updates.join(', ')}`,
+        user: req.user.name,
+      });
+      await pkg.save();
+    }
+
+    res.json({ success: true, data: pkg, message: 'Package updated successfully.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // POST /api/admin/reconcile/:riderId - Mark COD collected from rider
 export const reconcileRiderCOD = async (req, res) => {
   try {
@@ -278,12 +325,17 @@ export const reconcileRiderCOD = async (req, res) => {
 // GET /api/admin/expenses
 export const getAllExpenses = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, riderId, category, status } = req.query;
+    const filter = {};
+    if (riderId) filter.riderId = riderId;
+    if (category) filter.category = category;
+    if (status) filter.status = status;
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
     const [expenses, total] = await Promise.all([
-      Expense.find().populate('riderId', 'name contact').sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean(),
-      Expense.countDocuments()
+      Expense.find(filter).populate('riderId', 'name contact').sort({ date: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Expense.countDocuments(filter)
     ]);
 
     res.json({
@@ -295,6 +347,22 @@ export const getAllExpenses = async (req, res) => {
         pages: Math.ceil(total / parseInt(limit)),
       }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/admin/expenses/:id/status
+export const updateExpenseStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const expense = await Expense.findById(req.params.id);
+    if (!expense) return res.status(404).json({ success: false, message: 'Expense not found' });
+    
+    expense.status = status;
+    await expense.save();
+    
+    res.json({ success: true, data: expense, message: `Expense marked as ${status}` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

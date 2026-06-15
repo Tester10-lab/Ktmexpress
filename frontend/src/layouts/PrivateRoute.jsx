@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 const PrivateRoute = ({ children, allowedRoles }) => {
@@ -12,7 +12,7 @@ const PrivateRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/unauthorized" />;
   }
 
-  return children;
+  return children ? children : <Outlet />;
 };
 
 export default PrivateRoute;

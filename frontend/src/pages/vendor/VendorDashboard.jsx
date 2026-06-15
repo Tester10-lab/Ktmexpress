@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import AppShell from '../../components/AppShell';
+import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import PrintLabel from '../../components/PrintLabel';
 import Pagination from '../../components/Pagination';
 import api from '../../api/axios';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../store/ToastContext';
 import { useDeliveryCharge } from '../../hooks/useDeliveryCharge';
 
 const navLinks = [
@@ -177,6 +177,8 @@ const PackageList = () => {
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState({});
   const [createLoading, setCreateLoading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editPackageId, setEditPackageId] = useState(null);
   const [successModal, setSuccessModal] = useState(null);
   const [viewPackageDetails, setViewPackageDetails] = useState(null);
   const [printPackages, setPrintPackages] = useState([]);
@@ -278,27 +280,33 @@ const PackageList = () => {
         amount: Number(createForm.amount),
         deliveryCharge: Number(createForm.deliveryCharge),
         deliveryDate: createForm.deliveryDate,
-        // Normalize to lowercase enum values expected by the model
         packageAccess: createForm.packageAccess === 'Can Open' ? 'open' : 'sealed',
         comments: createForm.comments,
+        packageType: createForm.packageType
       };
       
-      const res = await api.post('/vendor/packages', payload);
-      const pkg = res.data.data;
-      
-      if (!keepOpen) {
+      if (editMode) {
+        await api.put(`/vendor/packages/${editPackageId}`, payload);
+        showToast('Order updated successfully', 'success');
         setDrawerOpen(false);
-        setSuccessModal({ trackingCode: pkg.trackingCode, customerName: pkg.customerName });
       } else {
-        showToast(`✓ Order created! Tracking: ${pkg.trackingCode}`, 'success');
+        const res = await api.post('/vendor/packages', payload);
+        const pkg = res.data.data;
+        
+        if (!keepOpen) {
+          setDrawerOpen(false);
+          setSuccessModal({ trackingCode: pkg.trackingCode, customerName: pkg.customerName });
+        } else {
+          showToast(`✓ Order created! Tracking: ${pkg.trackingCode}`, 'success');
+        }
       }
       
-      setCreateForm(EMPTY_FORM);
+      if (!editMode) setCreateForm(EMPTY_FORM);
       fetchPackages();
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to create order';
+      const msg = err.response?.data?.message || (editMode ? 'Failed to update order' : 'Failed to create order');
       showToast(msg, 'error');
-      console.error('Create order error:', err.response?.data);
+      console.error('Submit order error:', err.response?.data);
     } finally { setCreateLoading(false); }
   };
 
@@ -326,7 +334,7 @@ const PackageList = () => {
               </button>
             </>
           )}
-          <button className="btn btn-primary" onClick={() => { setCreateForm(EMPTY_FORM); setDrawerOpen(true); }}>
+          <button className="btn btn-primary" onClick={() => { setEditMode(false); setEditPackageId(null); setCreateForm(EMPTY_FORM); setDrawerOpen(true); }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{marginRight:6}}><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             New Order
           </button>
@@ -367,6 +375,33 @@ const PackageList = () => {
                       <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:''})} className="btn btn-ghost btn-sm" title="Add note">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                       </button>
+                      {pkg.status === 'Pending' && (
+                        <button onClick={() => {
+                          setEditMode(true);
+                          setEditPackageId(pkg._id);
+                          setCreateForm({
+                            branch: 'HEAD OFFICE',
+                            destinationBranch: pkg.city || '--------',
+                            customerName: pkg.customerName,
+                            customerPhone: pkg.customerPhone,
+                            altPhone: '',
+                            address: pkg.address,
+                            city: pkg.city || '',
+                            deliveryDate: pkg.deliveryDate || '',
+                            outOfValley: pkg.outOfValley || false,
+                            weight: pkg.weight || 1,
+                            deliveryCharge: pkg.deliveryCharge || 0,
+                            amount: pkg.amount || 0,
+                            packageAccess: pkg.packageAccess === 'open' ? 'Can Open' : 'Sealed',
+                            invoiceId: pkg.invoiceId || '',
+                            packageType: pkg.packageType || '',
+                            comments: pkg.comments || ''
+                          });
+                          setDrawerOpen(true);
+                        }} className="btn btn-ghost btn-sm" title="Edit Order">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -538,9 +573,9 @@ const PackageList = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>Create new order</h3>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#111827' }}>{editMode ? 'Edit Order' : 'Create new order'}</h3>
                 </div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#4b5563' }}>A unique 7-digit tracking code will be generated on save</p>
+                <p style={{ margin: 0, fontSize: '13px', color: '#4b5563' }}>{editMode ? 'Update order details before dispatch' : 'A unique 7-digit tracking code will be generated on save'}</p>
               </div>
               <button style={{ padding: '6px', borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', cursor: 'pointer', color: '#6b7280', display: 'flex', alignItems: 'center' }} onMouseEnter={e => e.currentTarget.style.background='#f3f4f6'} onMouseLeave={e => e.currentTarget.style.background='#fff'} onClick={() => setDrawerOpen(false)}>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -730,17 +765,19 @@ const PackageList = () => {
               <button type="button" style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 500, color: '#374151', background: '#f6f5f3', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background='#e5e7eb'} onMouseLeave={e => e.currentTarget.style.background='#f6f5f3'} onClick={() => setDrawerOpen(false)}>
                 Cancel
               </button>
-              <button type="button" onClick={(e) => handleCreateSubmit(e, true)} style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 500, color: '#111827', background: '#f6f5f3', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: createLoading ? 0.5 : 1 }} disabled={createLoading} onMouseEnter={e => e.currentTarget.style.background='#e5e7eb'} onMouseLeave={e => e.currentTarget.style.background='#f6f5f3'}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-                Add & create another
-              </button>
+              {!editMode && (
+                <button type="button" onClick={(e) => handleCreateSubmit(e, true)} style={{ flex: 1, padding: '12px', fontSize: '14px', fontWeight: 500, color: '#111827', background: '#f6f5f3', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: createLoading ? 0.5 : 1 }} disabled={createLoading} onMouseEnter={e => e.currentTarget.style.background='#e5e7eb'} onMouseLeave={e => e.currentTarget.style.background='#f6f5f3'}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+                  Add & create another
+                </button>
+              )}
               <button type="button" onClick={(e) => handleCreateSubmit(e, false)} style={{ flex: 1.5, padding: '12px', fontSize: '14px', fontWeight: 600, color: '#111827', background: '#f6f5f3', border: '1px solid #9ca3af', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: createLoading ? 0.8 : 1, transition: 'all 0.15s' }} disabled={createLoading} onMouseEnter={e => e.currentTarget.style.background='#e5e7eb'} onMouseLeave={e => e.currentTarget.style.background='#f6f5f3'}>
                 {createLoading ? (
-                  <><svg className="animate-spin h-4 w-4 text-gray-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Creating...</>
+                  <><svg className="animate-spin h-4 w-4 text-gray-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> {editMode ? 'Updating...' : 'Creating...'}</>
                 ) : (
                   <>
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-                    Create order & get tracking code
+                    {editMode ? 'Update Order' : 'Create order & get tracking code'}
                   </>
                 )}
               </button>
@@ -838,11 +875,28 @@ const PackageBulkUpload = () => {
 // ─── Finance ──────────────────────────────────────────────────────────────
 const Finance = () => {
   const [data, setData] = useState({});
+  const [settlements, setSettlements] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const navigate = useNavigate();
+
+  const fetchFinanceData = async () => {
+    try {
+      const [finRes, setRes] = await Promise.all([
+        api.get('/vendor/finance'),
+        api.get('/vendor/settlements')
+      ]);
+      setData(finRes.data.data || {});
+      setSettlements(setRes.data.data || []);
+    } catch (err) {
+      showToast('Failed to load finance data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.get('/vendor/finance').then(r=>setData(r.data.data||{})).catch(()=>showToast('Failed to load finance data','error')).finally(()=>setLoading(false));
+    fetchFinanceData();
   }, []);
 
   const requestSettlement = async () => {
@@ -850,8 +904,7 @@ const Finance = () => {
       await api.post('/vendor/settlements');
       showToast('Settlement request sent to admin!', 'success');
       // Refresh finance data
-      const r = await api.get('/vendor/finance');
-      setData(r.data.data || {});
+      fetchFinanceData();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to request settlement', 'error');
     }
@@ -862,10 +915,18 @@ const Finance = () => {
   return (
     <>
       <div className="metrics-grid">
-        <MetricCard title="Packages to Settle" value={data.pendingPackagesCount??0} color="primary" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>}/>
-        <MetricCard title="COD Collected" value={`Rs. ${data.pendingCOD??0}`} color="success" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>}/>
-        <MetricCard title="Delivery Charges" value={`Rs. ${data.pendingDeliveryCharges??0}`} color="danger" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>}/>
-        <MetricCard title="Net Payable to You" value={`Rs. ${data.totalPayable??0}`} color="purple" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}/>
+        <div onClick={() => navigate('/vendor/history')} className="cursor-pointer hover:shadow-md transition-shadow">
+          <MetricCard title="Packages to Settle" value={data.pendingPackagesCount??0} color="primary" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>}/>
+        </div>
+        <div onClick={() => navigate('/vendor/history')} className="cursor-pointer hover:shadow-md transition-shadow">
+          <MetricCard title="COD Collected" value={`Rs. ${data.pendingCOD??0}`} color="success" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>}/>
+        </div>
+        <div onClick={() => navigate('/vendor/history')} className="cursor-pointer hover:shadow-md transition-shadow">
+          <MetricCard title="Delivery Charges" value={`Rs. ${data.pendingDeliveryCharges??0}`} color="danger" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/></svg>}/>
+        </div>
+        <div onClick={() => navigate('/vendor/history')} className="cursor-pointer hover:shadow-md transition-shadow">
+          <MetricCard title="Net Payable to You" value={`Rs. ${data.totalPayable??0}`} color="purple" icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}/>
+        </div>
       </div>
       <div className="card">
         <div className="card-header border-b"><div className="header-title-group"><h3>Request Settlement</h3><p>Request payment for delivered packages</p></div><button className="btn btn-primary" disabled={(data.totalPayable||0)<=0} onClick={requestSettlement}>Request Payment</button></div>
@@ -874,6 +935,35 @@ const Finance = () => {
             ? <div style={{background:'var(--color-primary-soft)',border:'1px solid rgba(37,99,235,0.2)',borderRadius:'var(--radius-sm)',padding:'16px 20px',color:'var(--color-primary)'}}>You have <strong>Rs. {data.totalPayable}</strong> pending settlement across <strong>{data.pendingPackagesCount}</strong> delivered packages.</div>
             : <div style={{background:'var(--bg-surface)',border:'1px solid var(--border-color)',borderRadius:'var(--radius-sm)',padding:'16px 20px',color:'var(--text-muted)'}}>No pending settlements available at this time.</div>
           }
+        </div>
+      </div>
+
+      <div className="card p-0 mt-4">
+        <div className="card-header border-b" style={{padding:20}}>
+          <div className="header-title-group"><h3>Payment History</h3><p>Log of your past settlement requests and payments</p></div>
+        </div>
+        <div className="table-container">
+          <table className="data-table">
+            <thead><tr><th>Date</th><th>Amount Requested</th><th>Packages</th><th>Status</th></tr></thead>
+            <tbody>
+              {settlements.length === 0 ? (
+                <tr><td colSpan="4" style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>No settlement history found.</td></tr>
+              ) : (
+                settlements.map(s => (
+                  <tr key={s._id}>
+                    <td style={{color:'var(--text-muted)'}}>{new Date(s.createdAt).toLocaleDateString()}</td>
+                    <td style={{fontWeight:600}}>Rs. {s.requestedAmount}</td>
+                    <td>{s.packageIds?.length || 0} packages</td>
+                    <td>
+                      <span className={`badge ${s.status === 'Paid' ? 'badge-success' : s.status === 'Rejected' ? 'badge-danger' : 'badge-warning'}`}>
+                        {s.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </>

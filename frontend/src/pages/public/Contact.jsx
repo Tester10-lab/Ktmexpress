@@ -9,7 +9,7 @@ const PublicNav = ({ active }) => (
         <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem', background: 'linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>ktmexpress</span>
       </Link>
       <nav className="public-nav-links">
-        {[{ label: 'Pricing', path: '/pricing' }, { label: 'Contact', path: '/contact' }].map(({ label, path }) => (
+        {[{ label: 'Branches', path: '/branches' }, { label: 'Pricing', path: '/pricing' }, { label: 'Contact', path: '/contact' }].map(({ label, path }) => (
           <Link key={path} to={path} style={{ padding: '8px 16px', borderRadius: '12px', fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none', color: active === path ? 'var(--color-primary)' : 'var(--text-secondary)', background: active === path ? 'rgba(37,99,235,0.08)' : 'transparent', transition: 'all 0.2s ease' }}>{label}</Link>
         ))}
         <Link to="/login" className="btn btn-primary btn-sm" style={{ borderRadius: '12px', padding: '10px 20px', fontWeight: 700 }}>Login</Link>
