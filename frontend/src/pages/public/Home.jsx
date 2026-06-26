@@ -1,43 +1,51 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Package, Search, Rocket, MapPin, Receipt, BarChart3, Bike, ShieldCheck, ArrowRight } from 'lucide-react';
 
 const PublicNav = ({ active }) => (
-  <header style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(0,0,0,0.05)', position: 'sticky', top: 0, zIndex: 200, boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-    <div className="public-header-inner">
-      <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--color-primary)' }}>
-          <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
-        </svg>
-        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '1.4rem', background: 'linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>ktmexpress</span>
+  <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <Link to="/" className="flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
+          <Package className="w-5 h-5" />
+        </div>
+        <span className="font-bold text-xl tracking-tight text-slate-900">ktmexpress</span>
       </Link>
-      <nav className="public-nav-links">
+      <nav className="hidden md:flex items-center gap-1">
         {[
           { label: 'Branches', path: '/branches' },
           { label: 'Pricing', path: '/pricing' },
           { label: 'Contact', path: '/contact' },
         ].map(({ label, path }) => (
-          <Link key={path} to={path} style={{
-            padding: '8px 16px', borderRadius: '12px', fontFamily: 'var(--font-heading)',
-            fontWeight: 600, fontSize: '0.9rem', textDecoration: 'none',
-            color: active === path ? 'var(--color-primary)' : 'var(--text-secondary)',
-            background: active === path ? 'rgba(37,99,235,0.08)' : 'transparent',
-            transition: 'all 0.2s ease'
-          }}>{label}</Link>
+          <Link 
+            key={path} 
+            to={path} 
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              active === path ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+          >
+            {label}
+          </Link>
         ))}
-        <Link to="/login" className="btn btn-primary btn-sm" style={{ borderRadius: '12px', padding: '10px 20px', fontWeight: 700 }}>Login</Link>
+        <div className="w-px h-6 bg-slate-200 mx-2" />
+        <Link to="/login" className="btn-primary ml-2">Login</Link>
       </nav>
+      {/* Mobile Nav Button */}
+      <div className="md:hidden">
+        <Link to="/login" className="btn-primary btn-sm">Login</Link>
+      </div>
     </div>
   </header>
 );
 
 const PublicFooter = () => (
-  <footer style={{ background: '#0f172a', color: '#94a3b8', padding: '32px 24px', textAlign: 'center' }}>
-    <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16 }}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 600, fontSize: '0.9rem', color: '#f1f5f9' }}>ktmexpress Logistics</span>
+  <footer className="bg-slate-950 text-slate-400 py-12 px-6 text-center border-t border-slate-800">
+    <div className="max-w-7xl mx-auto flex flex-col items-center">
+      <div className="flex items-center gap-2 mb-4">
+        <Package className="w-5 h-5 text-brand-500" />
+        <span className="font-bold text-slate-200">ktmexpress Logistics</span>
       </div>
-      <p style={{ fontSize: 'var(--font-size-sm)' }}>© {new Date().getFullYear()} ktmexpress Logistics SaaS. All rights reserved.</p>
+      <p className="text-sm">© {new Date().getFullYear()} ktmexpress Logistics SaaS. All rights reserved.</p>
     </div>
   </footer>
 );
@@ -52,12 +60,12 @@ const Home = () => {
   };
 
   const features = [
-    { emoji: '🚀', title: 'Same-Day Dispatch', desc: 'Lightning-fast pickup within Kathmandu valley. Your packages are always moving.' },
-    { emoji: '📍', title: 'Real-Time Tracking', desc: 'Live status updates and rider contact info. Your customers always know where their package is.' },
-    { emoji: '🧾', title: 'COD Management', desc: 'Seamless cash-on-delivery collection, reconciliation, and vendor payouts — all automated.' },
-    { emoji: '📊', title: 'Vendor Dashboard', desc: 'Full-featured vendor portal with bulk CSV upload, analytics, finance, and order history.' },
-    { emoji: '🏍️', title: 'Rider Management', desc: 'Track your fleet in real-time. Assign pickups and deliveries with one click.' },
-    { emoji: '🔒', title: 'Role-Based Security', desc: 'Admin, Vendor, Dispatcher, and Rider roles — each with precisely scoped access.' },
+    { icon: <Rocket className="w-6 h-6" />, title: 'Same-Day Dispatch', desc: 'Lightning-fast pickup within Kathmandu valley. Your packages are always moving.' },
+    { icon: <MapPin className="w-6 h-6" />, title: 'Real-Time Tracking', desc: 'Live status updates and rider contact info. Your customers always know where their package is.' },
+    { icon: <Receipt className="w-6 h-6" />, title: 'COD Management', desc: 'Seamless cash-on-delivery collection, reconciliation, and vendor payouts — all automated.' },
+    { icon: <BarChart3 className="w-6 h-6" />, title: 'Vendor Dashboard', desc: 'Full-featured vendor portal with bulk CSV upload, analytics, finance, and order history.' },
+    { icon: <Bike className="w-6 h-6" />, title: 'Rider Management', desc: 'Track your fleet in real-time. Assign pickups and deliveries with one click.' },
+    { icon: <ShieldCheck className="w-6 h-6" />, title: 'Role-Based Security', desc: 'Admin, Vendor, Dispatcher, and Rider roles — each with precisely scoped access.' },
   ];
 
   const stats = [
@@ -68,67 +76,80 @@ const Home = () => {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-base)' }}>
+    <div className="min-h-screen flex flex-col bg-slate-50">
       <PublicNav active="/" />
 
       {/* Hero */}
-      <section style={{
-        background: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #4f46e5 100%)',
-        padding: '80px 24px', textAlign: 'center', position: 'relative', overflow: 'hidden'
-      }}>
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: 400, height: 400, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', zIndex: 0 }} />
-        <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', zIndex: 0 }} />
-        <div style={{ maxWidth: 900, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 'var(--radius-full)', padding: '6px 16px', marginBottom: 24 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#34d399', animation: 'pulse 2s infinite', display: 'inline-block' }}></span>
-            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'var(--font-size-xs)', fontWeight: 600, letterSpacing: '0.04em' }}>NEPAL'S #1 LOGISTICS SAAS PLATFORM</span>
+      <section className="relative overflow-hidden bg-white py-24 sm:py-32">
+        {/* Background Gradients */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-to-tr from-brand-100 to-indigo-50 blur-[100px] rounded-full pointer-events-none opacity-50" />
+        
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-8 text-center z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50 border border-brand-200 text-brand-700 text-xs font-bold uppercase tracking-wider mb-8 shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-500"></span>
+            </span>
+            Nepal's #1 Logistics SaaS Platform
           </div>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 800, color: '#fff', marginBottom: 20, letterSpacing: '-0.03em', lineHeight: 1.2 }}>
-            Fast, Reliable<br />Delivery Solutions
+          
+          <h1 className="text-4xl sm:text-6xl font-extrabold text-slate-900 tracking-tight mb-6 leading-tight">
+            Fast, Reliable <br className="hidden sm:block"/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-600 to-indigo-600">Delivery Solutions</span>
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.85)', fontSize: 'clamp(1rem, 2vw, 1.2rem)', marginBottom: 40, maxWidth: 600, margin: '0 auto 40px' }}>
+          
+          <p className="max-w-2xl mx-auto text-lg sm:text-xl text-slate-500 mb-10 leading-relaxed">
             Seamless delivery management for e-commerce vendors across Nepal. From order creation to cash reconciliation — all in one place.
           </p>
-          <form onSubmit={handleTrack} style={{ display: 'flex', maxWidth: 560, margin: '0 auto', background: 'rgba(255,255,255,0.95)', borderRadius: 'var(--radius-md)', padding: 6, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', gap: 8 }}>
-            <input
-              type="text" value={code} onChange={e => setCode(e.target.value)}
-              placeholder="Enter tracking code (e.g. LOG-2026-ABC12)"
-              style={{ flex: 1, border: 'none', outline: 'none', padding: '10px 16px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)', fontFamily: 'var(--font-body)', background: 'transparent', color: 'var(--text-primary)' }}
-            />
-            <button type="submit" className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Track
+
+          <form onSubmit={handleTrack} className="max-w-2xl mx-auto bg-white p-2 rounded-2xl shadow-xl border border-slate-200 flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 flex items-center pl-4">
+              <Search className="w-5 h-5 text-slate-400 shrink-0" />
+              <input
+                type="text" 
+                value={code} 
+                onChange={e => setCode(e.target.value)}
+                placeholder="Enter tracking code (e.g. LOG-2026-ABC12)"
+                className="w-full bg-transparent border-none focus:ring-0 text-slate-900 placeholder:text-slate-400 px-3 py-3 outline-none"
+              />
+            </div>
+            <button type="submit" className="btn-primary py-3 px-8 rounded-xl shrink-0 h-12 text-base shadow-brand-500/20 shadow-lg">
+              Track Package
             </button>
           </form>
-          <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 'var(--font-size-xs)', marginTop: 12 }}>No account needed · Instant tracking</p>
+          <p className="text-xs font-medium text-slate-400 mt-4">No account needed · Instant tracking</p>
         </div>
       </section>
 
       {/* Stats */}
-      <section style={{ background: 'var(--bg-surface-elevated)', borderBottom: '1px solid var(--border-color)', padding: '32px 24px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 24, textAlign: 'center' }}>
-          {stats.map(s => (
-            <div key={s.label}>
-              <div style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: 'var(--color-primary)', marginBottom: 4 }}>{s.value}</div>
-              <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-muted)', fontWeight: 500 }}>{s.label}</div>
-            </div>
-          ))}
+      <section className="bg-slate-900 py-16">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-slate-800">
+            {stats.map(s => (
+              <div key={s.label} className="text-center px-4">
+                <div className="text-3xl md:text-4xl font-extrabold text-white mb-2">{s.value}</div>
+                <div className="text-sm font-semibold text-brand-400">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Features */}
-      <section style={{ padding: '80px 24px', flex: 1 }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--font-size-2xl)', fontWeight: 700, marginBottom: 12 }}>Everything Your Business Needs</h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-lg)', maxWidth: 600, margin: '0 auto' }}>A complete logistics operating system — from first mile to last mile.</p>
+      <section className="py-24 bg-slate-50 flex-1">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="text-center mb-16 max-w-3xl mx-auto">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight mb-4">Everything Your Business Needs</h2>
+            <p className="text-lg text-slate-500">A complete logistics operating system — from first mile to last mile.</p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map(f => (
-              <div key={f.title} className="card" style={{ gap: 0 }}>
-                <div style={{ fontSize: '2rem', marginBottom: 16 }}>{f.emoji}</div>
-                <h3 style={{ fontSize: 'var(--font-size-base)', marginBottom: 8 }}>{f.title}</h3>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', lineHeight: 1.7 }}>{f.desc}</p>
+              <div key={f.title} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200/60 hover:shadow-md transition-shadow group">
+                <div className="w-12 h-12 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  {f.icon}
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 mb-3">{f.title}</h3>
+                <p className="text-slate-500 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -136,12 +157,15 @@ const Home = () => {
       </section>
 
       {/* CTA */}
-      <section style={{ background: 'linear-gradient(135deg, var(--color-primary) 0%, #4f46e5 100%)', padding: '60px 24px', textAlign: 'center' }}>
-        <h2 style={{ color: '#fff', fontFamily: 'var(--font-heading)', fontSize: 'var(--font-size-2xl)', fontWeight: 700, marginBottom: 12 }}>Ready to scale your deliveries?</h2>
-        <p style={{ color: 'rgba(255,255,255,0.8)', marginBottom: 28, fontSize: 'var(--font-size-base)' }}>Join 150+ vendors already using ktmexpress to power their last-mile operations.</p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/login" className="btn" style={{ background: '#fff', color: 'var(--color-primary)', fontWeight: 700 }}>Get Started Free</Link>
-          <Link to="/contact" className="btn btn-outline" style={{ borderColor: 'rgba(255,255,255,0.5)', color: '#fff' }}>Talk to Sales</Link>
+      <section className="relative overflow-hidden bg-brand-600 py-20 px-6 text-center">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        <div className="relative max-w-3xl mx-auto z-10">
+          <h2 className="text-3xl font-bold text-white mb-6">Ready to scale your deliveries?</h2>
+          <p className="text-brand-100 text-lg mb-10">Join 150+ vendors already using ktmexpress to power their last-mile operations.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/login" className="bg-white text-brand-600 font-bold px-8 py-3.5 rounded-lg hover:bg-brand-50 transition-colors shadow-lg">Get Started Free</Link>
+            <Link to="/contact" className="bg-brand-700/50 border border-brand-500 text-white font-bold px-8 py-3.5 rounded-lg hover:bg-brand-700 transition-colors">Talk to Sales</Link>
+          </div>
         </div>
       </section>
 

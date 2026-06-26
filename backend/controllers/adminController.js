@@ -2,11 +2,20 @@ import User from '../models/User.js';
 import Package from '../models/Package.js';
 import Expense from '../models/Expense.js';
 import Settlement from '../models/Settlement.js';
+import PickupRequest from '../models/PickupRequest.js';
+import fs from 'fs';
+import csv from 'csv-parser';
+import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
+import { generateLabelUrls } from '../services/labelService.js';
 
 // GET /api/admin/dashboard
 export const getDashboardStats = async (req, res) => {
   try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     const [pkgStatsAgg] = await Package.aggregate([
+      { $match: { deletedAt: null } },
       {
         $facet: {
           total: [{ $count: "count" }],
@@ -14,6 +23,8 @@ export const getDashboardStats = async (req, res) => {
           pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } } }, { $count: "count" }],
           cancelled: [{ $match: { status: 'Cancelled' } }, { $count: "count" }],
           returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: "count" }],
+          todayPackages: [{ $match: { createdAt: { $gte: today } } }, { $count: "count" }],
+          todayDeliveries: [{ $match: { status: 'Delivered', updatedAt: { $gte: today } } }, { $count: "count" }],
         }
       }
     ]);
@@ -24,14 +35,19 @@ export const getDashboardStats = async (req, res) => {
       pending: pkgStatsAgg.pending[0]?.count || 0,
       cancelled: pkgStatsAgg.cancelled[0]?.count || 0,
       returned: pkgStatsAgg.returned[0]?.count || 0,
+      todayPackages: pkgStatsAgg.todayPackages[0]?.count || 0,
+      todayDeliveries: pkgStatsAgg.todayDeliveries[0]?.count || 0,
     };
 
     const activeVendors = await User.countDocuments({ role: 'vendor', status: 'Active' });
     const activeRiders = await User.countDocuments({ role: 'rider', status: 'Active' });
 
+    // Today's pending expenses
+    const todayExpenses = await Expense.countDocuments({ status: 'Pending', date: { $gte: today } });
+
     // Revenue from delivered packages
     const revenueAgg = await Package.aggregate([
-      { $match: { status: 'Delivered' } },
+      { $match: { status: 'Delivered', deletedAt: null } },
       { $group: { _id: null, totalRevenue: { $sum: '$amount' }, totalCharges: { $sum: '$deliveryCharge' } } },
     ]);
 
@@ -45,6 +61,9 @@ export const getDashboardStats = async (req, res) => {
         pending: stats.pending,
         cancelled: stats.cancelled,
         returned: stats.returned,
+        todayPackages: stats.todayPackages,
+        todayDeliveries: stats.todayDeliveries,
+        todayExpenses,
         activeVendors,
         activeRiders,
         totalRevenue: revenue.totalRevenue,
@@ -194,6 +213,7 @@ export const createUser = async (req, res) => {
       role,
       contact: contact || '',
       vendorMeta: role === 'vendor' ? { shopName: shopName || '' } : {},
+      riderMeta: role === 'rider' ? { monthlyTarget: parseInt(req.body.monthlyTarget) || 0 } : {},
       status: 'Active',
     });
 
@@ -207,6 +227,7 @@ export const createUser = async (req, res) => {
         contact: user.contact,
         status: user.status,
         vendorMeta: user.vendorMeta,
+        riderMeta: user.riderMeta,
       },
     });
   } catch (error) {
@@ -231,7 +252,7 @@ export const deleteUser = async (req, res) => {
 // PUT /api/admin/users/:id - Update user details
 export const updateUser = async (req, res) => {
   try {
-    const { name, contact, status, vendorMeta } = req.body;
+    const { name, contact, status, vendorMeta, riderMeta } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
@@ -241,9 +262,12 @@ export const updateUser = async (req, res) => {
     if (vendorMeta && user.role === 'vendor') {
       user.vendorMeta = { ...user.vendorMeta, ...vendorMeta };
     }
+    if (riderMeta && user.role === 'rider') {
+      user.riderMeta = { ...user.riderMeta, ...riderMeta };
+    }
 
     await user.save({ validateModifiedOnly: true });
-    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role, contact: user.contact, status: user.status, vendorMeta: user.vendorMeta } });
+    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role, contact: user.contact, status: user.status, vendorMeta: user.vendorMeta, riderMeta: user.riderMeta } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -277,7 +301,7 @@ export const getAllPackagesAdmin = async (req, res) => {
 export const updatePackageAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { customerName, customerPhone, address, city, amount, weight } = req.body;
+    const { customerName, customerPhone, address, city, amount, weight, deliveryDate } = req.body;
 
     const pkg = await Package.findById(id);
     if (!pkg) {
@@ -291,6 +315,7 @@ export const updatePackageAdmin = async (req, res) => {
     if (city && city !== pkg.city) { updates.push('City'); pkg.city = city; }
     if (amount !== undefined && amount !== pkg.amount) { updates.push('Amount'); pkg.amount = amount; }
     if (weight !== undefined && weight !== pkg.weight) { updates.push('Weight'); pkg.weight = weight; }
+    if (deliveryDate !== undefined) { updates.push('Delivery Date'); pkg.deliveryDate = deliveryDate ? new Date(deliveryDate) : null; }
 
     if (updates.length > 0) {
       pkg.timeline.push({
@@ -306,6 +331,272 @@ export const updatePackageAdmin = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
+};
+
+// DELETE /api/admin/packages/:id - Soft-delete a package
+export const deletePackageAdmin = async (req, res) => {
+  try {
+    const pkg = await Package.findById(req.params.id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    pkg.deletedAt = new Date();
+    pkg.timeline.push({
+      time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: pkg.status,
+      message: 'Package deleted by admin',
+      user: req.user.name,
+    });
+    await pkg.save();
+
+    res.json({ success: true, message: 'Package deleted successfully.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/packages - Create a package on behalf of a vendor
+export const createPackageForVendor = async (req, res) => {
+  try {
+    const { vendorId, invoiceId, customerName, customerPhone, address, outOfValley, city, weight, items, amount, deliveryCharge, deliveryDate, packageAccess } = req.body;
+
+    if (!vendorId) {
+      return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
+    }
+    if (!customerName || !customerPhone || !address || amount === undefined) {
+      return res.status(400).json({ success: false, message: 'Customer name, phone, address, and amount are required.' });
+    }
+
+    const vendor = await User.findById(vendorId);
+    if (!vendor || vendor.role !== 'vendor') {
+      return res.status(404).json({ success: false, message: 'Vendor not found.' });
+    }
+
+    const trackingCode = await uniqueTrackingCode();
+    const labelUrls = generateLabelUrls(trackingCode);
+
+    const pkg = await Package.create({
+      trackingCode,
+      invoiceId: invoiceId || generateInvoiceId(),
+      customerName,
+      customerPhone,
+      address,
+      outOfValley: !!outOfValley,
+      city: city || '',
+      weight: weight || 0.5,
+      packageAccess: packageAccess || 'sealed',
+      items: items || [],
+      amount: Number(amount),
+      deliveryCharge: deliveryCharge || 0,
+      deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
+      vendorId,
+      ...labelUrls,
+      status: 'Pending',
+      timeline: [{
+        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: 'Invoice Created',
+        message: `Admin created order on behalf of vendor ${vendor.name}`,
+        user: req.user.name,
+      }]
+    });
+
+    res.status(201).json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/packages/bulk - Bulk create packages for a vendor
+export const bulkCreatePackagesForVendor = async (req, res) => {
+  try {
+    const { vendorId, packages } = req.body;
+
+    if (!vendorId) {
+      return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
+    }
+    if (!Array.isArray(packages) || packages.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid packages data.' });
+    }
+
+    const vendor = await User.findById(vendorId);
+    if (!vendor || vendor.role !== 'vendor') {
+      return res.status(404).json({ success: false, message: 'Vendor not found.' });
+    }
+
+    const createdPackages = [];
+    for (const p of packages) {
+      const trackingCode = await uniqueTrackingCode();
+      const labelUrls = generateLabelUrls(trackingCode);
+      const pkg = await Package.create({
+        trackingCode,
+        invoiceId: p.invoiceId || generateInvoiceId(),
+        customerName: p.customerName,
+        customerPhone: p.customerPhone,
+        address: p.address,
+        outOfValley: !!p.outOfValley,
+        city: p.city || '',
+        weight: Number(p.weight) || 0.5,
+        items: p.items || [],
+        amount: Number(p.amount) || 0,
+        deliveryCharge: Number(p.deliveryCharge) || 0,
+        deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
+        vendorId,
+        ...labelUrls,
+        status: 'Pending',
+        timeline: [{
+          time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          status: 'Invoice Created',
+          message: `Admin bulk created on behalf of vendor ${vendor.name}`,
+          user: req.user.name,
+        }]
+      });
+      createdPackages.push(pkg);
+    }
+
+    res.status(201).json({ success: true, data: createdPackages });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/packages/pickup-request - Request pickup for selected packages
+export const requestPickupAdmin = async (req, res) => {
+  try {
+    const { packageIds } = req.body;
+
+    if (!packageIds || !packageIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No packages selected for pickup.',
+      });
+    }
+
+    const results = [];
+
+    for (const pkgId of packageIds) {
+      const pkg = await Package.findOne({ _id: pkgId });
+      if (!pkg || pkg.status !== 'Pending') continue;
+
+      // Update package status
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      pkg.status = 'Pick Up Requested';
+      pkg.timeline.push({
+        time: now,
+        status: 'Pick Up Requested',
+        message: 'Admin requested courier pickup on behalf of vendor',
+        user: req.user.name,
+      });
+      await pkg.save();
+
+      // Create pickup request
+      const pickup = await PickupRequest.create({
+        packageId: pkg._id,
+        vendorId: pkg.vendorId,
+      });
+
+      results.push({ packageId: pkg._id, trackingCode: pkg.trackingCode, pickupId: pickup._id, vendorId: pkg.vendorId });
+    }
+
+    if (results.length > 0 && req.io) {
+      req.io.to('role_dispatcher').emit('notification', {
+        title: 'New Pickup Request',
+        message: `Admin requested pickup for ${results.length} package(s).`,
+        type: 'pickup_request'
+      });
+    }
+
+    res.status(201).json({ success: true, data: results });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/packages/upload-csv - Upload CSV on behalf of a vendor
+export const uploadCsvForVendor = async (req, res) => {
+  if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded.' });
+
+  const vendorId = req.body.vendorId;
+  if (!vendorId) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(400).json({ success: false, message: 'Vendor ID is required.' });
+  }
+
+  const vendor = await User.findById(vendorId);
+  if (!vendor || vendor.role !== 'vendor') {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    return res.status(404).json({ success: false, message: 'Vendor not found.' });
+  }
+
+  const results = [];
+
+  const getVal = (row, keys) => {
+    for (const k of keys) {
+      if (row[k] !== undefined && row[k] !== '') return row[k];
+      const lowerRow = Object.keys(row).reduce((acc, key) => {
+        acc[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = row[key];
+        return acc;
+      }, {});
+      const lowerK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (lowerRow[lowerK] !== undefined && lowerRow[lowerK] !== '') return lowerRow[lowerK];
+    }
+    return undefined;
+  };
+
+  fs.createReadStream(req.file.path)
+    .pipe(csv())
+    .on('data', (data) => results.push(data))
+    .on('end', async () => {
+      try {
+        const packageDocs = [];
+        for (const raw of results) {
+          const trackingCode = await uniqueTrackingCode();
+          const labelUrls = generateLabelUrls(trackingCode);
+
+          const p = {
+            invoiceId: getVal(raw, ['invoiceId', 'invoice', 'reference']),
+            customerName: getVal(raw, ['customerName', 'customer name', 'name']),
+            customerPhone: getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact']),
+            address: getVal(raw, ['address', 'delivery address', 'location']),
+            outOfValley: getVal(raw, ['outOfValley', 'out of valley', 'outside valley']),
+            city: getVal(raw, ['city', 'area', 'district']),
+            weight: getVal(raw, ['weight', 'kg']),
+            amount: getVal(raw, ['amount', 'cod', 'price']),
+            deliveryCharge: getVal(raw, ['deliveryCharge', 'delivery charge', 'shipping']),
+          };
+
+          packageDocs.push({
+            trackingCode,
+            invoiceId: p.invoiceId || generateInvoiceId(),
+            customerName: p.customerName || 'Unknown Customer',
+            customerPhone: p.customerPhone || '0000000000',
+            address: p.address || 'Unknown Address',
+            outOfValley: String(p.outOfValley).toLowerCase() === 'true' || p.outOfValley === '1' || String(p.outOfValley).toLowerCase() === 'yes',
+            city: p.city || '',
+            weight: Number(p.weight) || 0.5,
+            items: [],
+            amount: Number(p.amount) || 0,
+            deliveryCharge: Number(p.deliveryCharge) || 0,
+            vendorId,
+            ...labelUrls,
+            status: 'Pending',
+            timeline: [{
+              time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+              status: 'Invoice Created',
+              message: `Admin uploaded CSV on behalf of vendor ${vendor.name}`,
+              user: req.user.name,
+            }]
+          });
+        }
+        const createdPackages = await Package.insertMany(packageDocs);
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        res.status(201).json({ success: true, data: createdPackages, message: `Successfully imported ${createdPackages.length} packages for ${vendor.name}.` });
+      } catch (err) {
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        const isValidation = err.name === 'ValidationError';
+        res.status(isValidation ? 400 : 500).json({ success: false, message: isValidation ? err.message : 'Server error during upload' });
+      }
+    });
 };
 
 // POST /api/admin/reconcile/:riderId - Mark COD collected from rider

@@ -2,27 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
-import ScanStation from '../../components/ScanStation';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
+import { 
+  Package, Truck, Wallet, History, MapPin, Navigation, 
+  CheckCircle2, XCircle, Clock, Search, AlertCircle, X,
+  Calendar, FileText, ChevronRight, Phone, Target
+} from 'lucide-react';
 
 const navLinks = [
-  { name: 'My Deliveries', path: '/rider/deliveries', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
-  { name: 'COD Wallet', path: '/rider/wallet', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg> },
-  { name: 'Log Expense', path: '/rider/expenses', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
-  { name: 'Expense History', path: '/rider/expense-history', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> },
+  { name: 'My Deliveries', path: '/rider/deliveries', icon: <Truck className="w-[18px] h-[18px]" /> },
+  { name: 'Performance & Wallet', path: '/rider/wallet', icon: <Wallet className="w-[18px] h-[18px]" /> },
+  { name: 'Log Expense', path: '/rider/expenses', icon: <FileText className="w-[18px] h-[18px]" /> },
+  { name: 'Expense History', path: '/rider/expense-history', icon: <History className="w-[18px] h-[18px]" /> },
 ];
 
 const titleMap = {
   '/rider/deliveries': 'My Deliveries & Pickups',
-  '/rider/wallet': 'COD Wallet',
+  '/rider/wallet': 'Performance & Wallet',
   '/rider/expenses': 'Log Expense',
   '/rider/expense-history': 'Expense History',
 };
 
 function statusBadge(status) {
-  const m = { 'Delivered':'badge-success','Cancelled':'badge-danger','Returned':'badge-info','Postponed':'badge-warning','Out for Delivery':'badge-primary','Pick Up Requested':'badge-warning','Picked Up':'badge-primary' };
-  return <span className={`badge ${m[status]||'badge-secondary'}`}>{status}</span>;
+  const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
+  const styles = {
+    'Delivered': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'Cancelled': 'bg-red-50 text-red-700 border-red-200',
+    'Returned': 'bg-sky-50 text-sky-700 border-sky-200',
+    'Postponed': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Out for Delivery': 'bg-brand-50 text-brand-700 border-brand-200',
+    'Pick Up Requested': 'bg-amber-50 text-amber-700 border-amber-200',
+    'Picked Up': 'bg-brand-50 text-brand-700 border-brand-200'
+  };
+  return <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>{status}</span>;
 }
 
 // ─── My Deliveries ────────────────────────────────────────────────────────
@@ -45,7 +58,6 @@ const MyDeliveries = () => {
   const fetchAll = async () => {
     setLoading(true);
     try {
-      // Fetch all deliveries and pickups
       const [d, p] = await Promise.all([
         api.get('/rider/deliveries?type=delivery'), 
         api.get('/rider/deliveries?type=pickup')
@@ -134,76 +146,98 @@ const MyDeliveries = () => {
     return true; // 'all'
   });
 
+  const activeFilteredDeliveries = filteredDeliveries.filter(d => ['Out for Delivery'].includes(d.status));
+  const allDeliveriesSelected = activeFilteredDeliveries.length > 0 && selectedDeliveries.length === activeFilteredDeliveries.length;
+  
+  const handleSelectAllDeliveries = () => {
+    if (allDeliveriesSelected) {
+      setSelectedDeliveries([]);
+    } else {
+      setSelectedDeliveries(activeFilteredDeliveries.map(d => d._id));
+    }
+  };
+
+  const pendingFilteredPickups = filteredPickups.filter(p => p.status === 'Pick Up Requested');
+  const allPickupsSelected = pendingFilteredPickups.length > 0 && selectedPickups.length === pendingFilteredPickups.length;
+  
+  const handleSelectAllPickups = () => {
+    if (allPickupsSelected) {
+      setSelectedPickups([]);
+    } else {
+      setSelectedPickups(pendingFilteredPickups.map(p => p._id));
+    }
+  };
+
   const TaskCard = ({ pkg, isPickup }) => {
     const isPendingPickup = isPickup && pkg.status === 'Pick Up Requested';
     const isActiveDelivery = !isPickup && ['Out for Delivery'].includes(pkg.status);
 
     return (
-      <div className="rider-task-card" style={{ display: 'flex', gap: 12, alignItems: 'center', opacity: (!isPendingPickup && !isActiveDelivery) ? 0.8 : 1, transition: 'all 0.3s ease' }}>
-        {isPendingPickup && (
-          <input 
-            type="checkbox" 
-            checked={selectedPickups.includes(pkg._id)} 
-            onChange={() => toggleSelect(pkg._id)} 
-            style={{ width: 22, height: 22, accentColor: 'var(--color-primary)', cursor: 'pointer' }} 
-          />
-        )}
-        {isActiveDelivery && (
-          <input 
-            type="checkbox" 
-            checked={selectedDeliveries.includes(pkg._id)} 
-            onChange={() => toggleSelectDelivery(pkg._id)} 
-            style={{ width: 22, height: 22, accentColor: 'var(--color-success)', cursor: 'pointer' }} 
-          />
-        )}
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div className="task-info">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <h4 style={{ margin: 0, fontWeight: 700 }}>{pkg.trackingCode}</h4>
-              <span style={{ fontSize: '12px', padding: '3px 8px', background: 'var(--color-primary-soft)', color: 'var(--color-primary)', borderRadius: 6, fontWeight: 600 }}>
-                🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
-              </span>
-              {statusBadge(pkg.status)}
-            </div>
-            <div style={{ fontSize: 'var(--font-size-sm)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
-              <div style={{ fontWeight: 600, color: 'var(--text-primary)', display:'flex', alignItems:'center', gap:6 }}>
-                👤 {pkg.customerName}
-              </div>
-              <div style={{ color: 'var(--text-secondary)', display:'flex', alignItems:'center', gap:6 }}>
-                📞 {pkg.customerPhone || 'No Phone'}
-              </div>
-              <div style={{ color: 'var(--text-secondary)', display:'flex', alignItems:'center', gap:6, gridColumn: '1 / -1' }}>
-                📍 {pkg.city ? `${pkg.city}, ` : ''}{pkg.address}
-              </div>
-            </div>
-            <div style={{marginTop:12, fontSize:'14px', fontWeight:700}}>
-              To Collect: <span style={{ color: 'var(--color-primary)' }}>Rs. {pkg.amount}</span>
-            </div>
-          </div>
+      <div className={`bg-white rounded-2xl border ${isPendingPickup || isActiveDelivery ? 'border-brand-200 shadow-md ring-1 ring-brand-100' : 'border-slate-200 shadow-sm opacity-80'} p-5 transition-all duration-300 hover:shadow-lg`}>
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
           
-          <div className="task-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-4">
             {isPendingPickup && (
-              <button className="btn btn-success btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'pickup_complete')} style={{fontWeight:600}} title="Confirm Pickup">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                <span className="btn-text">Confirm Pickup</span>
-              </button>
+              <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" checked={selectedPickups.includes(pkg._id)} onChange={() => toggleSelect(pkg._id)} />
             )}
             {isActiveDelivery && (
-              <>
-                <button className="btn btn-success btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'deliver')} style={{fontWeight:600}} title="Delivered">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                  <span className="btn-text">Delivered</span>
-                </button>
-                <button className="btn btn-warning btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'postpone')} style={{fontWeight:600}} title="Postpone">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span className="btn-text">Postpone</span>
-                </button>
-                <button className="btn btn-danger btn-sm btn-mobile-icon" onClick={()=>openModal(pkg,'cancel')} style={{fontWeight:600}} title="Cancel">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                  <span className="btn-text">Cancel</span>
-                </button>
-              </>
+              <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={selectedDeliveries.includes(pkg._id)} onChange={() => toggleSelectDelivery(pkg._id)} />
             )}
+          </div>
+
+          <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            <div className="space-y-3 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-lg font-bold text-slate-900">{pkg.trackingCode}</h4>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
+                  🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
+                </span>
+                {statusBadge(pkg.status)}
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                <div className="flex items-center gap-2 font-semibold text-slate-800">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">👤</div>
+                  {pkg.customerName}
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><Phone className="w-3.5 h-3.5"/></div>
+                  {pkg.customerPhone || 'No Phone'}
+                </div>
+                <div className="flex items-start gap-2 text-slate-600 sm:col-span-2 lg:col-span-1">
+                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5"><MapPin className="w-3.5 h-3.5"/></div>
+                  <span>{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</span>
+                </div>
+              </div>
+              
+              <div className="pt-2 border-t border-slate-100 mt-2">
+                <span className="text-sm font-medium text-slate-500 mr-2">To Collect:</span>
+                <span className="text-lg font-bold text-brand-600">Rs. {pkg.amount}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap sm:flex-col lg:flex-row gap-2 shrink-0 md:min-w-[140px] md:justify-end">
+              {isPendingPickup && (
+                <button className="btn-primary py-2 px-4 flex items-center gap-2 flex-1 justify-center whitespace-nowrap" onClick={()=>openModal(pkg,'pickup_complete')} title="Confirm Pickup">
+                  <CheckCircle2 className="w-4 h-4" /> Confirm Pickup
+                </button>
+              )}
+              {isActiveDelivery && (
+                <>
+                  <button className="flex-1 lg:flex-none py-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'deliver')} title="Delivered">
+                    <CheckCircle2 className="w-4 h-4" /> Delivered
+                  </button>
+                  <button className="flex-1 lg:flex-none py-2 px-3 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'postpone')} title="Postpone">
+                    <Clock className="w-4 h-4" /> Postpone
+                  </button>
+                  <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'cancel')} title="Cancel">
+                    <XCircle className="w-4 h-4" /> Cancel
+                  </button>
+                </>
+              )}
+            </div>
+            
           </div>
         </div>
       </div>
@@ -211,72 +245,80 @@ const MyDeliveries = () => {
   };
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:24}}>
+    <div className="space-y-6 animate-fadeIn">
       
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Task Overview</h2>
+          <p className="text-sm text-slate-500 mt-1">Manage your pending deliveries and pickups</p>
+        </div>
+      </div>
+
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: 16, borderBottom: '2px solid var(--border-color)', marginBottom: 8 }}>
+      <div className="flex gap-4 border-b-2 border-slate-100 mb-6 relative">
         <button 
           onClick={() => setActiveTab('deliveries')}
-          style={{
-            background: 'none', border: 'none', padding: '12px 16px', fontSize: '16px', fontWeight: 600, cursor: 'pointer',
-            color: activeTab === 'deliveries' ? 'var(--color-primary)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'deliveries' ? '3px solid var(--color-primary)' : '3px solid transparent',
-            marginBottom: '-2px', transition: 'all 0.2s'
-          }}
+          className={`pb-3 px-2 text-base font-bold transition-colors relative ${activeTab === 'deliveries' ? 'text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          Deliveries ({deliveries.length})
+          Deliveries <span className="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">{deliveries.length}</span>
+          {activeTab === 'deliveries' && <div className="absolute bottom-[-2px] left-0 right-0 h-[3px] bg-brand-600 rounded-t-full"></div>}
         </button>
         <button 
           onClick={() => setActiveTab('pickups')}
-          style={{
-            background: 'none', border: 'none', padding: '12px 16px', fontSize: '16px', fontWeight: 600, cursor: 'pointer',
-            color: activeTab === 'pickups' ? 'var(--color-primary)' : 'var(--text-secondary)',
-            borderBottom: activeTab === 'pickups' ? '3px solid var(--color-primary)' : '3px solid transparent',
-            marginBottom: '-2px', transition: 'all 0.2s'
-          }}
+          className={`pb-3 px-2 text-base font-bold transition-colors relative ${activeTab === 'pickups' ? 'text-brand-600' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          Pickups ({pickups.length})
+          Pickups <span className="ml-1.5 inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs">{pickups.length}</span>
+          {activeTab === 'pickups' && <div className="absolute bottom-[-2px] left-0 right-0 h-[3px] bg-brand-600 rounded-t-full"></div>}
         </button>
       </div>
 
       {activeTab === 'deliveries' && (
-        <div className="tab-pane animate-fade-in">
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
           {/* Filters */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
-            {['all', 'pending', 'active', 'completed', 'failed'].map(f => {
-              const count = f === 'all' ? deliveries.length : deliveries.filter(d => 
-                f === 'pending' ? ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status) :
-                f === 'active' ? ['Out for Delivery'].includes(d.status) :
-                f === 'completed' ? ['Delivered'].includes(d.status) :
-                ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status)
-              ).length;
-              
-              return (
-                <button 
-                  key={f}
-                  className={`btn btn-sm ${deliveryFilter === f ? 'btn-primary' : 'btn-outline'}`}
-                  style={{ borderRadius: 20, textTransform: 'capitalize', fontWeight: 600 }}
-                  onClick={() => setDeliveryFilter(f)}
-                >
-                  {f} ({count})
-                </button>
-              );
-            })}
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+            <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto hide-scrollbar">
+              {['all', 'pending', 'active', 'completed', 'failed'].map(f => {
+                const count = f === 'all' ? deliveries.length : deliveries.filter(d => 
+                  f === 'pending' ? ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status) :
+                  f === 'active' ? ['Out for Delivery'].includes(d.status) :
+                  f === 'completed' ? ['Delivered'].includes(d.status) :
+                  ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status)
+                ).length;
+                
+                return (
+                  <button 
+                    key={f}
+                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${deliveryFilter === f ? 'bg-brand-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                    onClick={() => setDeliveryFilter(f)}
+                  >
+                    <span className="capitalize">{f}</span> <span className={`ml-1 opacity-80 ${deliveryFilter === f ? 'text-brand-100' : 'text-slate-400'}`}>({count})</span>
+                  </button>
+                );
+              })}
+            </div>
             
-            {selectedDeliveries.length > 0 && (
-              <button className="btn btn-success" onClick={handleBulkDelivery} style={{fontWeight: 700, marginLeft: 'auto'}}>
-                Mark {selectedDeliveries.length} Delivered
-              </button>
-            )}
+            <div className="flex items-center gap-4 shrink-0">
+              {activeFilteredDeliveries.length > 0 && (
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-600 text-sm hover:text-slate-900 transition-colors">
+                  <input type="checkbox" checked={allDeliveriesSelected} onChange={handleSelectAllDeliveries} className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
+                  Select All Active
+                </label>
+              )}
+              {selectedDeliveries.length > 0 && (
+                <button className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center gap-2" onClick={handleBulkDelivery}>
+                  <CheckCircle2 className="w-4 h-4" /> Mark {selectedDeliveries.length} Delivered
+                </button>
+              )}
+            </div>
           </div>
 
-          <div style={{display:'flex',flexDirection:'column',gap:12}}>
-            {loading ? <p style={{color:'var(--text-muted)'}}>Loading...</p>
+          <div className="space-y-4">
+            {loading ? <div className="flex justify-center items-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>
             : filteredDeliveries.length === 0 ? (
-              <div className="empty-state" style={{padding:40, background: 'var(--surface-color)', borderRadius: 12, border: '1px solid var(--border-color)'}}>
-                <div style={{fontSize:40, marginBottom:16}}>📦</div>
-                <h4>No deliveries found</h4>
-                <p style={{color:'var(--text-muted)'}}>Try changing the filter or check back later.</p>
+              <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4"><Package className="w-8 h-8 text-slate-300" /></div>
+                <h4 className="text-lg font-bold text-slate-800 mb-1">No deliveries found</h4>
+                <p className="text-slate-500">Try changing the filter or check back later.</p>
               </div>
             )
             : filteredDeliveries.map(p => <TaskCard key={p._id} pkg={p} isPickup={false}/>)}
@@ -285,10 +327,10 @@ const MyDeliveries = () => {
       )}
 
       {activeTab === 'pickups' && (
-        <div className="tab-pane animate-fade-in">
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
           {/* Filters & Bulk Action */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+            <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto hide-scrollbar">
               {['all', 'pending', 'completed'].map(f => {
                 const count = f === 'all' ? pickups.length : pickups.filter(p => 
                   f === 'pending' ? p.status === 'Pick Up Requested' : p.status === 'Picked Up'
@@ -297,30 +339,37 @@ const MyDeliveries = () => {
                 return (
                   <button 
                     key={f}
-                    className={`btn btn-sm ${pickupFilter === f ? 'btn-primary' : 'btn-outline'}`}
-                    style={{ borderRadius: 20, textTransform: 'capitalize', fontWeight: 600 }}
+                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${pickupFilter === f ? 'bg-brand-600 text-white shadow-md' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                     onClick={() => setPickupFilter(f)}
                   >
-                    {f} ({count})
+                    <span className="capitalize">{f}</span> <span className={`ml-1 opacity-80 ${pickupFilter === f ? 'text-brand-100' : 'text-slate-400'}`}>({count})</span>
                   </button>
                 );
               })}
             </div>
             
-            {selectedPickups.length > 0 && (
-              <button className="btn btn-primary" onClick={handleBulkPickup} style={{fontWeight: 700}}>
-                Confirm {selectedPickups.length} Pickups
-              </button>
-            )}
+            <div className="flex items-center gap-4 shrink-0">
+              {pendingFilteredPickups.length > 0 && (
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-600 text-sm hover:text-slate-900 transition-colors">
+                  <input type="checkbox" checked={allPickupsSelected} onChange={handleSelectAllPickups} className="w-5 h-5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                  Select All Pending
+                </label>
+              )}
+              {selectedPickups.length > 0 && (
+                <button className="bg-brand-600 hover:bg-brand-700 text-white py-2 px-4 rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center gap-2" onClick={handleBulkPickup}>
+                  <CheckCircle2 className="w-4 h-4" /> Confirm {selectedPickups.length} Pickups
+                </button>
+              )}
+            </div>
           </div>
 
-          <div style={{display:'flex',flexDirection:'column',gap:12}}>
-            {loading ? <p style={{color:'var(--text-muted)'}}>Loading...</p>
+          <div className="space-y-4">
+            {loading ? <div className="flex justify-center items-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>
             : filteredPickups.length === 0 ? (
-              <div className="empty-state" style={{padding:40, background: 'var(--surface-color)', borderRadius: 12, border: '1px solid var(--border-color)'}}>
-                <div style={{fontSize:40, marginBottom:16}}>🚚</div>
-                <h4>No pickups found</h4>
-                <p style={{color:'var(--text-muted)'}}>Try changing the filter or check back later.</p>
+              <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4"><Truck className="w-8 h-8 text-slate-300" /></div>
+                <h4 className="text-lg font-bold text-slate-800 mb-1">No pickups found</h4>
+                <p className="text-slate-500">Try changing the filter or check back later.</p>
               </div>
             )
             : filteredPickups.map(p => <TaskCard key={p._id} pkg={p} isPickup={true}/>)}
@@ -330,31 +379,37 @@ const MyDeliveries = () => {
 
       {/* Action Modal */}
       {actionModal.open && (
-        <div className="modal-backdrop" onClick={()=>setActionModal({open:false,pkg:null,action:''})}>
-          <div className="modal-content" onClick={e=>e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{actionLabel[actionModal.action]}</h3>
-              <button className="modal-close" onClick={()=>setActionModal({open:false,pkg:null,action:''})}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={()=>setActionModal({open:false,pkg:null,action:''})}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-scaleIn" onClick={e=>e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">{actionLabel[actionModal.action]}</h3>
+              <button className="text-slate-400 hover:text-slate-600 transition-colors" onClick={()=>setActionModal({open:false,pkg:null,action:''})}><X className="w-5 h-5" /></button>
             </div>
-            <div className="modal-body">
-              <form onSubmit={submitAction}>
+            <div className="p-6">
+              <form onSubmit={submitAction} className="space-y-5">
                 {actionModal.action === 'deliver' && (
-                  <div className="form-group">
-                    <label>COD Cash Collected (Rs.)</label>
-                    <div style={{position: 'relative'}}>
-                      <span style={{position:'absolute', left:12, top:10, color:'var(--text-muted)'}}>Rs.</span>
-                      <input type="number" className="form-control" style={{paddingLeft: 36}} value={form.cashCollected} onChange={e=>setForm(f=>({...f,cashCollected:e.target.value}))}/>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">COD Cash Collected (Rs.)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">Rs.</span>
+                      <input type="number" className="input-field pl-9" value={form.cashCollected} onChange={e=>setForm(f=>({...f,cashCollected:e.target.value}))}/>
                     </div>
-                    <p style={{fontSize:'var(--font-size-xs)',color:'var(--text-muted)',marginTop:6}}>Expected: Rs. {actionModal.pkg?.amount}</p>
+                    <p className="text-xs text-slate-500 mt-1.5 font-medium">Expected: Rs. {actionModal.pkg?.amount}</p>
                   </div>
                 )}
                 {actionModal.action === 'postpone' && (
-                  <div className="form-group"><label>Reschedule Date</label><input type="date" className="form-control" value={form.newDate} onChange={e=>setForm(f=>({...f,newDate:e.target.value}))}/></div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reschedule Date</label>
+                    <input type="date" className="input-field" value={form.newDate} onChange={e=>setForm(f=>({...f,newDate:e.target.value}))}/>
+                  </div>
                 )}
-                <div className="form-group"><label>Remarks / Reason {actionModal.action!=='deliver'&&'*'}</label><textarea className="form-control" rows="3" placeholder="Explain reason..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required={actionModal.action!=='deliver'}/></div>
-                <button type="submit" className="btn btn-primary btn-block" style={{marginTop: 16, padding: 12, fontSize: '16px'}}>Submit Update</button>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Remarks / Reason {actionModal.action!=='deliver'&&<span className="text-red-500">*</span>}</label>
+                  <textarea className="input-field min-h-[100px]" placeholder="Explain reason or add notes..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required={actionModal.action!=='deliver'}/>
+                </div>
+                <div className="pt-2">
+                  <button type="submit" className="btn-primary w-full py-3 text-base">Submit Update</button>
+                </div>
               </form>
             </div>
           </div>
@@ -364,7 +419,7 @@ const MyDeliveries = () => {
   );
 };
 
-// ─── COD Wallet ──────────────────────────────────────────────────────────
+// ─── Performance & Wallet ────────────────────────────────────────────────
 const CODWallet = () => {
   const [stats, setStats] = useState({});
   const [loading, setLoading] = useState(true);
@@ -373,22 +428,90 @@ const CODWallet = () => {
     api.get('/rider/summary').then(r=>setStats(r.data.data||{})).catch(console.error).finally(()=>setLoading(false));
   }, []);
 
-  if (loading) return <div className="empty-state"><p>Loading...</p></div>;
+  if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
 
+  const target = stats.monthlyTarget || 0;
+  const current = stats.deliveredThisMonth || 0;
+  const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+  
   return (
-    <div className="rider-wallet-card">
-      <div style={{marginBottom:16}}>
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{color:'var(--color-primary)',margin:'0 auto',display:'block'}}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>
+    <div className="space-y-6 animate-fadeIn">
+      
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Performance & Wallet</h2>
+          <p className="text-sm text-slate-500 mt-1">Track your earnings and targets</p>
+        </div>
       </div>
-      <h2>Cash COD Wallet</h2>
-      <div className="wallet-amount">Rs. {stats.totalCOD??0}</div>
-      <p className="wallet-subtext">Total Cash-On-Delivery collected. Must be turned in at the hub.</p>
-      <hr className="my-4"/>
-      <h3>Shift Summary</h3>
-      <div className="wallet-summary-grid">
-        <div className="sum-item"><span>Delivered</span><strong>{stats.delivered??0}</strong></div>
-        <div className="sum-item"><span>Postponed</span><strong>{stats.postponed??0}</strong></div>
-        <div className="sum-item"><span>Cancelled</span><strong>{stats.cancelled??0}</strong></div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Wallet Primary Card */}
+        <div className="lg:col-span-2 bg-gradient-to-br from-brand-600 to-indigo-700 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden flex flex-col justify-between min-h-[240px]">
+          {/* Decor */}
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-black opacity-10 rounded-full blur-2xl"></div>
+          
+          <div className="relative z-10 flex justify-between items-start">
+            <div>
+              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">Cash COD Wallet</p>
+              <h3 className="text-4xl sm:text-5xl font-black tracking-tight mt-2">Rs. {stats.totalCOD??0}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner">
+              <Wallet className="w-6 h-6 text-white" />
+            </div>
+          </div>
+          
+          <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
+            <p className="text-sm text-brand-50 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0"/> 
+              Total Cash-On-Delivery collected. Must be deposited at the hub.
+            </p>
+          </div>
+        </div>
+
+        {/* Target Card */}
+        <div className="card-premium p-6 flex flex-col justify-center">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="font-bold text-slate-900 text-lg">Monthly Target</h3>
+              <p className="text-sm text-slate-500 mt-1">Deliveries this month</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-brand-50 flex items-center justify-center text-brand-600">
+              <Target className="w-5 h-5" />
+            </div>
+          </div>
+          
+          {target > 0 ? (
+            <div>
+              <div className="flex justify-between items-end mb-2">
+                <div className="text-3xl font-black text-slate-900">{current}</div>
+                <div className="text-sm font-bold text-slate-500 mb-1">/ {target}</div>
+              </div>
+              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden mb-3">
+                <div className={`h-full rounded-full transition-all duration-1000 ${progress >= 100 ? 'bg-emerald-500' : 'bg-brand-500'}`} style={{width: `${progress}%`}}></div>
+              </div>
+              <p className="text-xs font-medium text-slate-500">
+                {progress >= 100 ? (
+                  <span className="text-emerald-600 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5"/> Target reached! Awesome job.</span>
+                ) : (
+                  <span>You are {progress}% of the way there!</span>
+                )}
+              </p>
+            </div>
+          ) : (
+            <div className="text-center py-4 bg-slate-50 rounded-xl border border-slate-100">
+              <p className="text-sm text-slate-500 font-medium">No target set for this month.</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <h3 className="text-lg font-bold text-slate-900 mt-4 mb-2">Shift Summary</h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <MetricCard title="Delivered" value={stats.delivered??0} color="success" icon={<CheckCircle2 className="w-6 h-6 text-emerald-600" />} />
+        <MetricCard title="Postponed" value={stats.postponed??0} color="warning" icon={<Clock className="w-6 h-6 text-amber-600" />} />
+        <MetricCard title="Cancelled" value={stats.cancelled??0} color="danger" icon={<XCircle className="w-6 h-6 text-red-600" />} />
       </div>
     </div>
   );
@@ -419,36 +542,93 @@ const ExpenseLog = () => {
   const dailyRemaining = (summary.allowance?.dailyAllowance||500) - (summary.daily?.total||0);
 
   return (
-    <div className="dashboard-section-grid">
-      <div className="card">
-        <div className="card-header border-b"><h3>Log Expense</h3></div>
-        <div className="card-body">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Category</label>
-              <select className="form-select" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} required>
-                <option value="">Select category...</option>
-                <option value="fuel">🛢️ Fuel</option>
-                <option value="food">🍱 Food</option>
-                <option value="misc">📦 Miscellaneous</option>
-              </select>
-            </div>
-            <div className="form-group"><label>Amount (Rs.)</label><input type="number" className="form-control" placeholder="Enter amount" min="1" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} required/></div>
-            <div className="form-group"><label>Description (Optional)</label><input type="text" className="form-control" placeholder="e.g. Petrol refill" value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/></div>
-            <button type="submit" className="btn btn-primary btn-block">Add Expense</button>
-          </form>
+    <div className="space-y-6 animate-fadeIn">
+      
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">Expense Management</h2>
+          <p className="text-sm text-slate-500 mt-1">Log your daily expenses and track allowances</p>
         </div>
       </div>
 
-      <div className="card col-span-2">
-        <div className="card-header border-b"><h3>Expense Summary</h3></div>
-        <div className="card-body">
-          <div className="expense-card-grid">
-            <div className="expense-summary-card"><p className="amount">Rs. {summary.daily?.total||0}</p><p className="label">Today</p></div>
-            <div className="expense-summary-card"><p className="amount">Rs. {summary.weekly?.total||0}</p><p className="label">This Week</p></div>
-            <div className="expense-summary-card"><p className="amount">Rs. {summary.monthly?.total||0}</p><p className="label">This Month</p></div>
-            <div className="expense-summary-card"><p className="amount text-success">Rs. {summary.allowance?.dailyAllowance||500}</p><p className="label">Daily Limit</p></div>
-            <div className="expense-summary-card"><p className={`amount ${dailyRemaining<0?'text-danger':'text-primary-color'}`}>Rs. {dailyRemaining}</p><p className="label">Remaining Today</p></div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Form */}
+        <div className="card-premium lg:col-span-1 h-fit">
+          <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-900 text-lg">Log New Expense</h3>
+          </div>
+          <div className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Category <span className="text-red-500">*</span></label>
+                <select className="input-field" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} required>
+                  <option value="">Select category...</option>
+                  <option value="fuel">🛢️ Fuel</option>
+                  <option value="food">🍱 Food</option>
+                  <option value="misc">📦 Miscellaneous</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Amount (Rs.) <span className="text-red-500">*</span></label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">Rs.</span>
+                  <input type="number" className="input-field pl-9" placeholder="0.00" min="1" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} required/>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Description (Optional)</label>
+                <input type="text" className="input-field" placeholder="e.g. Petrol refill at Kalanki" value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))}/>
+              </div>
+              <button type="submit" className="btn-primary w-full py-3 mt-2 flex items-center justify-center gap-2">
+                <FileText className="w-4 h-4" /> Add Expense
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Summary Dashboard */}
+        <div className="card-premium lg:col-span-2">
+          <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-900 text-lg">Expense Summary</h3>
+          </div>
+          <div className="p-6">
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              {/* Daily Allowance Block */}
+              <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Daily Allowance</p>
+                <h4 className="text-3xl font-black text-slate-900">Rs. {summary.allowance?.dailyAllowance||500}</h4>
+                <div className="mt-4 w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-500 ${dailyRemaining < 0 ? 'bg-red-500' : 'bg-brand-500'}`} style={{width: `${Math.min(100, ((summary.daily?.total||0)/(summary.allowance?.dailyAllowance||500))*100)}%`}}></div>
+                </div>
+              </div>
+              
+              {/* Remaining Block */}
+              <div className={`rounded-2xl p-6 border ${dailyRemaining < 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <p className={`text-sm font-bold uppercase tracking-wider mb-2 ${dailyRemaining < 0 ? 'text-red-500' : 'text-emerald-600'}`}>Remaining Today</p>
+                <h4 className={`text-3xl font-black ${dailyRemaining < 0 ? 'text-red-600' : 'text-emerald-700'}`}>Rs. {dailyRemaining}</h4>
+                <p className={`text-sm font-medium mt-2 ${dailyRemaining < 0 ? 'text-red-500' : 'text-emerald-600/80'}`}>
+                  {dailyRemaining < 0 ? 'You have exceeded your daily limit.' : 'Available to spend today.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 border-t border-slate-100 pt-6">
+              <div className="text-center">
+                <p className="text-sm font-medium text-slate-500 mb-1">Spent Today</p>
+                <p className="text-xl font-bold text-slate-900">Rs. {summary.daily?.total||0}</p>
+              </div>
+              <div className="text-center border-l border-r border-slate-100">
+                <p className="text-sm font-medium text-slate-500 mb-1">This Week</p>
+                <p className="text-xl font-bold text-slate-900">Rs. {summary.weekly?.total||0}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-medium text-slate-500 mb-1">This Month</p>
+                <p className="text-xl font-bold text-slate-900">Rs. {summary.monthly?.total||0}</p>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
@@ -471,31 +651,47 @@ const ExpenseHistory = () => {
   const catEmoji = { fuel:'🛢️', food:'🍱', misc:'📦' };
 
   return (
-    <div className="card p-0">
-      <div className="card-header border-b" style={{padding:20}}>
-        <div className="header-title-group"><h3>Expense History</h3><p>View all logged expenses</p></div>
-        <select className="form-select select-sm" style={{width:140}} value={period} onChange={e=>setPeriod(e.target.value)}>
-          <option value="daily">Today</option>
-          <option value="weekly">This Week</option>
-          <option value="monthly">This Month</option>
-        </select>
-      </div>
-      <div className="table-container">
-        <table className="data-table">
-          <thead><tr><th>Date</th><th>Category</th><th>Amount</th><th>Description</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan="4" style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>Loading...</td></tr>
-            : expenses.length===0 ? <tr><td colSpan="4" style={{textAlign:'center',padding:40,color:'var(--text-muted)'}}>No expenses found.</td></tr>
-            : expenses.map(e=>(
-              <tr key={e._id}>
-                <td style={{color:'var(--text-muted)'}}>{new Date(e.date).toLocaleDateString()}</td>
-                <td><span className="badge badge-secondary">{catEmoji[e.category]||''} {e.category}</span></td>
-                <td style={{fontWeight:600,color:'var(--color-primary)'}}>Rs. {e.amount}</td>
-                <td style={{color:'var(--text-secondary)'}}>{e.description||'—'}</td>
+    <div className="space-y-6 animate-fadeIn">
+      <div className="card-premium overflow-hidden">
+        <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg">Expense History</h3>
+            <p className="text-sm text-slate-500 mt-1">View all your logged expenses</p>
+          </div>
+          <select className="input-field w-full sm:w-auto" value={period} onChange={e=>setPeriod(e.target.value)}>
+            <option value="daily">Today</option>
+            <option value="weekly">This Week</option>
+            <option value="monthly">This Month</option>
+          </select>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+              <tr>
+                <th className="px-6 py-3">Date</th>
+                <th className="px-6 py-3">Category</th>
+                <th className="px-6 py-3">Amount</th>
+                <th className="px-6 py-3">Description</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {loading ? <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500"><div className="flex justify-center items-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600 mr-2"></div>Loading...</div></td></tr>
+              : expenses.length===0 ? <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500">No expenses found for this period.</td></tr>
+              : expenses.map(e=>(
+                <tr key={e._id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-slate-500 font-medium">{new Date(e.date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 capitalize shadow-sm">
+                      <span className="mr-1.5">{catEmoji[e.category]||''}</span> {e.category}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-bold text-brand-600">Rs. {e.amount}</td>
+                  <td className="px-6 py-4 text-slate-600">{e.description||'—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

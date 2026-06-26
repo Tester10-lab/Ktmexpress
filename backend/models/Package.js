@@ -77,6 +77,10 @@ const packageSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    deliveryDate: {
+      type: Date,
+      default: null,
+    },
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

@@ -14,8 +14,8 @@ import {
   getAvailableRiders,
 } from '../controllers/dispatcherController.js';
 
-// All routes require auth + dispatcher role
-router.use(auth, roleGuard('dispatcher'));
+// All routes require auth + dispatcher or admin role
+router.use(auth, roleGuard('dispatcher', 'admin'));
 
 router.get('/dashboard', getDispatcherDashboard);
 router.get('/pickups', getPickupRequests);

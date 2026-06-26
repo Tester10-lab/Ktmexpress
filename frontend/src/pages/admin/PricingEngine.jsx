@@ -2,6 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import MetricCard from '../../components/MetricCard';
+import Pagination from '../../components/Pagination';
+import { 
+  DollarSign, Weight, MapPin, Users, Search, Plus, Map, 
+  Trash2, Edit2, CheckCircle2, XCircle, AlertTriangle, RefreshCw, X 
+} from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const debounce = (func, wait) => {
@@ -14,14 +19,18 @@ const debounce = (func, wait) => {
 
 // ─── Skeleton Loading Component ──────────────────────────────────────────────
 const SkeletonTable = ({ rows = 3 }) => (
-  <div className="table-container">
-    <table className="data-table">
-      <thead>
-        <tr><th>Loading...</th></tr>
+  <div className="overflow-x-auto">
+    <table className="w-full text-sm text-left">
+      <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+        <tr><th className="px-6 py-3">Loading...</th></tr>
       </thead>
-      <tbody>
+      <tbody className="divide-y divide-slate-100 bg-white">
         {Array.from({ length: rows }).map((_, i) => (
-          <tr key={i}><td><div className="skeleton-row" /></td></tr>
+          <tr key={i}>
+            <td className="px-6 py-4">
+              <div className="h-4 bg-slate-200 rounded animate-pulse w-full"></div>
+            </td>
+          </tr>
         ))}
       </tbody>
     </table>
@@ -324,46 +333,50 @@ const PricingEngine = () => {
   // ─── Render Components ──────────────────────────────────────────────────────
 
   return (
-    <div>
+    <div className="space-y-6 animate-fadeIn">
       {/* 1. Dashboard Summary Cards */}
-      <div className="metrics-grid">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard title="Global KTM Rate" value={`Rs. ${globalSettings.ktmBaseRate}`} color="primary"
-          icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>} />
+          icon={<DollarSign className="w-6 h-6 text-brand-600" />} />
         <MetricCard title="Surcharge / KG" value={`Rs. ${globalSettings.weightSurchargePerKg}`} color="warning"
-          icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>} />
+          icon={<Weight className="w-6 h-6 text-amber-600" />} />
         <MetricCard title="Cities Configured" value={loadingSummary ? '-' : summary.totalOvCities} color="info"
-          icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>} />
+          icon={<MapPin className="w-6 h-6 text-sky-600" />} />
         <MetricCard title="Custom Pricing Vendors" value={loadingSummary ? '-' : summary.customPricingVendors} color="purple"
-          icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>} />
+          icon={<Users className="w-6 h-6 text-purple-600" />} />
       </div>
 
-      <div className="dashboard-section-grid" style={{ gridTemplateColumns: 'minmax(300px, 1fr) 2fr' }}>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* 2. Global Pricing Settings */}
-        <div className="card h-fit">
-          <div className="card-header border-b">
-            <div className="header-title-group">
-              <h3>Global Pricing Settings</h3>
-              <p>Default rates across the platform</p>
-            </div>
+        <div className="card-premium h-fit col-span-1">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 text-lg">Global Pricing Settings</h3>
+            <p className="text-sm text-slate-500">Default rates across the platform</p>
           </div>
-          <div className="card-body">
-            <form onSubmit={handleSaveGlobalSettings}>
-              <div className="form-group">
-                <label>KTM Valley Base Rate (Rs.)</label>
-                <input type="number" min="0" required className="form-control" 
-                  value={globalSettings.ktmBaseRate} 
-                  onChange={(e) => setGlobalSettings({...globalSettings, ktmBaseRate: Number(e.target.value)})} />
-                <p className="font-xs text-muted mt-1">Applied to deliveries within the valley unless overridden by vendor.</p>
+          <div className="p-6">
+            <form onSubmit={handleSaveGlobalSettings} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">KTM Valley Base Rate (Rs.)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                  <input type="number" min="0" required className="input-field pl-9" 
+                    value={globalSettings.ktmBaseRate} 
+                    onChange={(e) => setGlobalSettings({...globalSettings, ktmBaseRate: Number(e.target.value)})} />
+                </div>
+                <p className="text-xs text-slate-500 mt-1.5">Applied to deliveries within the valley unless overridden by vendor.</p>
               </div>
-              <div className="form-group mb-6">
-                <label>Weight Surcharge per KG (Rs.)</label>
-                <input type="number" min="0" required className="form-control" 
-                  value={globalSettings.weightSurchargePerKg} 
-                  onChange={(e) => setGlobalSettings({...globalSettings, weightSurchargePerKg: Number(e.target.value)})} />
-                <p className="font-xs text-muted mt-1">Added for every KG above 1KG.</p>
+              <div className="pb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Weight Surcharge per KG (Rs.)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                  <input type="number" min="0" required className="input-field pl-9" 
+                    value={globalSettings.weightSurchargePerKg} 
+                    onChange={(e) => setGlobalSettings({...globalSettings, weightSurchargePerKg: Number(e.target.value)})} />
+                </div>
+                <p className="text-xs text-slate-500 mt-1.5">Added for every KG above 1KG.</p>
               </div>
-              <button type="submit" className="btn btn-primary btn-block" disabled={savingGlobal}>
+              <button type="submit" className="btn-primary w-full" disabled={savingGlobal}>
                 {savingGlobal ? 'Saving...' : 'Save Global Settings'}
               </button>
             </form>
@@ -371,54 +384,60 @@ const PricingEngine = () => {
         </div>
 
         {/* 3. Outside Valley City Fees */}
-        <div className="card p-0">
-          <div className="card-header border-b" style={{ padding: 20 }}>
-            <div className="header-title-group">
-              <h3>Outside Valley Delivery Fees</h3>
-              <p>Configure specific delivery rates for cities outside Kathmandu Valley</p>
+        <div className="card-premium overflow-hidden col-span-1 lg:col-span-2 flex flex-col h-full">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="font-bold text-slate-800 text-lg">Outside Valley Delivery Fees</h3>
+              <p className="text-sm text-slate-500">Rates for specific cities outside Kathmandu</p>
             </div>
-            <div className="header-controls">
-              <div className="search-bar-inline" style={{ width: 220 }}>
-                <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                <input type="text" className="form-control search-input select-sm" placeholder="Search city..." 
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input type="text" className="input-field py-2 pl-9 w-full sm:w-48 text-sm" placeholder="Search city..." 
                   value={ovSearch} onChange={handleOvSearchChange} />
               </div>
-              <button className="btn btn-primary btn-sm" onClick={() => openOvModal()}>+ Add City</button>
+              <button className="btn-primary py-2 flex items-center gap-1.5 whitespace-nowrap" onClick={() => openOvModal()}>
+                <Plus className="w-4 h-4" /> Add City
+              </button>
             </div>
           </div>
           
           {loadingOv ? <SkeletonTable /> : (
             <>
-              <div className="table-container">
-                <table className="data-table">
-                  <thead>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs sticky top-0">
                     <tr>
-                      <th>City Name</th>
-                      <th>Delivery Fee</th>
-                      <th>Status</th>
-                      <th style={{ textAlign: 'right' }}>Actions</th>
+                      <th className="px-6 py-3">City Name</th>
+                      <th className="px-6 py-3">Delivery Fee</th>
+                      <th className="px-6 py-3">Status</th>
+                      <th className="px-6 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100 bg-white">
                     {ovFees.length === 0 ? (
-                      <tr><td colSpan="4" className="text-center text-muted" style={{ padding: 32 }}>No cities configured.</td></tr>
+                      <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500">No cities configured.</td></tr>
                     ) : (
                       ovFees.map(fee => (
-                        <tr key={fee._id}>
-                          <td className="semibold">{fee.city}</td>
-                          <td className="text-primary-color semibold">Rs. {fee.fee}</td>
-                          <td>
-                            <span className={`badge ${fee.isActive ? 'badge-success' : 'badge-secondary'}`}>
+                        <tr key={fee._id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4 font-bold text-slate-900">{fee.city}</td>
+                          <td className="px-6 py-4 font-bold text-brand-600">Rs. {fee.fee}</td>
+                          <td className="px-6 py-4">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${fee.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                               {fee.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                              <button className="btn btn-sm btn-outline" onClick={() => handleToggleOvFeeStatus(fee)} title={fee.isActive ? 'Deactivate' : 'Activate'}>
-                                {fee.isActive ? 'Disable' : 'Enable'}
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button className={`btn-sm p-2 rounded-lg font-bold border ${fee.isActive ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`} onClick={() => handleToggleOvFeeStatus(fee)} title={fee.isActive ? 'Deactivate' : 'Activate'}>
+                                {fee.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                               </button>
-                              <button className="btn btn-sm btn-secondary" onClick={() => openOvModal(fee)}>Edit</button>
-                              <button className="btn btn-sm btn-danger" onClick={() => handleDeleteOvFee(fee)}>Del</button>
+                              <button className="btn-secondary btn-sm p-2" onClick={() => openOvModal(fee)} title="Edit">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" onClick={() => handleDeleteOvFee(fee)} title="Delete">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -427,68 +446,66 @@ const PricingEngine = () => {
                   </tbody>
                 </table>
               </div>
-              {ovPagination.pages > 1 && (
-                <div className="pagination-controls">
-                  <span>Page {ovPagination.page} of {ovPagination.pages}</span>
-                  <div className="pagination-btn-group">
-                    <button className="btn btn-sm btn-outline" disabled={ovPagination.page === 1} onClick={() => fetchOvFees(ovPagination.page - 1)}>Prev</button>
-                    <button className="btn btn-sm btn-outline" disabled={ovPagination.page === ovPagination.pages} onClick={() => fetchOvFees(ovPagination.page + 1)}>Next</button>
-                  </div>
-                </div>
-              )}
+              <Pagination pagination={ovPagination} onPageChange={(page) => fetchOvFees(page)} />
             </>
           )}
         </div>
       </div>
 
       {/* ─── Delivery Charge Rules ─────────────────────────────────────────── */}
-      <div className="card p-0 mt-4">
-        <div className="card-header border-b" style={{ padding: 20 }}>
-          <div className="header-title-group">
-            <h3>🚚 Branch-to-Branch Delivery Charge Rules</h3>
-            <p>Auto-applied in the New Order modal based on route + weight. Read-only for vendors.</p>
+      <div className="card-premium overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+              <Map className="w-5 h-5 text-emerald-600" /> Branch-to-Branch Delivery Charge Rules
+            </h3>
+            <p className="text-sm text-slate-500 mt-1">Auto-applied in the New Order modal based on route + weight.</p>
           </div>
-          <div className="header-controls">
-            <button className="btn btn-primary btn-sm" onClick={() => openDcModal()}>+ Add Rule</button>
-          </div>
+          <button className="btn-primary py-2 flex items-center gap-1.5 whitespace-nowrap" onClick={() => openDcModal()}>
+            <Plus className="w-4 h-4" /> Add Rule
+          </button>
         </div>
 
         {loadingDc ? <SkeletonTable rows={4} /> : (
-          <div className="table-container">
-            <table className="data-table">
-              <thead>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
                 <tr>
-                  <th>From Branch</th>
-                  <th>To Branch</th>
-                  <th>Base Charge</th>
-                  <th>Free Weight (kg)</th>
-                  <th>Per kg above</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th className="px-6 py-3">From Branch</th>
+                  <th className="px-6 py-3">To Branch</th>
+                  <th className="px-6 py-3">Base Charge</th>
+                  <th className="px-6 py-3">Free Weight</th>
+                  <th className="px-6 py-3">Per kg above</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {dcRules.length === 0 ? (
-                  <tr><td colSpan="7" className="text-center text-muted" style={{ padding: 32 }}>No rules yet. Click <strong>+ Add Rule</strong> to create one.</td></tr>
+                  <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">No rules yet. Click <strong>+ Add Rule</strong> to create one.</td></tr>
                 ) : dcRules.map(rule => (
-                  <tr key={rule._id} style={{ opacity: rule.isActive ? 1 : 0.5 }}>
-                    <td className="semibold">{rule.fromBranch}</td>
-                    <td className="semibold">{rule.toBranch}</td>
-                    <td className="text-primary-color semibold">Rs. {rule.baseCharge}</td>
-                    <td>{rule.weightLimit || 0} kg</td>
-                    <td>{rule.perKgCharge > 0 ? `Rs. ${rule.perKgCharge}` : '—'}</td>
-                    <td>
-                      <span className={`badge ${rule.isActive ? 'badge-success' : 'badge-secondary'}`}>
+                  <tr key={rule._id} className={`hover:bg-slate-50 transition-colors ${!rule.isActive ? 'opacity-60 bg-slate-50/50' : ''}`}>
+                    <td className="px-6 py-4 font-bold text-slate-900">{rule.fromBranch}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{rule.toBranch}</td>
+                    <td className="px-6 py-4 font-bold text-brand-600">Rs. {rule.baseCharge}</td>
+                    <td className="px-6 py-4 text-slate-600 font-medium">{rule.weightLimit || 0} kg</td>
+                    <td className="px-6 py-4 text-slate-600 font-medium">{rule.perKgCharge > 0 ? `Rs. ${rule.perKgCharge}` : '—'}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${rule.isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                         {rule.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button className="btn btn-sm btn-outline" onClick={() => handleToggleDcRule(rule)}>
-                          {rule.isActive ? 'Disable' : 'Enable'}
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex gap-2 justify-end">
+                        <button className={`btn-sm p-2 rounded-lg font-bold border ${rule.isActive ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`} onClick={() => handleToggleDcRule(rule)} title={rule.isActive ? 'Deactivate' : 'Activate'}>
+                          {rule.isActive ? <XCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                         </button>
-                        <button className="btn btn-sm btn-secondary" onClick={() => openDcModal(rule)}>Edit</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDeleteDcRule(rule)}>Del</button>
+                        <button className="btn-secondary btn-sm p-2" onClick={() => openDcModal(rule)} title="Edit">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" onClick={() => handleDeleteDcRule(rule)} title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -500,38 +517,36 @@ const PricingEngine = () => {
       </div>
 
       {/* 4. Vendor-Specific Pricing Matrix */}
-      <div className="card p-0 mt-4">
-        <div className="card-header border-b" style={{ padding: 20 }}>
-          <div className="header-title-group">
-            <h3>Vendor Pricing Matrix</h3>
-            <p>Manage pricing overrides and rules for individual vendors</p>
+      <div className="card-premium overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="font-bold text-slate-800 text-lg">Vendor Pricing Matrix</h3>
+            <p className="text-sm text-slate-500 mt-1">Manage pricing overrides and rules for individual vendors</p>
           </div>
-          <div className="header-controls">
-            <div className="search-bar-inline" style={{ width: 260 }}>
-              <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-              <input type="text" className="form-control search-input" placeholder="Search vendors..." 
-                value={vendorSearch} onChange={handleVendorSearchChange} />
-            </div>
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input type="text" className="input-field py-2 pl-9 w-full sm:w-64 text-sm" placeholder="Search vendors..." 
+              value={vendorSearch} onChange={handleVendorSearchChange} />
           </div>
         </div>
 
         {loadingVendors ? <SkeletonTable rows={5} /> : (
           <>
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
                   <tr>
-                    <th>Vendor</th>
-                    <th>Pricing Mode</th>
-                    <th>Custom Flat Rate</th>
-                    <th>KTM Override</th>
-                    <th>OV Override</th>
-                    <th style={{ textAlign: 'right' }}>Actions</th>
+                    <th className="px-6 py-3">Vendor</th>
+                    <th className="px-6 py-3">Pricing Mode</th>
+                    <th className="px-6 py-3">Custom Flat Rate</th>
+                    <th className="px-6 py-3">KTM Override</th>
+                    <th className="px-6 py-3">OV Override</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {vendors.length === 0 ? (
-                    <tr><td colSpan="6" className="text-center text-muted" style={{ padding: 32 }}>No vendors found.</td></tr>
+                    <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-500">No vendors found.</td></tr>
                   ) : (
                     vendors.map(v => {
                       const meta = v.vendorMeta || {};
@@ -539,31 +554,31 @@ const PricingEngine = () => {
                       const hasFlat = meta.customFlatRate !== null && meta.customFlatRate !== undefined;
                       
                       return (
-                        <tr key={v._id}>
-                          <td>
-                            <div className="semibold">{v.name}</div>
-                            <div className="font-xs text-muted">{meta.shopName || v.email}</div>
+                        <tr key={v._id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-900">{v.name}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{meta.shopName || v.email}</div>
                           </td>
-                          <td>
+                          <td className="px-6 py-4">
                             {hasFlat ? (
-                              <span className="badge badge-purple">Flat Rate</span>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">Flat Rate</span>
                             ) : isGlobal ? (
-                              <span className="badge badge-success">Global</span>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">Global</span>
                             ) : (
-                              <span className="badge badge-warning">Custom Override</span>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">Custom</span>
                             )}
                           </td>
-                          <td className="semibold text-purple">
+                          <td className="px-6 py-4 font-bold text-purple-600">
                             {hasFlat ? `Rs. ${meta.customFlatRate}` : '—'}
                           </td>
-                          <td className={!isGlobal && !hasFlat ? 'semibold' : 'text-muted'}>
+                          <td className={`px-6 py-4 ${!isGlobal && !hasFlat ? 'font-bold text-slate-900' : 'text-slate-400 font-medium'}`}>
                             {meta.defaultKtmRate !== undefined ? `Rs. ${meta.defaultKtmRate}` : '—'}
                           </td>
-                          <td className={!isGlobal && !hasFlat ? 'semibold' : 'text-muted'}>
+                          <td className={`px-6 py-4 ${!isGlobal && !hasFlat ? 'font-bold text-slate-900' : 'text-slate-400 font-medium'}`}>
                             {meta.defaultOutsideRate !== undefined ? `Rs. ${meta.defaultOutsideRate}` : '—'}
                           </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button className="btn btn-sm btn-secondary" onClick={() => openVendorModal(v)}>Manage Rules</button>
+                          <td className="px-6 py-4 text-right">
+                            <button className="btn-secondary btn-sm" onClick={() => openVendorModal(v)}>Manage Rules</button>
                           </td>
                         </tr>
                       );
@@ -572,15 +587,7 @@ const PricingEngine = () => {
                 </tbody>
               </table>
             </div>
-            {vendorPagination.pages > 1 && (
-              <div className="pagination-controls">
-                <span>Page {vendorPagination.page} of {vendorPagination.pages}</span>
-                <div className="pagination-btn-group">
-                  <button className="btn btn-sm btn-outline" disabled={vendorPagination.page === 1} onClick={() => fetchVendors(vendorPagination.page - 1)}>Prev</button>
-                  <button className="btn btn-sm btn-outline" disabled={vendorPagination.page === vendorPagination.pages} onClick={() => fetchVendors(vendorPagination.page + 1)}>Next</button>
-                </div>
-              </div>
-            )}
+            <Pagination pagination={vendorPagination} onPageChange={(page) => fetchVendors(page)} />
           </>
         )}
       </div>
@@ -589,68 +596,86 @@ const PricingEngine = () => {
       
       {/* Delivery Charge Rule Modal */}
       {dcModalOpen && (
-        <div className="modal-backdrop" onClick={() => setDcModalOpen(false)}>
-          <div className="modal-content" style={{ maxWidth: 520 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{dcForm.id ? 'Edit Rule' : 'Add Delivery Charge Rule'}</h3>
-              <button className="modal-close" onClick={() => setDcModalOpen(false)}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setDcModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <Map className="w-5 h-5 text-emerald-600" /> {dcForm.id ? 'Edit Delivery Rule' : 'Add Delivery Rule'}
+              </h3>
+              <button onClick={() => setDcModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="modal-body">
-              <form onSubmit={handleSaveDcRule}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div className="form-group">
-                    <label>From Branch *</label>
-                    <select required className="form-select" value={dcForm.fromBranch} onChange={e => setDcForm({...dcForm, fromBranch: e.target.value})}>
+            <div className="p-6">
+              <form onSubmit={handleSaveDcRule} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">From Branch <span className="text-red-500">*</span></label>
+                    <select required className="input-field" value={dcForm.fromBranch} onChange={e => setDcForm({...dcForm, fromBranch: e.target.value})}>
                       <option value="">Select branch...</option>
                       {BRANCH_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label>To Branch *</label>
-                    <select required className="form-select" value={dcForm.toBranch} onChange={e => setDcForm({...dcForm, toBranch: e.target.value})}>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">To Branch <span className="text-red-500">*</span></label>
+                    <select required className="input-field" value={dcForm.toBranch} onChange={e => setDcForm({...dcForm, toBranch: e.target.value})}>
                       <option value="">Select branch...</option>
                       {BRANCH_OPTIONS.filter(b => b !== dcForm.fromBranch).map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label>Base Charge (Rs.) *</label>
-                    <input type="number" required min="0" className="form-control"
-                      value={dcForm.baseCharge} onChange={e => setDcForm({...dcForm, baseCharge: Number(e.target.value)})} />
-                    <p className="font-xs text-muted mt-1">Fixed charge for this route.</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Base Charge (Rs.) <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                      <input type="number" required min="0" className="input-field pl-9"
+                        value={dcForm.baseCharge} onChange={e => setDcForm({...dcForm, baseCharge: Number(e.target.value)})} />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Fixed charge for this route.</p>
                   </div>
-                  <div className="form-group">
-                    <label>Free Weight Limit (kg)</label>
-                    <input type="number" min="0" step="0.1" className="form-control"
-                      value={dcForm.weightLimit} onChange={e => setDcForm({...dcForm, weightLimit: Number(e.target.value)})} />
-                    <p className="font-xs text-muted mt-1">Weight included in base charge (0 = none).</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Free Weight Limit (kg)</label>
+                    <div className="relative">
+                      <input type="number" min="0" step="0.1" className="input-field pr-8"
+                        value={dcForm.weightLimit} onChange={e => setDcForm({...dcForm, weightLimit: Number(e.target.value)})} />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">kg</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">Included in base charge (0 = none).</p>
                   </div>
-                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label>Per kg Charge above weight limit (Rs.)</label>
-                    <input type="number" min="0" step="0.5" className="form-control"
-                      value={dcForm.perKgCharge} onChange={e => setDcForm({...dcForm, perKgCharge: Number(e.target.value)})} />
-                    <p className="font-xs text-muted mt-1">0 = weight-based surcharge disabled.</p>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Per kg Charge above weight limit (Rs.)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                      <input type="number" min="0" step="0.5" className="input-field pl-9"
+                        value={dcForm.perKgCharge} onChange={e => setDcForm({...dcForm, perKgCharge: Number(e.target.value)})} />
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">0 = weight-based surcharge disabled.</p>
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 20px' }}>
-                  <label className="toggle-switch">
-                    <input type="checkbox" checked={dcForm.isActive} onChange={e => setDcForm({...dcForm, isActive: e.target.checked})} />
-                    <span className="toggle-slider"></span>
+                
+                <div className="flex items-center gap-3 pt-2">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={dcForm.isActive} onChange={e => setDcForm({...dcForm, isActive: e.target.checked})} />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
-                  <span className="font-sm semibold">Active</span>
+                  <span className="text-sm font-bold text-slate-700">Active Rule</span>
                 </div>
+                
                 {/* Preview */}
                 {dcForm.fromBranch && dcForm.toBranch && (
-                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
-                    <strong>Preview:</strong> {dcForm.fromBranch} → {dcForm.toBranch} · base Rs.{dcForm.baseCharge}
-                    {dcForm.perKgCharge > 0 && ` + Rs.${dcForm.perKgCharge}/kg above ${dcForm.weightLimit}kg`}
-                    {dcForm.weightLimit === 0 && dcForm.perKgCharge === 0 && ' (fixed charge)'}
+                  <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 mt-4">
+                    <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2">Rule Preview</p>
+                    <p className="text-sm text-emerald-900 font-medium">
+                      {dcForm.fromBranch} → {dcForm.toBranch} <br/>
+                      Base: Rs.{dcForm.baseCharge}
+                      {dcForm.perKgCharge > 0 && ` + Rs.${dcForm.perKgCharge}/kg above ${dcForm.weightLimit}kg`}
+                      {dcForm.weightLimit === 0 && dcForm.perKgCharge === 0 && ' (Fixed charge regardless of weight)'}
+                    </p>
                   </div>
                 )}
-                <div className="confirm-modal-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => setDcModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary" disabled={dcSaving}>{dcSaving ? 'Saving...' : 'Save Rule'}</button>
+                
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" className="btn-secondary" onClick={() => setDcModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={dcSaving}>{dcSaving ? 'Saving...' : 'Save Rule'}</button>
                 </div>
               </form>
             </div>
@@ -660,36 +685,39 @@ const PricingEngine = () => {
 
       {/* OV Fee Modal */}
       {ovModalOpen && (
-        <div className="modal-backdrop" onClick={() => setOvModalOpen(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>{ovForm.id ? 'Edit City Fee' : 'Add City Fee'}</h3>
-              <button className="modal-close" onClick={() => setOvModalOpen(false)}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setOvModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">{ovForm.id ? 'Edit City Fee' : 'Add City Fee'}</h3>
+              <button onClick={() => setOvModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="modal-body">
-              <form onSubmit={handleSaveOvFee}>
-                <div className="form-group">
-                  <label>City Name *</label>
-                  <input type="text" required className="form-control" placeholder="e.g. Pokhara"
+            <div className="p-6">
+              <form onSubmit={handleSaveOvFee} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">City Name <span className="text-red-500">*</span></label>
+                  <input type="text" required className="input-field" placeholder="e.g. Pokhara"
                     value={ovForm.city} onChange={e => setOvForm({...ovForm, city: e.target.value})} />
                 </div>
-                <div className="form-group">
-                  <label>Delivery Fee (Rs.) *</label>
-                  <input type="number" required min="0" className="form-control" 
-                    value={ovForm.fee} onChange={e => setOvForm({...ovForm, fee: Number(e.target.value)})} />
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Fee (Rs.) <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                    <input type="number" required min="0" className="input-field pl-9" 
+                      value={ovForm.fee} onChange={e => setOvForm({...ovForm, fee: Number(e.target.value)})} />
+                  </div>
                 </div>
-                <div className="checkbox-wrapper mt-4">
-                  <label className="toggle-switch">
-                    <input type="checkbox" checked={ovForm.isActive} onChange={e => setOvForm({...ovForm, isActive: e.target.checked})} />
-                    <span className="toggle-slider"></span>
+                <div className="flex items-center gap-3 pt-2">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={ovForm.isActive} onChange={e => setOvForm({...ovForm, isActive: e.target.checked})} />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
-                  <span className="font-sm semibold">Active</span>
+                  <span className="text-sm font-bold text-slate-700">Active</span>
                 </div>
-                <div className="confirm-modal-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => setOvModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save Fee</button>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" className="btn-secondary" onClick={() => setOvModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary">Save Fee</button>
                 </div>
               </form>
             </div>
@@ -699,70 +727,81 @@ const PricingEngine = () => {
 
       {/* Vendor Pricing Modal */}
       {vendorModalOpen && (
-        <div className="modal-backdrop" onClick={() => setVendorModalOpen(false)}>
-          <div className="modal-content max-w-600" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setVendorModalOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
-                <h3 style={{ marginBottom: 4 }}>Configure Pricing Rules</h3>
-                <p className="font-xs text-muted">{vendorForm.name} {vendorForm.shopName ? `— ${vendorForm.shopName}` : ''}</p>
+                <h3 className="font-bold text-slate-900 text-lg">Configure Pricing Rules</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{vendorForm.name} {vendorForm.shopName ? `— ${vendorForm.shopName}` : ''}</p>
               </div>
-              <button className="modal-close" onClick={() => setVendorModalOpen(false)}>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              <button onClick={() => setVendorModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="modal-body">
-              <form onSubmit={handleSaveVendorPricing}>
+            <div className="p-6">
+              <form onSubmit={handleSaveVendorPricing} className="space-y-6">
                 
-                <div className="card p-0 mb-6 bg-purple-soft" style={{ border: '1px dashed var(--color-purple)' }}>
-                  <div className="card-body" style={{ padding: 16 }}>
-                    <h4 className="font-sm text-purple mb-2">1. Master Override (Optional)</h4>
-                    <p className="font-xs text-muted mb-3">If set, this flat rate is charged for EVERY delivery for this vendor, regardless of location or global settings.</p>
-                    <div className="form-group mb-0">
-                      <label>Custom Flat Rate (Rs.)</label>
-                      <input type="number" min="0" className="form-control" placeholder="Leave empty to use rules below"
+                <div className="bg-purple-50 border border-purple-100 rounded-xl p-5">
+                  <h4 className="font-bold text-purple-900 mb-1 flex items-center gap-2">
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-purple-200 text-purple-800 text-xs">1</span> 
+                    Master Override (Optional)
+                  </h4>
+                  <p className="text-xs text-purple-700 mb-4">If set, this flat rate is charged for EVERY delivery for this vendor, regardless of location or global settings.</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-purple-900 mb-1">Custom Flat Rate (Rs.)</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 font-medium text-sm">Rs.</span>
+                      <input type="number" min="0" className="input-field pl-9 border-purple-200 focus:ring-purple-500 focus:border-purple-500 bg-white" placeholder="Leave empty to use rules below"
                         value={vendorForm.customFlatRate} onChange={e => setVendorForm({...vendorForm, customFlatRate: e.target.value})} />
                     </div>
                   </div>
                 </div>
 
-                <div className="card p-0 mb-4">
-                  <div className="card-body" style={{ padding: 16 }}>
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="font-sm mb-0">2. Standard Pricing Rules</h4>
-                      <div className="flex items-center gap-2">
-                        <span className="font-xs text-muted">Use Global Settings?</span>
-                        <label className="toggle-switch">
-                          <input type="checkbox" checked={vendorForm.useGlobalPricing} onChange={e => setVendorForm({...vendorForm, useGlobalPricing: e.target.checked})} />
-                          <span className="toggle-slider"></span>
-                        </label>
-                      </div>
+                <div className="border border-slate-200 rounded-xl p-5">
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-xs">2</span>
+                      Standard Pricing Rules
+                    </h4>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-slate-600">Use Global Settings?</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={vendorForm.useGlobalPricing} onChange={e => setVendorForm({...vendorForm, useGlobalPricing: e.target.checked})} />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-500"></div>
+                      </label>
                     </div>
-                    
-                    {!vendorForm.useGlobalPricing ? (
-                      <div className="form-row animate-fadeIn">
-                        <div className="form-group col-6">
-                          <label>KTM Override Rate (Rs.)</label>
-                          <input type="number" min="0" required className="form-control" 
+                  </div>
+                  
+                  {!vendorForm.useGlobalPricing ? (
+                    <div className="grid grid-cols-2 gap-4 animate-fadeIn">
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">KTM Override Rate (Rs.) <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                          <input type="number" min="0" required className="input-field pl-9" 
                             value={vendorForm.defaultKtmRate} onChange={e => setVendorForm({...vendorForm, defaultKtmRate: Number(e.target.value)})} />
                         </div>
-                        <div className="form-group col-6">
-                          <label>Outside Valley Base (Rs.)</label>
-                          <input type="number" min="0" required className="form-control" 
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Outside Valley Base (Rs.) <span className="text-red-500">*</span></label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                          <input type="number" min="0" required className="input-field pl-9" 
                             value={vendorForm.defaultOutsideRate} onChange={e => setVendorForm({...vendorForm, defaultOutsideRate: Number(e.target.value)})} />
-                          <p className="font-xs text-muted mt-1">Fallback if city fee is not configured.</p>
                         </div>
+                        <p className="text-xs text-slate-500 mt-1.5">Fallback if city fee is not configured.</p>
                       </div>
-                    ) : (
-                      <div className="animate-fadeIn p-4 text-center border-t text-muted font-sm" style={{ backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-sm)' }}>
-                        Vendor is currently using the Global Pricing Settings and configured City Fees.
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="animate-fadeIn p-4 text-center bg-slate-50 border border-slate-100 rounded-lg text-slate-500 text-sm font-medium">
+                      Vendor is currently using the Global Pricing Settings and configured City Fees.
+                    </div>
+                  )}
                 </div>
 
-                <div className="confirm-modal-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => setVendorModalOpen(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save Rules</button>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" className="btn-secondary" onClick={() => setVendorModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary">Save Rules</button>
                 </div>
               </form>
             </div>
@@ -772,18 +811,16 @@ const PricingEngine = () => {
 
       {/* Confirmation Modal */}
       {confirmModal.open && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: 400 }}>
-            <div className="modal-body text-center">
-              <div className="metric-icon bg-danger-soft text-danger mx-auto mb-4" style={{ margin: '0 auto', width: 64, height: 64, borderRadius: '50%' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-              </div>
-              <h3 className="mb-2">{confirmModal.title}</h3>
-              <p className="text-muted font-sm mb-6">{confirmModal.message}</p>
-              <div className="flex gap-3 justify-center">
-                <button className="btn btn-outline" onClick={() => setConfirmModal({ open: false })}>Cancel</button>
-                <button className="btn btn-danger" onClick={confirmModal.onConfirm}>Yes, Delete</button>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center animate-scaleIn">
+            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-red-100">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h3 className="font-bold text-slate-900 text-xl mb-2">{confirmModal.title}</h3>
+            <p className="text-slate-500 text-sm mb-6 leading-relaxed">{confirmModal.message}</p>
+            <div className="flex gap-3 justify-center">
+              <button className="btn-secondary flex-1" onClick={() => setConfirmModal({ open: false })}>Cancel</button>
+              <button className="btn-primary bg-red-600 hover:bg-red-700 text-white flex-1 border-0" onClick={confirmModal.onConfirm}>Yes, Delete</button>
             </div>
           </div>
         </div>

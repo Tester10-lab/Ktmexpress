@@ -1,7 +1,7 @@
 import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
-import Product from '../models/Product.js';
 import Settlement from '../models/Settlement.js';
+import Product from '../models/Product.js';
 import fs from 'fs';
 import csv from 'csv-parser';
 import { generateLabelUrls } from '../services/labelService.js';
@@ -51,11 +51,19 @@ export const getVendorDashboard = async (req, res) => {
 export const getVendorPackages = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const { status, search, page = 1, limit = 20 } = req.query;
+    const { status, search, page = 1, limit = 20, startDate, endDate } = req.query;
 
     const filter = { vendorId };
     if (status && status !== 'all') {
-      filter.status = status;
+      if (status === 'pickups') {
+        filter.status = { $in: ['Pending', 'Pick Up Requested', 'Picked Up'] };
+      } else if (status === 'deliveries') {
+        filter.status = { $in: ['In Warehouse', 'Out for Delivery', 'Delivered', 'Returned to Vendor', 'Returned', 'Cancelled', 'Postponed'] };
+      } else if (status === 'history') {
+        filter.status = { $in: ['Delivered', 'Cancelled', 'Returned to Vendor', 'Returned'] };
+      } else {
+        filter.status = status;
+      }
     }
     if (search) {
       filter.$or = [
@@ -63,6 +71,15 @@ export const getVendorPackages = async (req, res) => {
         { customerName: { $regex: search, $options: 'i' } },
         { invoiceId: { $regex: search, $options: 'i' } },
       ];
+    }
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -170,6 +187,7 @@ export const createPackage = async (req, res) => {
       items: items || [],
       amount: Number(amount),
       deliveryCharge: deliveryCharge || 0,
+      deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
       status: 'Pending',
@@ -245,6 +263,7 @@ export const bulkCreatePackages = async (req, res) => {
         items: p.items || [],
         amount: Number(p.amount) || 0,
         deliveryCharge: Number(p.deliveryCharge) || 0,
+        deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
         status: 'Pending',
@@ -370,39 +389,6 @@ export const getSettlements = async (req, res) => {
   }
 };
 
-// GET /api/vendor/products
-export const getProducts = async (req, res) => {
-  try {
-    const vendorId = req.user._id;
-    const products = await Product.find({ vendorId }).lean();
-    res.json({ success: true, data: products });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// POST /api/vendor/products
-export const createProduct = async (req, res) => {
-  try {
-    const vendorId = req.user._id;
-    const product = await Product.create({ ...req.body, vendorId });
-    res.status(201).json({ success: true, data: product });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// PUT /api/vendor/products/:id
-export const updateProduct = async (req, res) => {
-  try {
-    const vendorId = req.user._id;
-    const product = await Product.findOneAndUpdate({ _id: req.params.id, vendorId }, req.body, { new: true });
-    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
-    res.json({ success: true, data: product });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
 
 // POST /api/vendor/packages/upload-csv
 export const uploadCsv = async (req, res) => {
@@ -480,3 +466,102 @@ export const uploadCsv = async (req, res) => {
       }
     });
 };
+
+// --- PRODUCT MANAGEMENT ---
+
+// GET /api/vendor/products
+export const getProducts = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const products = await Product.find({ vendorId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: products });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/vendor/products
+export const createProduct = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { barcode, name, category, price, threshold, stockReceived } = req.body;
+    
+    if (!name || !price) {
+      return res.status(400).json({ success: false, message: 'Name and price are required' });
+    }
+
+    const product = await Product.create({
+      vendorId,
+      barcode: barcode || `BC-${Date.now().toString().slice(-6)}`,
+      name,
+      category: category || 'General',
+      price: Number(price),
+      threshold: Number(threshold) || 5,
+      stockReceived: Number(stockReceived) || 0,
+      stockSold: 0
+    });
+
+    res.status(201).json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/vendor/products/:id
+export const updateProduct = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { barcode, name, category, price, threshold } = req.body;
+
+    const product = await Product.findOne({ _id: req.params.id, vendorId });
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    if (barcode) product.barcode = barcode;
+    if (name) product.name = name;
+    if (category) product.category = category;
+    if (price !== undefined) product.price = Number(price);
+    if (threshold !== undefined) product.threshold = Number(threshold);
+
+    await product.save();
+    res.json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// DELETE /api/vendor/products/:id
+export const deleteProduct = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const product = await Product.findOneAndDelete({ _id: req.params.id, vendorId });
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    
+    res.json({ success: true, message: 'Product deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/vendor/products/:id/stock
+export const updateStock = async (req, res) => {
+  try {
+    const vendorId = req.user._id;
+    const { quantity } = req.body;
+
+    if (quantity === undefined || isNaN(Number(quantity))) {
+      return res.status(400).json({ success: false, message: 'Quantity is required' });
+    }
+
+    const product = await Product.findOne({ _id: req.params.id, vendorId });
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+
+    // Stock received adds to total available stock (Current stock = stockReceived - stockSold)
+    product.stockReceived += Number(quantity);
+    
+    await product.save();
+    res.json({ success: true, data: product });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

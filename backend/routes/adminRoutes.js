@@ -3,6 +3,7 @@ const router = express.Router();
 import auth from '../middleware/auth.js';
 import roleGuard from '../middleware/roleGuard.js';
 import { auditAction } from '../middleware/auditMiddleware.js';
+import multer from 'multer';
 import { 
   getDashboardStats,
   getFinancialAnalytics,
@@ -14,11 +15,16 @@ import {
   updateUser,
   getAllPackagesAdmin,
   updatePackageAdmin,
+  deletePackageAdmin,
+  createPackageForVendor,
+  bulkCreatePackagesForVendor,
+  uploadCsvForVendor,
   reconcileRiderCOD,
   getAllExpenses,
   updateExpenseStatus,
   getSettlements,
-  updateSettlement
+  updateSettlement,
+  requestPickupAdmin
 } from '../controllers/adminController.js';
 import {
   getGlobalPricingSettings,
@@ -41,6 +47,9 @@ import {
 } from '../controllers/deliveryChargeController.js';
 
 import { validateGlobalSettings, validateOutsideValleyFee } from '../middleware/pricingValidation.js';
+
+// Multer config for CSV uploads
+const upload = multer({ dest: 'uploads/' });
 
 // All routes require auth + admin role
 router.use(auth, roleGuard('admin'));
@@ -78,9 +87,14 @@ router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 router.put('/users/:id/toggle-status', toggleUserStatus);
 
-// Package overview
+// Package management (CRUD + bulk)
 router.get('/packages', getAllPackagesAdmin);
+router.post('/packages', createPackageForVendor);
+router.post('/packages/bulk', bulkCreatePackagesForVendor);
+router.post('/packages/upload-csv', upload.single('file'), uploadCsvForVendor);
+router.post('/packages/pickup-request', requestPickupAdmin);
 router.put('/packages/:id', updatePackageAdmin);
+router.delete('/packages/:id', deletePackageAdmin);
 
 // COD reconciliation
 router.post('/reconcile/:riderId', reconcileRiderCOD);

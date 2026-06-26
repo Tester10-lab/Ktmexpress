@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../api/axios';
 import { useToast } from '../store/ToastContext';
+import { Camera, Check, Clock, Edit2, Keyboard, Package, Phone, Copy, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 // ─── Role-to-allowed-actions map ─────────────────────────────────────────────
 const ROLE_ACTIONS = {
@@ -10,24 +11,23 @@ const ROLE_ACTIONS = {
 };
 
 const STATUS_COLORS = {
-  'Pending':           '#f59e0b',
-  'Pick Up Requested': '#f59e0b',
-  'Picked Up':         '#3b82f6',
-  'In Warehouse':      '#8b5cf6',
-  'Sorted':            '#06b6d4',
-  'Out for Delivery':  '#f97316',
-  'Delivered':         '#10b981',
-  'Postponed':         '#f97316',
-  'Cancelled':         '#ef4444',
-  'Returned':          '#ef4444',
-  'Returned to Vendor':'#6b7280',
+  'Pending':           'bg-amber-100 text-amber-700 ring-amber-500/30',
+  'Pick Up Requested': 'bg-amber-100 text-amber-700 ring-amber-500/30',
+  'Picked Up':         'bg-blue-100 text-blue-700 ring-blue-500/30',
+  'In Warehouse':      'bg-purple-100 text-purple-700 ring-purple-500/30',
+  'Sorted':            'bg-cyan-100 text-cyan-700 ring-cyan-500/30',
+  'Out for Delivery':  'bg-orange-100 text-orange-700 ring-orange-500/30',
+  'Delivered':         'bg-emerald-100 text-emerald-700 ring-emerald-500/30',
+  'Postponed':         'bg-orange-100 text-orange-700 ring-orange-500/30',
+  'Cancelled':         'bg-red-100 text-red-700 ring-red-500/30',
+  'Returned':          'bg-red-100 text-red-700 ring-red-500/30',
+  'Returned to Vendor':'bg-slate-100 text-slate-700 ring-slate-500/30',
 };
 
 function StatusPill({ status }) {
-  const c = STATUS_COLORS[status] || '#6b7280';
+  const colorClass = STATUS_COLORS[status] || 'bg-slate-100 text-slate-700 ring-slate-500/30';
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: c + '18', color: c, border: `1px solid ${c}40` }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${colorClass}`}>
       {status}
     </span>
   );
@@ -78,7 +78,6 @@ const CameraScanner = ({ onDetected, active }) => {
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
       });
       
-      // If component unmounted or stopped while we were waiting for permissions
       if (!active || !videoRef.current) {
         stream.getTracks().forEach(t => t.stop());
         return;
@@ -91,7 +90,6 @@ const CameraScanner = ({ onDetected, active }) => {
         setScanning(true);
       }
 
-      // Try native BarcodeDetector API first (faster), fallback to jsQR
       const detector = ('BarcodeDetector' in window)
         ? new window.BarcodeDetector({ formats: ['qr_code', 'code_128', 'code_39'] })
         : null;
@@ -104,7 +102,6 @@ const CameraScanner = ({ onDetected, active }) => {
             const results = await detector.detect(videoRef.current);
             if (results.length > 0) code = results[0].rawValue;
           } else {
-            // jsQR fallback
             const canvas = canvasRef.current;
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             canvas.width  = videoRef.current.videoWidth;
@@ -118,7 +115,6 @@ const CameraScanner = ({ onDetected, active }) => {
 
           if (code && code !== lastCodeRef.current) {
             lastCodeRef.current = code;
-            // Extract tracking code from URL if it's a full URL
             let trackingCode = code;
             try {
               const url = new URL(code);
@@ -127,7 +123,6 @@ const CameraScanner = ({ onDetected, active }) => {
             } catch (_) {}
 
             onDetected(trackingCode.toUpperCase());
-            // Debounce — don't re-fire same code for 3s
             setTimeout(() => { lastCodeRef.current = ''; }, 3000);
           }
         } catch (_) {}
@@ -135,7 +130,7 @@ const CameraScanner = ({ onDetected, active }) => {
     } catch (e) {
       setError('Camera access denied. Please allow camera permission or use manual input.');
     }
-  }, [onDetected]);
+  }, [onDetected, active]);
 
   useEffect(() => {
     if (active) startCamera();
@@ -146,27 +141,28 @@ const CameraScanner = ({ onDetected, active }) => {
   return (
     <div>
       {error && (
-        <div style={{ padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fee2e2', color: '#991b1b', fontSize: 13, marginBottom: 12 }}>{error}</div>
+        <div className="p-3 mb-3 bg-red-50 text-red-700 text-sm border border-red-200 rounded-lg">{error}</div>
       )}
-      <div className="camera-container" style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', background: '#111', aspectRatio: '4/3', maxHeight: 300 }}>
-        <video ref={videoRef} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-        {/* Scan overlay */}
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ width: 180, height: 180, position: 'relative' }}>
-            {[['0%','0%','borderTop','borderLeft'],['100%','0%','borderTop','borderRight'],['0%','100%','borderBottom','borderLeft'],['100%','100%','borderBottom','borderRight']].map(([t,r,b1,b2],i) => (
-              <div key={i} style={{ position: 'absolute', top: i<2?t:undefined, bottom: i>=2?'0%':undefined, left: (i===0||i===2)?r:undefined, right: (i===1||i===3)?'0%':undefined, width: 28, height: 28, [b1]: '3px solid #22d3ee', [b2]: '3px solid #22d3ee', borderRadius: 3 }} />
-            ))}
+      <div className="relative rounded-xl overflow-hidden bg-slate-900 aspect-video sm:aspect-[4/3] max-h-[300px]">
+        <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
+        <canvas ref={canvasRef} className="hidden" />
+        {/* Scan overlay target */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-48 h-48 relative">
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-brand-400 rounded-tl-lg" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-brand-400 rounded-tr-lg" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-brand-400 rounded-bl-lg" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-brand-400 rounded-br-lg" />
           </div>
         </div>
         {!scanning && !error && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: 8 }}>
-            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M3 9V6a3 3 0 0 1 3-3h3"/><path d="M15 3h3a3 3 0 0 1 3 3v3"/><path d="M3 15v3a3 3 0 0 0 3 3h3"/><path d="M15 21h3a3 3 0 0 0 3-3v-3"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            <span style={{ fontSize: 13, opacity: 0.7 }}>Starting camera...</span>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/80 gap-2 backdrop-blur-sm">
+            <Camera className="w-8 h-8 animate-pulse" />
+            <span className="text-sm font-medium">Starting camera...</span>
           </div>
         )}
         {scanning && (
-          <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', color: '#22d3ee', fontSize: 11, fontWeight: 600, padding: '4px 12px', borderRadius: 20, letterSpacing: '0.05em' }}>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/60 text-brand-400 text-xs font-bold px-3 py-1.5 rounded-full tracking-wider backdrop-blur-md">
             SCANNING...
           </div>
         )}
@@ -176,14 +172,8 @@ const CameraScanner = ({ onDetected, active }) => {
 };
 
 // ─── Main ScanStation Component ───────────────────────────────────────────────
-/**
- * Shared scan station for Dispatcher (Warehouse Staff) and Rider dashboards.
- * Props:
- *   role — 'dispatcher' | 'rider' | 'admin'
- *   defaultAction — pre-select an action (optional)
- */
 const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
-  const [tab, setTab]             = useState('manual');     // 'manual' | 'camera' | 'bulk' | 'history'
+  const [tab, setTab]             = useState('manual');
   const [code, setCode]           = useState('');
   const [action, setAction]       = useState(defaultAction);
   const [location, setLocation]   = useState('');
@@ -191,7 +181,7 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
   const [lookupResult, setLookup] = useState(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [scanning, setScanning]   = useState(false);
-  const [sessionLog, setSessionLog] = useState([]);  // scans this session
+  const [sessionLog, setSessionLog] = useState([]);
   const [bulkInput, setBulkInput] = useState('');
   const [bulkResults, setBulkResults] = useState(null);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -202,22 +192,19 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
 
   const allowedActions = ROLE_ACTIONS[role] || [];
 
-  // Auto-focus input when tab changes
   useEffect(() => {
     if (tab === 'manual' && inputRef.current) inputRef.current.focus();
   }, [tab]);
 
-  // Try to get GPS location
   useEffect(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         pos => setLocation(`${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`),
-        () => {} // silently fail
+        () => {}
       );
     }
   }, []);
 
-  // Load history
   const loadHistory = useCallback(async () => {
     if (tab !== 'history') return;
     setHistLoading(true);
@@ -230,7 +217,6 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  // Lookup package by code
   const lookupPackage = useCallback(async (trackingCode) => {
     const c = (trackingCode || code).trim().toUpperCase();
     if (!c) return;
@@ -239,7 +225,6 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
     try {
       const r = await api.get(`/scan/lookup/${c}`);
       setLookup(r.data.data);
-      // Auto-select the action if only one is available
       if (r.data.data.allowedActions?.length === 1 && !action) {
         setAction(r.data.data.allowedActions[0]);
       }
@@ -250,7 +235,6 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
     } finally { setLookupLoading(false); }
   }, [code, action, showToast]);
 
-  // Submit a scan
   const submitScan = async () => {
     if (!lookupResult?.package || !action) return;
     setScanning(true);
@@ -271,7 +255,7 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
         time: new Date().toLocaleTimeString(),
         success: true,
       }, ...prev.slice(0, 49)]);
-      // Reset for next scan
+      
       setCode('');
       setLookup(null);
       setNotes('');
@@ -283,16 +267,14 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
     } finally { setScanning(false); }
   };
 
-  // Camera scan detected
   const onCameraDetected = useCallback(async (detectedCode) => {
     setCode(detectedCode);
     if (window.innerWidth <= 768) {
-      setTab('manual'); // Switch back so they can see the scanned package and take action
+      setTab('manual');
     }
     await lookupPackage(detectedCode);
   }, [lookupPackage]);
 
-  // Bulk scan submit
   const submitBulkScan = async () => {
     if (!action) return showToast('Select an action first', 'warning');
     const codes = bulkInput.split(/[\n,\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
@@ -312,255 +294,286 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
   };
 
   const tabs = [
-    { id: 'manual', label: 'Manual / Keyboard', icon: '⌨️' },
-    { id: 'camera', label: 'Camera Scan', icon: '📷' },
-    { id: 'bulk',   label: 'Bulk Scan', icon: '📋' },
-    { id: 'history',label: 'My History', icon: '🕐' },
+    { id: 'manual', label: 'Manual Input', icon: <Keyboard className="w-5 h-5" /> },
+    { id: 'camera', label: 'Camera Scan', icon: <Camera className="w-5 h-5" /> },
+    { id: 'bulk',   label: 'Bulk Scan', icon: <Copy className="w-5 h-5" /> },
+    { id: 'history',label: 'My History', icon: <Clock className="w-5 h-5" /> },
   ];
 
   const pkg = lookupResult?.package;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: 960, margin: '0 auto' }}>
+    <div className="flex flex-col gap-6 max-w-6xl mx-auto w-full">
       
       {/* Session counter */}
       {sessionLog.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 16px', background: 'linear-gradient(90deg,#1e3a8a,#2563eb)', borderRadius: 10, color: '#fff' }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-          <span style={{ fontWeight: 700 }}>{sessionLog.length} packages scanned this session</span>
-          <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.8 }}>Last: {sessionLog[0]?.trackingCode} → {sessionLog[0]?.action}</span>
+        <div className="flex items-center gap-3 px-4 py-3 bg-brand-600 text-white rounded-xl shadow-md">
+          <CheckCircle2 className="w-5 h-5 text-brand-200" />
+          <span className="font-semibold text-sm">{sessionLog.length} packages scanned this session</span>
+          <span className="ml-auto text-xs text-brand-200 font-medium hidden sm:inline">
+            Last: {sessionLog[0]?.trackingCode} → {sessionLog[0]?.action}
+          </span>
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20 }}>
-        {/* Left panel */}
-        <div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        {/* Left panel - Input controls */}
+        <div className="col-span-1 lg:col-span-7 xl:col-span-8 flex flex-col gap-6">
+          
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#f3f4f6', borderRadius: 10, padding: 4 }}>
+          <div className="flex p-1 space-x-1 bg-slate-200/60 rounded-xl overflow-x-auto hide-scrollbar">
             {tabs.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{ flex: 1, padding: '8px 4px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: tab === t.id ? '#fff' : 'transparent', color: tab === t.id ? '#1d4ed8' : '#6b7280', boxShadow: tab === t.id ? '0 1px 4px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.15s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                <span style={{ fontSize: 16 }}>{t.icon}</span>
-                <span style={{ fontSize: 10 }}>{t.label}</span>
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`flex flex-col sm:flex-row items-center justify-center gap-2 flex-1 min-w-[80px] py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200 ${
+                  tab === t.id
+                    ? 'bg-white text-brand-600 shadow-sm ring-1 ring-slate-900/5'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                {t.icon}
+                <span className="text-xs sm:text-sm">{t.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Manual Tab */}
-          {tab === 'manual' && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20 }}>
-              <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 700 }}>Scan or Type Tracking Code</h3>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={code}
-                  onChange={e => setCode(e.target.value.toUpperCase())}
-                  onKeyDown={e => e.key === 'Enter' && lookupPackage()}
-                  placeholder="e.g. ABC1234 or paste QR data"
-                  style={{ flex: 1, border: '2px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 15, fontFamily: 'monospace', fontWeight: 700, outline: 'none', letterSpacing: '0.1em' }}
-                  autoComplete="off"
-                />
-                <button onClick={() => lookupPackage()} disabled={lookupLoading || !code.trim()}
-                  style={{ padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 14, opacity: (lookupLoading || !code.trim()) ? 0.5 : 1 }}>
-                  {lookupLoading ? '...' : 'Lookup'}
-                </button>
+          {/* Active Tab Content */}
+          <div className="card-premium p-6">
+            
+            {/* Manual Tab */}
+            {tab === 'manual' && (
+              <div className="animate-fadeIn">
+                <h3 className="text-lg font-bold text-slate-900 mb-4">Scan or Type Tracking Code</h3>
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={code}
+                    onChange={e => setCode(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && lookupPackage()}
+                    placeholder="e.g. ABC1234 or paste QR data"
+                    className="flex-1 input-field font-mono font-bold tracking-wider text-lg uppercase"
+                    autoComplete="off"
+                  />
+                  <button 
+                    onClick={() => lookupPackage()} 
+                    disabled={lookupLoading || !code.trim()}
+                    className="btn-primary w-full sm:w-auto h-[46px]"
+                  >
+                    {lookupLoading ? '...' : 'Lookup Package'}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 font-medium">Press Enter after typing. USB barcode scanners work automatically.</p>
               </div>
-              <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Press Enter or click Lookup after typing/scanning a code. USB barcode scanners work automatically.</p>
-            </div>
-          )}
+            )}
 
-          {/* Camera Tab */}
-          {tab === 'camera' && (
-            <div className="mobile-fullscreen-scanner" style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Mobile Camera Scanner</h3>
-                <button onClick={() => setTab('manual')} className="btn btn-outline btn-sm" style={{ display: window.innerWidth <= 768 ? 'block' : 'none' }}>Close</button>
-              </div>
-              <CameraScanner onDetected={onCameraDetected} active={tab === 'camera'} />
-              {code && (
-                <div style={{ marginTop: 12, padding: '8px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, fontWeight: 600, color: '#166534' }}>
-                  Detected: <span style={{ fontFamily: 'monospace', fontSize: 15 }}>{code}</span>
+            {/* Camera Tab */}
+            {tab === 'camera' && (
+              <div className="animate-fadeIn">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900">Mobile Camera Scanner</h3>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Bulk Tab */}
-          {tab === 'bulk' && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20 }}>
-              <h3 style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 700 }}>Bulk Scan</h3>
-              <p style={{ fontSize: 12, color: '#6b7280', margin: '0 0 16px' }}>Paste or type multiple tracking codes (one per line, or comma-separated). Select an action below, then submit.</p>
-              <textarea
-                value={bulkInput}
-                onChange={e => setBulkInput(e.target.value.toUpperCase())}
-                placeholder={"ABC1234\nDEF5678\nGHI9012"}
-                rows={6}
-                style={{ width: '100%', border: '2px solid #e5e7eb', borderRadius: 8, padding: '10px 14px', fontSize: 13, fontFamily: 'monospace', resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
-              />
-              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-                <select value={action} onChange={e => setAction(e.target.value)}
-                  style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none' }}>
-                  <option value="">— Select Action —</option>
-                  {allowedActions.map(a => <option key={a} value={a}>{a}</option>)}
-                </select>
-                <button onClick={submitBulkScan} disabled={bulkLoading || !bulkInput.trim() || !action}
-                  style={{ padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#2563eb', color: '#fff', fontWeight: 700, fontSize: 13, opacity: (bulkLoading || !bulkInput.trim() || !action) ? 0.5 : 1 }}>
-                  {bulkLoading ? 'Processing...' : 'Bulk Submit'}
-                </button>
-              </div>
-              {bulkResults && (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
-                    <span style={{ padding: '4px 12px', borderRadius: 20, background: '#f0fdf4', color: '#166534', fontWeight: 700, fontSize: 12 }}>✓ {bulkResults.processed} Success</span>
-                    {bulkResults.failed > 0 && <span style={{ padding: '4px 12px', borderRadius: 20, background: '#fef2f2', color: '#991b1b', fontWeight: 700, fontSize: 12 }}>✗ {bulkResults.failed} Failed</span>}
-                  </div>
-                  {bulkResults.errors?.map((e, i) => (
-                    <div key={i} style={{ fontSize: 12, color: '#ef4444', padding: '4px 0' }}>{e.code}: {e.error}</div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* History Tab */}
-          {tab === 'history' && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              <div style={{ padding: '14px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>My Scan History</h3>
-                <button onClick={loadHistory} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}>↻ Refresh</button>
-              </div>
-              {histLoading ? (
-                <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>Loading...</div>
-              ) : history.length === 0 ? (
-                <div style={{ padding: 40, textAlign: 'center', color: '#9ca3af' }}>No scans recorded yet.</div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: '#f9fafb' }}>
-                        {['Time', 'Tracking Code', 'Action', 'Location'].map(h => (
-                          <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {history.map(ev => (
-                        <tr key={ev._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                          <td style={{ padding: '10px 14px', color: '#6b7280', fontSize: 12 }}>{new Date(ev.createdAt).toLocaleString()}</td>
-                          <td style={{ padding: '10px 14px', fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{ev.trackingCode}</td>
-                          <td style={{ padding: '10px 14px' }}><StatusPill status={ev.toStatus} /></td>
-                          <td style={{ padding: '10px 14px', color: '#6b7280', fontSize: 12 }}>{ev.location || '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Right panel — package detail + action */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Package Result Card */}
-          {pkg ? (
-            <div style={{ background: '#fff', borderRadius: 12, border: '2px solid #2563eb33', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: '#eff6ff', borderBottom: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                <span style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8' }}>Package Found</span>
-              </div>
-              <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tracking Code</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, letterSpacing: '0.12em', color: '#111' }}>{pkg.trackingCode}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Customer</div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{pkg.customerName}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>📞 {pkg.customerPhone}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Address</div>
-                  <div style={{ fontSize: 12, color: '#374151' }}>{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Current Status</div>
-                    <div style={{ marginTop: 4 }}><StatusPill status={pkg.status} /></div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>COD</div>
-                    <div style={{ fontWeight: 700, color: '#2563eb' }}>Rs. {pkg.amount}</div>
-                  </div>
-                </div>
-                {!lookupResult?.canScan && (
-                  <div style={{ padding: '8px 12px', background: '#fef3c7', borderRadius: 8, border: '1px solid #fde68a', fontSize: 12, color: '#92400e' }}>
-                    ⚠️ You cannot perform any action on this package in its current status.
+                <CameraScanner onDetected={onCameraDetected} active={tab === 'camera'} />
+                {code && (
+                  <div className="mt-4 p-3 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 flex items-center justify-between">
+                    <span className="text-sm font-medium">Code Detected</span>
+                    <span className="font-mono font-bold tracking-wider">{code}</span>
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <div style={{ background: '#f9fafb', borderRadius: 12, border: '2px dashed #e5e7eb', padding: 32, textAlign: 'center', color: '#9ca3af' }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ display: 'block', margin: '0 auto 12px' }}><path d="M3 9V6a3 3 0 0 1 3-3h3"/><path d="M15 3h3a3 3 0 0 1 3 3v3"/><path d="M3 15v3a3 3 0 0 0 3 3h3"/><path d="M15 21h3a3 3 0 0 0 3-3v-3"/></svg>
-              <p style={{ margin: 0, fontSize: 13 }}>Scan or enter a tracking code to see package details</p>
-            </div>
-          )}
+            )}
 
-          {/* Action Panel */}
-          {pkg && lookupResult?.canScan && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Confirm Action</h4>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Action *</label>
-                <select value={action} onChange={e => setAction(e.target.value)}
-                  style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none' }}>
-                  <option value="">— Select Action —</option>
-                  {(lookupResult?.allowedActions?.length > 0 ? lookupResult.allowedActions : allowedActions).map(a => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Location (optional)</label>
-                <input type="text" value={location} onChange={e => setLocation(e.target.value)}
-                  placeholder="Office, area, or GPS coords"
-                  style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 4 }}>Notes (optional)</label>
-                <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
-                  placeholder="Any remarks..."
-                  style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: 8, padding: '8px 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-              <button
-                onClick={submitScan}
-                disabled={scanning || !action}
-                style={{ width: '100%', padding: '12px', borderRadius: 8, border: 'none', cursor: scanning || !action ? 'not-allowed' : 'pointer', background: scanning || !action ? '#93c5fd' : '#2563eb', color: '#fff', fontWeight: 800, fontSize: 15, letterSpacing: '0.02em', transition: 'background 0.15s' }}>
-                {scanning ? 'Processing...' : `✓ Confirm ${action || 'Action'}`}
-              </button>
-            </div>
-          )}
-
-          {/* Session Log mini */}
-          {sessionLog.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-              <div style={{ padding: '10px 14px', borderBottom: '1px solid #e5e7eb', fontSize: 12, fontWeight: 700, color: '#374151' }}>Session Log ({sessionLog.length})</div>
-              {sessionLog.slice(0, 8).map((s, i) => (
-                <div key={i} style={{ padding: '8px 14px', borderBottom: i < Math.min(sessionLog.length, 8) - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{s.trackingCode}</span>
-                    <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 8 }}>{s.customer}</span>
+            {/* Bulk Tab */}
+            {tab === 'bulk' && (
+              <div className="animate-fadeIn">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">Bulk Scan</h3>
+                <p className="text-sm text-slate-500 mb-4">Paste or type multiple tracking codes (one per line). Select an action, then submit.</p>
+                <textarea
+                  value={bulkInput}
+                  onChange={e => setBulkInput(e.target.value.toUpperCase())}
+                  placeholder="ABC1234&#10;DEF5678&#10;GHI9012"
+                  rows={6}
+                  className="input-field font-mono text-sm resize-y"
+                />
+                <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                  <select 
+                    value={action} 
+                    onChange={e => setAction(e.target.value)}
+                    className="input-field sm:w-1/2"
+                  >
+                    <option value="">— Select Action —</option>
+                    {allowedActions.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                  <button 
+                    onClick={submitBulkScan} 
+                    disabled={bulkLoading || !bulkInput.trim() || !action}
+                    className="btn-primary flex-1 h-[42px]"
+                  >
+                    {bulkLoading ? 'Processing...' : 'Submit Bulk Update'}
+                  </button>
+                </div>
+                {bulkResults && (
+                  <div className="mt-6 pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-sm font-semibold">
+                        <CheckCircle2 className="w-4 h-4" /> {bulkResults.processed} Success
+                      </span>
+                      {bulkResults.failed > 0 && (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-semibold">
+                          <XCircle className="w-4 h-4" /> {bulkResults.failed} Failed
+                        </span>
+                      )}
+                    </div>
+                    {bulkResults.errors?.length > 0 && (
+                      <div className="space-y-1 mt-3">
+                        {bulkResults.errors.map((e, i) => (
+                          <div key={i} className="text-sm text-red-600 flex items-start gap-2">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <span><span className="font-mono font-bold mr-1">{e.code}:</span> {e.error}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <StatusPill status={s.action} />
-                    <span style={{ fontSize: 10, color: '#9ca3af' }}>{s.time}</span>
+                )}
+              </div>
+            )}
+
+            {/* History Tab */}
+            {tab === 'history' && (
+              <div className="animate-fadeIn">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-slate-900">My Scan History</h3>
+                  <button onClick={loadHistory} className="btn-secondary btn-sm">Refresh</button>
+                </div>
+                {histLoading ? (
+                  <div className="py-12 text-center text-slate-400">Loading history...</div>
+                ) : history.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400">No scans recorded yet.</div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                    <table className="w-full text-sm text-left">
+                      <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                        <tr>
+                          <th className="px-4 py-3">Time</th>
+                          <th className="px-4 py-3">Tracking Code</th>
+                          <th className="px-4 py-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {history.map(ev => (
+                          <tr key={ev._id} className="hover:bg-slate-50">
+                            <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(ev.createdAt).toLocaleTimeString()}</td>
+                            <td className="px-4 py-3 font-mono font-bold text-brand-600">{ev.trackingCode}</td>
+                            <td className="px-4 py-3"><StatusPill status={ev.toStatus} /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+
+        {/* Right panel - Action & Detail */}
+        <div className="col-span-1 lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
+          
+          {pkg ? (
+            <div className="card-premium animate-scaleIn bg-white overflow-visible">
+              <div className="px-5 py-4 border-b border-brand-100 bg-brand-50 flex items-center gap-3">
+                <Package className="w-5 h-5 text-brand-600" />
+                <h4 className="font-bold text-brand-800">Package Found</h4>
+              </div>
+              
+              <div className="p-5 space-y-5">
+                <div>
+                  <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">Tracking Code</p>
+                  <p className="font-mono text-2xl font-black text-slate-900 tracking-widest">{pkg.trackingCode}</p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">Customer</p>
+                    <p className="font-semibold text-slate-900">{pkg.customerName}</p>
+                    <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5"><Phone className="w-3.5 h-3.5" /> {pkg.customerPhone}</p>
+                  </div>
+                  
+                  <div className="col-span-2">
+                    <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">Delivery Address</p>
+                    <p className="text-sm text-slate-700 leading-snug">{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1.5">Current Status</p>
+                    <StatusPill status={pkg.status} />
+                  </div>
+                  
+                  <div>
+                    <p className="text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">COD Amount</p>
+                    <p className="font-bold text-brand-600 text-lg">Rs. {pkg.amount.toLocaleString()}</p>
                   </div>
                 </div>
-              ))}
+
+                {!lookupResult?.canScan && (
+                  <div className="mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200 flex gap-2 text-amber-800 text-sm">
+                    <AlertTriangle className="w-5 h-5 shrink-0 text-amber-500" />
+                    <span>This package cannot be updated from its current status.</span>
+                  </div>
+                )}
+              </div>
+
+              {lookupResult?.canScan && (
+                <div className="p-5 bg-slate-50 border-t border-slate-100 space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Update Action <span className="text-red-500">*</span></label>
+                    <select 
+                      value={action} 
+                      onChange={e => setAction(e.target.value)}
+                      className="input-field bg-white"
+                    >
+                      <option value="">— Select Action —</option>
+                      {(lookupResult?.allowedActions?.length > 0 ? lookupResult.allowedActions : allowedActions).map(a => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">Location / Notes (Optional)</label>
+                    <input 
+                      type="text" 
+                      value={notes} 
+                      onChange={e => setNotes(e.target.value)}
+                      placeholder="Add remarks or location"
+                      className="input-field bg-white" 
+                    />
+                  </div>
+
+                  <button
+                    onClick={submitScan}
+                    disabled={scanning || !action}
+                    className="w-full btn-primary h-12 text-base font-bold tracking-wide mt-2"
+                  >
+                    {scanning ? 'Processing...' : `Confirm ${action || 'Update'}`}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="card-premium h-full min-h-[300px] flex flex-col items-center justify-center p-8 text-center border-dashed bg-slate-50/50">
+              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
+                <Package className="w-8 h-8" />
+              </div>
+              <h4 className="text-slate-900 font-semibold mb-1">No Package Selected</h4>
+              <p className="text-sm text-slate-500 max-w-[200px]">Scan or type a tracking code to view details and take action.</p>
             </div>
           )}
+
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import api from '../../api/axios';
@@ -7,23 +7,24 @@ import { useToast } from '../../store/ToastContext';
 import PricingEngine from './PricingEngine';
 import ScanStation from '../../components/ScanStation';
 import Pagination from '../../components/Pagination';
+import { 
+  LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
+  Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
+  MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
+  Edit2, Trash2, Check, X, Bell
+} from 'lucide-react';
 
 // Nav icons
-const Icon = ({ d, d2, d3 }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d={d} />{d2 && <path d={d2} />}{d3 && <path d={d3} />}
-  </svg>
-);
-
 const navLinks = [
-  { name: 'Dashboard', path: '/admin', exact: true, icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
-  { name: 'Settlements', path: '/admin/settlements', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
-  { name: 'Rider Expenses', path: '/admin/expenses', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="2" x2="12" y2="22" /><line x1="17" y1="5" x2="9.5" y2="5" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
-  { name: 'Manage Users', path: '/admin/users', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg> },
-  { name: 'Pricing Engine', path: '/admin/pricing-engine', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg> },
-  { name: 'Global Scan History', path: '/admin/scan-history', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg> },
-  { name: 'All Packages', path: '/admin/packages', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
-  { name: 'Reports', path: '/admin/reports', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg> }
+  { name: 'Dashboard', path: '/admin', exact: true, icon: <LayoutDashboard className="w-5 h-5" /> },
+  { name: 'Settlements', path: '/admin/settlements', icon: <Wallet className="w-5 h-5" /> },
+  { name: 'Rider Expenses', path: '/admin/expenses', icon: <Receipt className="w-5 h-5" /> },
+  { name: 'Manage Users', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
+  { name: 'Pricing Engine', path: '/admin/pricing-engine', icon: <Settings2 className="w-5 h-5" /> },
+  { name: 'Global Scan History', path: '/admin/scan-history', icon: <Activity className="w-5 h-5" /> },
+  { name: 'All Packages', path: '/admin/packages', icon: <Package className="w-5 h-5" /> },
+  { name: 'Dispatcher Panel', path: '/admin/dispatcher', icon: <LayoutGrid className="w-5 h-5" /> },
+  { name: 'Reports', path: '/admin/reports', icon: <BarChart3 className="w-5 h-5" /> }
 ];
 
 const titleMap = {
@@ -34,19 +35,26 @@ const titleMap = {
   '/admin/pricing-engine': 'Dynamic Pricing Engine',
   '/admin/scan-history': 'Global Scan History',
   '/admin/packages': 'All Packages',
+  '/admin/dispatcher': 'Dispatcher Panel',
   '/admin/reports': 'Financial Reports',
 };
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
-  const m = {
-    'Delivered': 'badge-success', 'Cancelled': 'badge-danger',
-    'Returned': 'badge-info', 'Returned to Vendor': 'badge-info',
-    'Pending': 'badge-warning', 'Pick Up Requested': 'badge-warning',
-    'Picked Up': 'badge-primary', 'In Warehouse': 'badge-primary',
-    'Out for Delivery': 'badge-primary', 'Postponed': 'badge-warning',
+  const styles = {
+    'Delivered': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    'Cancelled': 'bg-red-100 text-red-700 border-red-200',
+    'Returned': 'bg-sky-100 text-sky-700 border-sky-200',
+    'Returned to Vendor': 'bg-sky-100 text-sky-700 border-sky-200',
+    'Pending': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Pick Up Requested': 'bg-amber-100 text-amber-700 border-amber-200',
+    'Picked Up': 'bg-brand-100 text-brand-700 border-brand-200',
+    'In Warehouse': 'bg-brand-100 text-brand-700 border-brand-200',
+    'Out for Delivery': 'bg-brand-100 text-brand-700 border-brand-200',
+    'Postponed': 'bg-orange-100 text-orange-700 border-orange-200',
   };
-  return <span className={`badge ${m[status] || 'badge-secondary'}`}>{status}</span>;
+  const style = styles[status] || 'bg-slate-100 text-slate-700 border-slate-200';
+  return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${style}`}>{status}</span>;
 }
 
 // ─── Dashboard ───────────────────────────────────────────────────────────────
@@ -59,64 +67,75 @@ const AdminHome = () => {
     api.get('/admin/dashboard').then(r => setStats(r.data.data || {})).catch(console.error).finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="empty-state"><p>Loading dashboard...</p></div>;
+  if (loading) return <div className="p-8 text-center text-slate-500 font-medium">Loading dashboard...</div>;
 
   return (
-    <>
-      <div className="metrics-grid">
-        <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Total Packages" value={stats.totalPackages ?? 0} color="primary"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21" /><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Delivered" value={stats.delivered ?? 0} color="success"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Pending" value={stats.pending ?? 0} color="warning"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Cancelled" value={stats.cancelled ?? 0} color="danger"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Returned" value={stats.returned ?? 0} color="info"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-4.5" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/users')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Active Vendors" value={stats.activeVendors ?? 0} color="purple"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/users')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Active Riders" value={stats.activeRiders ?? 0} color="success"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="5.5" cy="17.5" r="3.5" /><circle cx="18.5" cy="17.5" r="3.5" /><path d="M15 6l-3-5-4 5H2v2l5 2 2 6h2l2-6 6-2V6z" /></svg>} />
-        </div>
-        <div onClick={() => navigate('/admin/reports')} className="cursor-pointer hover:shadow-md transition-shadow">
-          <MetricCard title="Total Revenue" value={`Rs. ${stats.totalRevenue ?? 0}`} color="primary"
-            icon={<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>} />
+    <div className="space-y-8 animate-fadeIn">
+      {/* Today's Activity */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <span className="text-lg">📅</span> Today's Activity
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <MetricCard title="New Packages Today" value={stats.todayPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
+          <MetricCard title="Deliveries Today" value={stats.todayDeliveries ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
+          <MetricCard title="Pending Expenses" value={stats.todayExpenses ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
         </div>
       </div>
 
-      <div className="dashboard-section-grid">
-        <div className="card col-span-2 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/reports')}>
-          <div className="card-header border-b">
-            <div className="header-title-group"><h3>Platform Summary</h3><p>Delivery fees collected by the platform</p></div>
+      {/* All-Time Stats */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">All-Time Statistics</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Total Packages" value={stats.totalPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
           </div>
-          <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 32 }}>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: 8 }}>Platform Profit (Delivery Fees)</p>
-            <p className="metric-value text-success">Rs. {stats.profit ?? 0}</p>
+          <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Delivered" value={stats.delivered ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
           </div>
-        </div>
-        <div className="card cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/reports')}>
-          <div className="card-header border-b"><h3>Delivery Charges Collected</h3></div>
-          <div className="card-body" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 32 }}>
-            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)', marginBottom: 8 }}>Total Delivery Fees</p>
-            <p className="metric-value text-primary-color">Rs. {stats.totalDeliveryCharges ?? 0}</p>
+          <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Pending" value={stats.pending ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
+          </div>
+          <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Cancelled" value={stats.cancelled ?? 0} color="danger" icon={<XCircle className="w-5 h-5 text-red-600" />} />
+          </div>
+          <div onClick={() => navigate('/admin/scan-history')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Returned" value={stats.returned ?? 0} color="info" icon={<RefreshCw className="w-5 h-5 text-sky-600" />} />
+          </div>
+          <div onClick={() => navigate('/admin/users')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Active Vendors" value={stats.activeVendors ?? 0} color="purple" icon={<Users className="w-5 h-5 text-purple-600" />} />
+          </div>
+          <div onClick={() => navigate('/admin/users')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Active Riders" value={stats.activeRiders ?? 0} color="success" icon={<Truck className="w-5 h-5 text-emerald-600" />} />
+          </div>
+          <div onClick={() => navigate('/admin/reports')} className="cursor-pointer transition-transform hover:-translate-y-1">
+            <MetricCard title="Total Revenue" value={`Rs. ${stats.totalRevenue ?? 0}`} color="primary" icon={<Wallet className="w-5 h-5 text-brand-600" />} />
           </div>
         </div>
       </div>
-    </>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="card-premium lg:col-span-2 cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/reports')}>
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">Platform Summary</h3>
+            <p className="text-xs text-slate-500">Delivery fees collected by the platform</p>
+          </div>
+          <div className="flex flex-col items-center justify-center p-12 bg-slate-50/50">
+            <p className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wider">Platform Profit (Delivery Fees)</p>
+            <p className="text-4xl font-black text-emerald-600">Rs. {stats.profit ?? 0}</p>
+          </div>
+        </div>
+        <div className="card-premium cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate('/admin/reports')}>
+          <div className="px-6 py-4 border-b border-slate-100">
+            <h3 className="font-bold text-slate-800">Delivery Charges Collected</h3>
+          </div>
+          <div className="flex flex-col items-center justify-center p-12 bg-slate-50/50 h-full">
+            <p className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wider">Total Delivery Fees</p>
+            <p className="text-3xl font-black text-brand-600">Rs. {stats.totalDeliveryCharges ?? 0}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -125,7 +144,9 @@ const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createModal, setCreateModal] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '' });
+  const [editModal, setEditModal] = useState(false);
+  const [editUser, setEditUser] = useState(null);
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '', monthlyTarget: '' });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [pagination, setPagination] = useState(null);
@@ -152,7 +173,7 @@ const ManageUsers = () => {
     } catch { showToast('Failed to update status', 'error'); }
   };
 
-  const deleteUser = async (id, name) => {
+  const handleDeleteUser = async (id, name) => {
     if (!window.confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try { await api.delete(`/admin/users/${id}`); showToast('User deleted', 'success'); fetchUsers(); }
     catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
@@ -164,153 +185,233 @@ const ManageUsers = () => {
       await api.post('/admin/users', newUser);
       showToast(`User "${newUser.name}" created!`, 'success');
       setCreateModal(false);
-      setNewUser({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '' });
+      setNewUser({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '', monthlyTarget: '' });
       fetchUsers();
     } catch (err) { showToast(err.response?.data?.message || 'Failed to create user', 'error'); }
   };
 
-  const roleClass = { admin: 'badge-danger', vendor: 'badge-primary', dispatcher: 'badge-warning', rider: 'badge-success' };
+  const openEditUser = (u) => {
+    setEditUser({ _id: u._id, name: u.name, email: u.email, role: u.role, contact: u.contact || '', status: u.status, shopName: u.vendorMeta?.shopName || '', monthlyTarget: u.riderMeta?.monthlyTarget || 0 });
+    setEditModal(true);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { name: editUser.name, contact: editUser.contact, status: editUser.status };
+      if (editUser.role === 'vendor') {
+        payload.vendorMeta = { shopName: editUser.shopName };
+      }
+      if (editUser.role === 'rider') {
+        payload.riderMeta = { monthlyTarget: parseInt(editUser.monthlyTarget) || 0 };
+      }
+      await api.put(`/admin/users/${editUser._id}`, payload);
+      showToast('User updated successfully', 'success');
+      setEditModal(false);
+      fetchUsers();
+    } catch (err) { showToast(err.response?.data?.message || 'Failed to update user', 'error'); }
+  };
+
+  const roleClass = { 
+    admin: 'bg-red-100 text-red-700 border border-red-200', 
+    vendor: 'bg-brand-100 text-brand-700 border border-brand-200', 
+    dispatcher: 'bg-amber-100 text-amber-700 border border-amber-200', 
+    rider: 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+  };
 
   return (
-    <>
-      <div className="card p-0">
-        <div className="card-header border-b" style={{ padding: 20 }}>
-          <div className="header-title-group"><h3>Platform Users</h3><p>Manage vendors, dispatchers, and riders</p></div>
-          <button className="btn btn-primary btn-sm" onClick={() => setCreateModal(true)}>+ Add User</button>
+    <div className="card-premium animate-fadeIn overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/50">
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg">Platform Users</h3>
+          <p className="text-sm text-slate-500">Manage vendors, dispatchers, and riders</p>
         </div>
-        <div className="table-container">
-          <table className="data-table">
-            <thead><tr><th>User</th><th>Role</th><th>Contact</th><th>Status</th><th>Last Active</th><th>Actions</th></tr></thead>
-            <tbody>
-              {loading ? <tr><td colSpan="6" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</td></tr>
-                : users.length === 0 ? <tr><td colSpan="6" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No users found.</td></tr>
-                  : users.map(u => (
-                    <tr key={u._id}>
-                      <td>
-                        <div style={{ fontWeight: 600 }}>{u.name}</div>
-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{u.email}</div>
-                      </td>
-                      <td><span className={`badge ${roleClass[u.role] || 'badge-secondary'}`}>{u.role}</span></td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{u.contact || '—'}</td>
-                      <td><span className={`badge ${u.status === 'Active' ? 'badge-success' : 'badge-danger'}`}>{u.status}</span></td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-xs)' }}>{u.lastActive ? new Date(u.lastActive).toLocaleDateString() : '—'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={() => toggle(u._id)} className={`btn btn-sm ${u.status === 'Active' ? 'btn-warning' : 'btn-success'}`}>
-                            {u.status === 'Active' ? 'Suspend' : 'Activate'}
-                          </button>
-                          {u.role !== 'admin' && (
-                            <button onClick={() => deleteUser(u._id, u.name)} className="btn btn-sm btn-danger">Del</button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
-        </div>
-        <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
+        <button className="btn-primary btn-sm flex items-center gap-2" onClick={() => setCreateModal(true)}>
+          <Plus className="w-4 h-4" /> Add User
+        </button>
       </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-3">User</th>
+              <th className="px-6 py-3">Role</th>
+              <th className="px-6 py-3">Contact</th>
+              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3">Last Active</th>
+              <th className="px-6 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {loading ? <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : users.length === 0 ? <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-500">No users found.</td></tr>
+                : users.map(u => (
+                  <tr key={u._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-900">{u.name}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{u.email}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${roleClass[u.role] || 'bg-slate-100 text-slate-700'}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-600 font-medium">{u.contact || '—'}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${u.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                        {u.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-slate-500 text-xs font-medium">{u.lastActive ? new Date(u.lastActive).toLocaleDateString() : '—'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button onClick={() => openEditUser(u)} className="btn-secondary btn-sm p-2" title="Edit">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => toggle(u._id)} 
+                          className={`btn-sm p-2 rounded-lg font-bold border ${u.status === 'Active' ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'}`}
+                          title={u.status === 'Active' ? 'Suspend' : 'Activate'}
+                        >
+                          {u.status === 'Active' ? <XCircle className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
+                        </button>
+                        {u.role !== 'admin' && (
+                          <button onClick={() => handleDeleteUser(u._id, u.name)} className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" title="Delete">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+          </tbody>
+        </table>
+      </div>
+      <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
 
+      {/* Modals can keep some structure but use Tailwind classes */}
       {createModal && (
-        <div className="modal-backdrop" onClick={() => setCreateModal(false)}>
-          <div className="modal-content max-w-600" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Create New User</h3>
-              <button className="modal-close" onClick={() => setCreateModal(false)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setCreateModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">Create New User</h3>
+              <button onClick={() => setCreateModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="modal-body">
-              <form onSubmit={createUser}>
-                <div className="form-row">
-                  <div className="form-group col-6"><label>Full Name *</label><input type="text" className="form-control" required value={newUser.name} onChange={e => setNewUser(f => ({ ...f, name: e.target.value }))} /></div>
-                  <div className="form-group col-6"><label>Email *</label><input type="email" className="form-control" required value={newUser.email} onChange={e => setNewUser(f => ({ ...f, email: e.target.value }))} /></div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group col-6"><label>Password *</label><input type="password" className="form-control" required minLength={6} value={newUser.password} onChange={e => setNewUser(f => ({ ...f, password: e.target.value }))} /></div>
-                  <div className="form-group col-6">
-                    <label>Role *</label>
-                    <select className="form-select" value={newUser.role} onChange={e => setNewUser(f => ({ ...f, role: e.target.value }))}>
+            <div className="p-6">
+              <form onSubmit={createUser} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newUser.name} onChange={e => setNewUser(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Email <span className="text-red-500">*</span></label>
+                    <input type="email" className="input-field" required value={newUser.email} onChange={e => setNewUser(f => ({ ...f, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Password <span className="text-red-500">*</span></label>
+                    <input type="password" className="input-field" required minLength={6} value={newUser.password} onChange={e => setNewUser(f => ({ ...f, password: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Role <span className="text-red-500">*</span></label>
+                    <select className="input-field" value={newUser.role} onChange={e => setNewUser(f => ({ ...f, role: e.target.value }))}>
                       <option value="vendor">Vendor</option>
                       <option value="dispatcher">Dispatcher</option>
                       <option value="rider">Rider</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Contact/Phone</label>
+                    <input type="text" className="input-field" value={newUser.contact} onChange={e => setNewUser(f => ({ ...f, contact: e.target.value }))} />
+                  </div>
+                  {newUser.role === 'vendor' && (
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Shop Name</label>
+                      <input type="text" className="input-field" value={newUser.shopName} onChange={e => setNewUser(f => ({ ...f, shopName: e.target.value }))} />
+                    </div>
+                  )}
+                  {newUser.role === 'rider' && (
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Monthly Target</label>
+                      <input type="number" min="0" className="input-field" value={newUser.monthlyTarget} onChange={e => setNewUser(f => ({ ...f, monthlyTarget: e.target.value }))} />
+                    </div>
+                  )}
                 </div>
-                <div className="form-row">
-                  <div className="form-group col-6"><label>Contact/Phone</label><input type="text" className="form-control" value={newUser.contact} onChange={e => setNewUser(f => ({ ...f, contact: e.target.value }))} /></div>
-                  {newUser.role === 'vendor' && <div className="form-group col-6"><label>Shop Name</label><input type="text" className="form-control" value={newUser.shopName} onChange={e => setNewUser(f => ({ ...f, shopName: e.target.value }))} /></div>}
-                </div>
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
-                  <button type="button" className="btn btn-outline" onClick={() => setCreateModal(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Create User</button>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" className="btn-secondary" onClick={() => setCreateModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary">Create User</button>
                 </div>
               </form>
             </div>
           </div>
         </div>
       )}
-    </>
-  );
-};
 
-
-
-// ─── Pricing Rules ──────────────────────────────────────────────────────────
-const PricingRules = () => {
-  const [users, setUsers] = useState([]);
-  const [vendorId, setVendorId] = useState('');
-  const [form, setForm] = useState({ defaultKtmRate: 150, defaultOutsideRate: 200, weightSurcharge: 50 });
-  const { showToast } = useToast();
-
-  useEffect(() => {
-    api.get('/admin/users?role=vendor&limit=500').then(r => {
-      const vendors = (r.data.data || []).filter(u => u.role === 'vendor');
-      setUsers(vendors);
-      if (vendors.length) { setVendorId(vendors[0]._id); setForm({ defaultKtmRate: vendors[0].vendorMeta?.defaultKtmRate || 150, defaultOutsideRate: vendors[0].vendorMeta?.defaultOutsideRate || 200, weightSurcharge: vendors[0].vendorMeta?.weightSurcharge || 50 }); }
-    });
-  }, []);
-
-  const handleVendorChange = (e) => {
-    const v = users.find(u => u._id === e.target.value);
-    setVendorId(e.target.value);
-    if (v) setForm({ defaultKtmRate: v.vendorMeta?.defaultKtmRate || 150, defaultOutsideRate: v.vendorMeta?.defaultOutsideRate || 200, weightSurcharge: v.vendorMeta?.weightSurcharge || 50 });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await api.put('/admin/pricing', { vendorId, ...form });
-      showToast('Pricing updated successfully', 'success');
-    } catch { showToast('Failed to update pricing', 'error'); }
-  };
-
-  return (
-    <div className="card">
-      <div className="card-header border-b">
-        <div className="header-title-group"><h3>Pricing Engine Rules</h3><p>Configure vendor-specific delivery rates</p></div>
-      </div>
-      <div className="card-body">
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Select Vendor</label>
-            <select className="form-select" value={vendorId} onChange={handleVendorChange}>
-              {users.map(u => <option key={u._id} value={u._id}>{u.name} — {u.vendorMeta?.shopName || u.email}</option>)}
-            </select>
+      {editModal && editUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setEditModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">Edit User</h3>
+              <button onClick={() => setEditModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleUpdateUser} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
+                    <input type="text" className="input-field" required value={editUser.name} onChange={e => setEditUser(f => ({ ...f, name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Email (read-only)</label>
+                    <input type="email" className="input-field bg-slate-50 text-slate-500" disabled value={editUser.email} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Role</label>
+                    <input type="text" className="input-field bg-slate-50 text-slate-500 capitalize" disabled value={editUser.role} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
+                    <select className="input-field" value={editUser.status} onChange={e => setEditUser(f => ({ ...f, status: e.target.value }))}>
+                      <option value="Active">Active</option>
+                      <option value="Suspended">Suspended</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Contact/Phone</label>
+                    <input type="text" className="input-field" value={editUser.contact} onChange={e => setEditUser(f => ({ ...f, contact: e.target.value }))} />
+                  </div>
+                  {editUser.role === 'vendor' && (
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Shop Name</label>
+                      <input type="text" className="input-field" value={editUser.shopName} onChange={e => setEditUser(f => ({ ...f, shopName: e.target.value }))} />
+                    </div>
+                  )}
+                  {editUser.role === 'rider' && (
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-sm font-semibold text-slate-700 mb-1">Monthly Target</label>
+                      <input type="number" min="0" className="input-field" value={editUser.monthlyTarget} onChange={e => setEditUser(f => ({ ...f, monthlyTarget: e.target.value }))} />
+                    </div>
+                  )}
+                </div>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" className="btn-secondary" onClick={() => setEditModal(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary">Save Changes</button>
+                </div>
+              </form>
+            </div>
           </div>
-          <div className="form-row">
-            <div className="form-group col-6"><label>KTM Valley Base Rate (Rs.)</label><input type="number" className="form-control" value={form.defaultKtmRate} onChange={e => setForm(f => ({ ...f, defaultKtmRate: Number(e.target.value) }))} /></div>
-            <div className="form-group col-6"><label>Outside Valley Rate (Rs.)</label><input type="number" className="form-control" value={form.defaultOutsideRate} onChange={e => setForm(f => ({ ...f, defaultOutsideRate: Number(e.target.value) }))} /></div>
-          </div>
-          <div className="form-group"><label>Weight Surcharge per KG (Rs.)</label><input type="number" className="form-control" value={form.weightSurcharge} onChange={e => setForm(f => ({ ...f, weightSurcharge: Number(e.target.value) }))} /></div>
-          <button type="submit" className="btn btn-primary">Update Pricing</button>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 // ─── Package Override ──────────────────────────────────────────────────────
 const AdminScanHistory = () => {
@@ -331,46 +432,73 @@ const AdminScanHistory = () => {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchHistory(); }, [filter.role]); // Auto-fetch on role change
+  useEffect(() => { fetchHistory(); }, [filter.role]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Global History */}
-      <div className="card p-0">
-        <div className="card-header border-b" style={{ padding: 20, display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="header-title-group"><h3>Global Scan History</h3><p>Audit log of all package scans and status changes</p></div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <input type="text" className="form-control" placeholder="Filter by Tracking Code" value={filter.trackingCode} onChange={e => setFilter({ ...filter, trackingCode: e.target.value })} onKeyDown={e => e.key === 'Enter' && fetchHistory()} style={{ flex: '1 1 160px', minWidth: 0 }} />
-            <select className="form-select" value={filter.role} onChange={e => setFilter({ ...filter, role: e.target.value })} style={{ flex: '1 1 140px' }}>
-              <option value="">All Roles</option>
-              <option value="dispatcher">Warehouse Staff</option>
-              <option value="rider">Rider</option>
-              <option value="admin">Admin Override</option>
-            </select>
-            <button className="btn btn-outline" onClick={fetchHistory}>Refresh</button>
+    <div className="card-premium animate-fadeIn overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/50">
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg">Global Scan History</h3>
+          <p className="text-sm text-slate-500">Audit log of all package scans and status changes</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-full sm:w-auto">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              className="input-field pl-9 w-full sm:w-64" 
+              placeholder="Tracking Code..." 
+              value={filter.trackingCode} 
+              onChange={e => setFilter({ ...filter, trackingCode: e.target.value })} 
+              onKeyDown={e => e.key === 'Enter' && fetchHistory()} 
+            />
           </div>
+          <select className="input-field w-full sm:w-auto" value={filter.role} onChange={e => setFilter({ ...filter, role: e.target.value })}>
+            <option value="">All Roles</option>
+            <option value="dispatcher">Warehouse Staff</option>
+            <option value="rider">Rider</option>
+            <option value="admin">Admin Override</option>
+          </select>
+          <button className="btn-secondary w-full sm:w-auto flex justify-center items-center gap-2" onClick={fetchHistory}>
+            <RefreshCw className="w-4 h-4" /> Refresh
+          </button>
         </div>
-        <div className="table-container">
-          <table className="data-table">
-            <thead><tr><th>Time</th><th>User / Role</th><th>Tracking Code</th><th>Action</th><th>Location / Notes</th></tr></thead>
-            <tbody>
-              {loading ? <tr><td colSpan="5" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</td></tr>
-                : history.length === 0 ? <tr><td colSpan="5" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No scan records found.</td></tr>
-                  : history.map(ev => (
-                    <tr key={ev._id}>
-                      <td style={{ color: 'var(--text-muted)' }}>{new Date(ev.createdAt).toLocaleString()}</td>
-                      <td><div style={{ fontWeight: 600 }}>{ev.scannerName}</div><div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{ev.scannerRole === 'dispatcher' ? 'Warehouse Staff' : ev.scannerRole}{ev.isAdminOverride && ' (Override)'}</div></td>
-                      <td style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--color-primary)' }}>{ev.trackingCode}</td>
-                      <td>{statusBadge(ev.toStatus)}</td>
-                      <td>
-                        {ev.location && <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>📍 {ev.location}</div>}
-                        {ev.notes && <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>📝 {ev.notes}</div>}
-                      </td>
-                    </tr>
-                  ))}
-            </tbody>
-          </table>
-        </div>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-3">Time</th>
+              <th className="px-6 py-3">User / Role</th>
+              <th className="px-6 py-3">Tracking Code</th>
+              <th className="px-6 py-3">Action</th>
+              <th className="px-6 py-3">Location / Notes</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {loading ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : history.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No scan records found.</td></tr>
+                : history.map(ev => (
+                  <tr key={ev._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(ev.createdAt).toLocaleString()}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-900">{ev.scannerName}</div>
+                      <div className="text-xs text-slate-500 font-medium mt-0.5">
+                        {ev.scannerRole === 'dispatcher' ? 'Warehouse Staff' : ev.scannerRole}
+                        {ev.isAdminOverride && <span className="text-amber-600 ml-1">(Override)</span>}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 font-mono font-bold text-brand-600">{ev.trackingCode}</td>
+                    <td className="px-6 py-4">{statusBadge(ev.toStatus)}</td>
+                    <td className="px-6 py-4">
+                      {ev.location && <div className="text-xs text-slate-500 flex items-center gap-1 mb-1"><MapPin className="w-3 h-3 text-slate-400" /> {ev.location}</div>}
+                      {ev.notes && <div className="text-sm text-slate-700 italic border-l-2 border-slate-200 pl-2 mt-1">{ev.notes}</div>}
+                    </td>
+                  </tr>
+                ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -398,30 +526,48 @@ const AdminReports = () => {
   useEffect(() => { fetchReports(); }, [startDate, endDate]);
 
   return (
-    <div className="card p-0">
-      <div className="card-header border-b" style={{ padding: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-        <div className="header-title-group"><h3>Vendor P&L Analytics</h3><p>Revenue, delivery costs, and payouts by vendor</p></div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>From:</label>
-          <input type="date" className="form-control" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '6px 12px', fontSize: 13 }} />
-          <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>To:</label>
-          <input type="date" className="form-control" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '6px 12px', fontSize: 13 }} />
-          {(startDate || endDate) && <button onClick={() => { setStartDate(''); setEndDate(''); }} className="btn btn-outline btn-sm">Clear</button>}
+    <div className="card-premium animate-fadeIn overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/50">
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg">Vendor P&L Analytics</h3>
+          <p className="text-sm text-slate-500">Revenue, delivery costs, and payouts by vendor</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">From</label>
+            <input type="date" className="input-field py-2 px-3 text-sm" value={startDate} onChange={e => setStartDate(e.target.value)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">To</label>
+            <input type="date" className="input-field py-2 px-3 text-sm" value={endDate} onChange={e => setEndDate(e.target.value)} />
+          </div>
+          {(startDate || endDate) && (
+            <button onClick={() => { setStartDate(''); setEndDate(''); }} className="btn-secondary btn-sm px-4">Clear</button>
+          )}
         </div>
       </div>
-      <div className="table-container">
-        <table className="data-table">
-          <thead><tr><th>Vendor</th><th>Deliveries</th><th>Gross Revenue (COD)</th><th>Delivery Costs</th><th>Net Payout</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan="5" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</td></tr>
-              : analytics.length === 0 ? <tr><td colSpan="5" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No analytics data yet.</td></tr>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-3">Vendor</th>
+              <th className="px-6 py-3 text-center">Deliveries</th>
+              <th className="px-6 py-3 text-right">Gross Revenue (COD)</th>
+              <th className="px-6 py-3 text-right">Delivery Costs</th>
+              <th className="px-6 py-3 text-right">Net Payout</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {loading ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : analytics.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No analytics data yet.</td></tr>
                 : analytics.map((a, i) => (
-                  <tr key={i}>
-                    <td><div style={{ fontWeight: 600 }}>{a.vendorInfo?.[0]?.name || 'Unknown'}</div></td>
-                    <td>{a.count}</td>
-                    <td className="text-success">Rs. {a.grossRevenue?.toLocaleString()}</td>
-                    <td className="text-danger">Rs. {a.deliveryCosts?.toLocaleString()}</td>
-                    <td className="text-primary-color bold">Rs. {((a.grossRevenue || 0) - (a.deliveryCosts || 0)).toLocaleString()}</td>
+                  <tr key={i} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-bold text-slate-900">{a.vendorInfo?.[0]?.name || 'Unknown'}</td>
+                    <td className="px-6 py-4 text-center font-medium text-slate-700">{a.count}</td>
+                    <td className="px-6 py-4 text-right font-bold text-emerald-600">Rs. {a.grossRevenue?.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right font-bold text-red-500">Rs. {a.deliveryCosts?.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right font-black text-brand-600">Rs. {((a.grossRevenue || 0) - (a.deliveryCosts || 0)).toLocaleString()}</td>
                   </tr>
                 ))}
           </tbody>
@@ -462,35 +608,53 @@ const AdminSettlements = () => {
   };
 
   return (
-    <div className="card p-0">
-      <div className="card-header border-b" style={{ padding: 20 }}>
-        <div className="header-title-group"><h3>Vendor Settlement Requests</h3><p>Approve and reconcile vendor payments</p></div>
+    <div className="card-premium animate-fadeIn overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+        <h3 className="font-bold text-slate-800 text-lg">Vendor Settlement Requests</h3>
+        <p className="text-sm text-slate-500">Approve and reconcile vendor payments</p>
       </div>
-      <div className="table-container">
-        <table className="data-table">
-          <thead><tr><th>Date Requested</th><th>Vendor</th><th>Requested Amount</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan="5" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</td></tr>
-              : settlements.length === 0 ? <tr><td colSpan="5" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No settlement requests found.</td></tr>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-3">Date Requested</th>
+              <th className="px-6 py-3">Vendor</th>
+              <th className="px-6 py-3">Requested Amount</th>
+              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {loading ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : settlements.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No settlement requests found.</td></tr>
                 : settlements.map(s => (
-                  <tr key={s._id}>
-                    <td style={{ color: 'var(--text-muted)' }}>{new Date(s.createdAt).toLocaleDateString()}</td>
-                    <td><div style={{ fontWeight: 600 }}>{s.vendorId?.name || 'Unknown'}</div><div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{s.vendorId?.vendorMeta?.shopName}</div></td>
-                    <td style={{ fontWeight: 600, color: 'var(--color-primary)' }}>Rs. {s.requestedAmount}</td>
-                    <td><span className={`badge ${s.status === 'Approved' ? 'badge-success' : s.status === 'Rejected' ? 'badge-danger' : 'badge-warning'}`}>{s.status}</span></td>
-                    <td>
+                  <tr key={s._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(s.createdAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-900">{s.vendorId?.name || 'Unknown'}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{s.vendorId?.vendorMeta?.shopName}</div>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-brand-600 text-base">Rs. {s.requestedAmount?.toLocaleString()}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                        s.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : s.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' 
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                        {s.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       {s.status === 'Pending' ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button className="btn btn-success btn-sm btn-mobile-icon" onClick={() => handleAction(s._id, 'Approved')} title="Approve">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span className="btn-text">Approve</span>
+                        <div className="flex gap-2">
+                          <button className="btn-sm p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold flex items-center gap-1.5" onClick={() => handleAction(s._id, 'Approved')} title="Approve">
+                            <Check className="w-4 h-4" /> <span className="hidden sm:inline">Approve</span>
                           </button>
-                          <button className="btn btn-danger btn-sm btn-mobile-icon" onClick={() => handleAction(s._id, 'Rejected')} title="Reject">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            <span className="btn-text">Reject</span>
+                          <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold flex items-center gap-1.5" onClick={() => handleAction(s._id, 'Rejected')} title="Reject">
+                            <X className="w-4 h-4" /> <span className="hidden sm:inline">Reject</span>
                           </button>
                         </div>
-                      ) : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>Processed</span>}
+                      ) : <span className="text-slate-400 font-medium text-xs uppercase tracking-wider">Processed</span>}
                     </td>
                   </tr>
                 ))}
@@ -540,17 +704,20 @@ const AdminExpenses = () => {
   };
 
   return (
-    <div className="card p-0">
-      <div className="card-header border-b" style={{ padding: 20, display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="header-title-group"><h3>Rider Expenses Log</h3><p>Global view of all submitted rider expenses</p></div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <select className="form-select" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+    <div className="card-premium animate-fadeIn overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/50">
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg">Rider Expenses Log</h3>
+          <p className="text-sm text-slate-500">Global view of all submitted rider expenses</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <select className="input-field py-2" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
             <option value="">All Categories</option>
             <option value="fuel">Fuel</option>
             <option value="food">Food</option>
             <option value="misc">Misc</option>
           </select>
-          <select className="form-select" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+          <select className="input-field py-2" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="">All Statuses</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
@@ -558,33 +725,54 @@ const AdminExpenses = () => {
           </select>
         </div>
       </div>
-      <div className="table-container">
-        <table className="data-table">
-          <thead><tr><th>Date</th><th>Rider</th><th>Category</th><th>Amount</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan="7" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</td></tr>
-              : expenses.length === 0 ? <tr><td colSpan="7" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No expenses logged.</td></tr>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-3">Date</th>
+              <th className="px-6 py-3">Rider</th>
+              <th className="px-6 py-3">Category</th>
+              <th className="px-6 py-3 text-right">Amount</th>
+              <th className="px-6 py-3">Description</th>
+              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {loading ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : expenses.length === 0 ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">No expenses logged.</td></tr>
                 : expenses.map(e => (
-                  <tr key={e._id}>
-                    <td style={{ color: 'var(--text-muted)' }}>{new Date(e.date).toLocaleDateString()}</td>
-                    <td style={{ fontWeight: 600 }}>{e.riderId?.name || 'Unknown'}</td>
-                    <td><span className="badge badge-secondary">{e.category}</span></td>
-                    <td className="text-danger">Rs. {e.amount}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{e.description}</td>
-                    <td><span className={`badge ${e.status === 'Approved' ? 'badge-success' : e.status === 'Rejected' ? 'badge-danger' : 'badge-warning'}`}>{e.status}</span></td>
-                    <td>
+                  <tr key={e._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(e.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{e.riderId?.name || 'Unknown'}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-slate-100 text-slate-700 capitalize tracking-wider">
+                        {e.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 font-bold text-red-500 text-right">Rs. {e.amount?.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-slate-600">{e.description}</td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                        e.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : e.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' 
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                        {e.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
                       {e.status === 'Pending' ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <button className="btn btn-success btn-sm btn-mobile-icon" onClick={() => handleStatusUpdate(e._id, 'Approved')} title="Approve">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            <span className="btn-text">Approve</span>
+                        <div className="flex gap-2">
+                          <button className="btn-sm p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold flex items-center gap-1.5" onClick={() => handleStatusUpdate(e._id, 'Approved')} title="Approve">
+                            <Check className="w-4 h-4" /> <span className="hidden sm:inline">Approve</span>
                           </button>
-                          <button className="btn btn-danger btn-sm btn-mobile-icon" onClick={() => handleStatusUpdate(e._id, 'Rejected')} title="Reject">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            <span className="btn-text">Reject</span>
+                          <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold flex items-center gap-1.5" onClick={() => handleStatusUpdate(e._id, 'Rejected')} title="Reject">
+                            <X className="w-4 h-4" /> <span className="hidden sm:inline">Reject</span>
                           </button>
                         </div>
-                      ) : <span style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>Processed</span>}
+                      ) : <span className="text-slate-400 font-medium text-xs uppercase tracking-wider">Processed</span>}
                     </td>
                   </tr>
                 ))}
@@ -596,23 +784,34 @@ const AdminExpenses = () => {
   );
 };
 
-// ─── Admin Packages ────────────────────────────────────────────────────────
+// ─── Admin Packages (with Create, Edit, Delete, Status Filter, Rider Column, CSV Upload) ───
 const AdminPackages = () => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [pagination, setPagination] = useState(null);
+  const [selected, setSelected] = useState([]);
   const { showToast } = useToast();
 
   const [editModal, setEditModal] = useState(false);
   const [editPkg, setEditPkg] = useState(null);
 
+  const [createModal, setCreateModal] = useState(false);
+  const [csvModal, setCsvModal] = useState(false);
+  const [vendors, setVendors] = useState([]);
+  const [newPkg, setNewPkg] = useState({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
+  const [csvVendorId, setCsvVendorId] = useState('');
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvUploading, setCsvUploading] = useState(false);
+
   const fetchPackages = () => {
     setLoading(true);
     const q = new URLSearchParams({ page, limit });
     if (search) q.append('search', search);
+    if (statusFilter) q.append('status', statusFilter);
     
     api.get(`/admin/packages?${q.toString()}`)
       .then(r => {
@@ -623,10 +822,17 @@ const AdminPackages = () => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchPackages(); }, [page, limit, search]);
+  const fetchVendors = () => {
+    api.get('/admin/users?role=vendor&limit=500').then(r => {
+      setVendors((r.data.data || []).filter(u => u.role === 'vendor'));
+    });
+  };
+
+  useEffect(() => { fetchPackages(); }, [page, limit, statusFilter]);
+  useEffect(() => { fetchVendors(); }, []);
 
   const openEdit = (pkg) => {
-    setEditPkg({ ...pkg });
+    setEditPkg({ ...pkg, deliveryDate: pkg.deliveryDate ? new Date(pkg.deliveryDate).toISOString().split('T')[0] : '' });
     setEditModal(true);
   };
 
@@ -639,7 +845,8 @@ const AdminPackages = () => {
         address: editPkg.address,
         city: editPkg.city,
         amount: Number(editPkg.amount),
-        weight: Number(editPkg.weight)
+        weight: Number(editPkg.weight),
+        deliveryDate: editPkg.deliveryDate || null
       });
       showToast('Package updated successfully', 'success');
       setEditModal(false);
@@ -649,37 +856,163 @@ const AdminPackages = () => {
     }
   };
 
+  const handleDelete = async (id, trackingCode) => {
+    if (!window.confirm(`Delete package "${trackingCode}"? This will soft-delete it.`)) return;
+    try {
+      await api.delete(`/admin/packages/${id}`);
+      showToast('Package deleted', 'success');
+      fetchPackages();
+    } catch (err) { showToast(err.response?.data?.message || 'Failed to delete', 'error'); }
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/admin/packages', {
+        ...newPkg,
+        amount: Number(newPkg.amount),
+        weight: Number(newPkg.weight),
+        deliveryDate: newPkg.deliveryDate || null
+      });
+      showToast('Package created successfully', 'success');
+      setCreateModal(false);
+      setNewPkg({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
+      fetchPackages();
+    } catch (err) { showToast(err.response?.data?.message || 'Failed to create package', 'error'); }
+  };
+
+  const handleCsvUpload = async (e) => {
+    e.preventDefault();
+    if (!csvVendorId || !csvFile) return showToast('Select a vendor and file first', 'warning');
+    setCsvUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      formData.append('vendorId', csvVendorId);
+      const res = await api.post('/admin/packages/upload-csv', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      showToast(res.data.message || 'CSV uploaded!', 'success');
+      setCsvModal(false);
+      setCsvFile(null);
+      setCsvVendorId('');
+      fetchPackages();
+    } catch (err) { showToast(err.response?.data?.message || 'CSV upload failed', 'error'); }
+    finally { setCsvUploading(false); }
+  };
+
+  const handleRequestPickup = async () => {
+    if (selected.length === 0) return;
+    if (!window.confirm(`Request pickup for ${selected.length} package(s)?`)) return;
+    try {
+      await api.post('/admin/packages/pickup-request', { packageIds: selected });
+      showToast('Pickup requested successfully', 'success');
+      setSelected([]);
+      fetchPackages();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to request pickup', 'error');
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
+  };
+  const toggleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelected(packages.map(p => p._id));
+    } else {
+      setSelected([]);
+    }
+  };
+
+  const statuses = ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery', 'Delivered', 'Postponed', 'Cancelled', 'Returned', 'Returned to Vendor'];
+
   return (
-    <div className="card p-0">
-      <div className="card-header border-b" style={{ padding: 20, display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center' }}>
-        <div className="header-title-group"><h3>All Packages</h3><p>Manage all packages across the platform</p></div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <input type="text" className="form-control" placeholder="Search tracking or customer..." value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchPackages()} style={{ minWidth: 200 }} />
-          <button className="btn btn-primary" onClick={() => { setPage(1); fetchPackages(); }}>Search</button>
+    <div className="card-premium animate-fadeIn overflow-hidden">
+      <div className="px-6 py-4 border-b border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-50/50">
+        <div>
+          <h3 className="font-bold text-slate-800 text-lg">All Packages</h3>
+          <p className="text-sm text-slate-500">Manage all packages across the platform</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <select className="input-field py-2" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
+            <option value="">All Statuses</option>
+            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <div className="relative">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              className="input-field py-2 pl-9 w-full sm:w-64" 
+              placeholder="Search tracking or customer..." 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+              onKeyDown={e => e.key === 'Enter' && fetchPackages()} 
+            />
+          </div>
+          <button className="btn-secondary py-2" onClick={() => { setPage(1); fetchPackages(); }}>Search</button>
+          
+          <div className="w-px h-8 bg-slate-200 mx-1 hidden lg:block" />
+          
+          {selected.length > 0 && (
+            <button className="btn-sm bg-brand-50 text-brand-700 border border-brand-200 font-bold hover:bg-brand-100 py-2 flex items-center gap-2" onClick={handleRequestPickup}>
+              <Truck className="w-4 h-4" /> Request Pickup ({selected.length})
+            </button>
+          )}
+
+          <button className="btn-primary py-2 flex items-center gap-2" onClick={() => setCreateModal(true)}>
+            <Plus className="w-4 h-4" /> Create Order
+          </button>
+          <button className="btn-outline py-2 flex items-center gap-2" onClick={() => setCsvModal(true)}>
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> CSV Upload
+          </button>
         </div>
       </div>
-      <div className="table-container">
-        <table className="data-table">
-          <thead><tr><th>Date</th><th>Tracking Code</th><th>Vendor</th><th>Customer</th><th>Status</th><th>Amount (COD)</th><th>Actions</th></tr></thead>
-          <tbody>
-            {loading ? <tr><td colSpan="7" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading...</td></tr>
-              : packages.length === 0 ? <tr><td colSpan="7" style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No packages found.</td></tr>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+            <tr>
+              <th className="px-6 py-3 w-12">
+                <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" onChange={toggleSelectAll} checked={packages.length > 0 && selected.length === packages.length} />
+              </th>
+              <th className="px-6 py-3">Date</th>
+              <th className="px-6 py-3">Tracking Code</th>
+              <th className="px-6 py-3">Vendor</th>
+              <th className="px-6 py-3">Customer</th>
+              <th className="px-6 py-3">Rider</th>
+              <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3 text-right">Amount (COD)</th>
+              <th className="px-6 py-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 bg-white">
+            {loading ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : packages.length === 0 ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">No packages found.</td></tr>
                 : packages.map(p => (
-                  <tr key={p._id}>
-                    <td style={{ color: 'var(--text-muted)', fontSize: 'var(--font-size-sm)' }}>{new Date(p.createdAt).toLocaleDateString()}</td>
-                    <td style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--color-primary)' }}>{p.trackingCode}</td>
-                    <td><div style={{ fontWeight: 600 }}>{p.vendorId?.name || '—'}</div></td>
-                    <td>
-                      <div>{p.customerName}</div>
-                      <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{p.city ? `${p.city}, ` : ''}{p.address}</div>
+                  <tr key={p._id} className={`hover:bg-slate-50 transition-colors ${selected.includes(p._id) ? 'bg-brand-50/30' : ''}`}>
+                    <td className="px-6 py-4">
+                      <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked={selected.includes(p._id)} onChange={() => toggleSelect(p._id)} />
                     </td>
-                    <td>{statusBadge(p.status)}</td>
-                    <td style={{ fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
-                    <td>
-                      <button className="btn btn-outline btn-sm btn-mobile-icon" onClick={() => openEdit(p)} title="Edit">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        <span className="btn-text">Edit</span>
-                      </button>
+                    <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.trackingCode}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-slate-800">{p.customerName}</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{p.city ? `${p.city}, ` : ''}{p.address}</div>
+                    </td>
+                    <td className={`px-6 py-4 font-medium ${p.riderId?.name ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+                      {p.riderId?.name || 'Unassigned'}
+                    </td>
+                    <td className="px-6 py-4">{statusBadge(p.status)}</td>
+                    <td className="px-6 py-4 text-right font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button className="btn-secondary btn-sm p-2" onClick={() => openEdit(p)} title="Edit">
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" onClick={() => handleDelete(p._id, p.trackingCode)} title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -688,54 +1021,534 @@ const AdminPackages = () => {
       </div>
       <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
 
-      {/* Edit Modal */}
+      {/* Edit Package Modal */}
       {editModal && editPkg && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 500, overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Edit Package Details</h3>
-              <button onClick={() => setEditModal(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setEditModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">Edit Package Details</h3>
+              <button onClick={() => setEditModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <form onSubmit={handleUpdate} style={{ padding: 20 }}>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Tracking Code (Read Only)</label>
-                <input type="text" value={editPkg.trackingCode} disabled style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, background: '#f3f4f6', color: '#6b7280', fontFamily: 'monospace' }} />
+            <div className="p-6 max-h-[80vh] overflow-y-auto">
+              <form onSubmit={handleUpdate} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Tracking Code (Read Only)</label>
+                  <input type="text" className="input-field bg-slate-50 text-slate-500 font-mono font-bold tracking-wider" value={editPkg.trackingCode} disabled />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Name <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={editPkg.customerName} onChange={e => setEditPkg({ ...editPkg, customerName: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Phone <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={editPkg.customerPhone} onChange={e => setEditPkg({ ...editPkg, customerPhone: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">City</label>
+                    <input type="text" className="input-field" value={editPkg.city || ''} onChange={e => setEditPkg({ ...editPkg, city: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={editPkg.address} onChange={e => setEditPkg({ ...editPkg, address: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Amount (COD) <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                      <input type="number" className="input-field pl-9" required value={editPkg.amount} onChange={e => setEditPkg({ ...editPkg, amount: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Weight (KG) <span className="text-red-500">*</span></label>
+                    <input type="number" className="input-field" step="0.1" required value={editPkg.weight} onChange={e => setEditPkg({ ...editPkg, weight: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Date</label>
+                    <input type="date" className="input-field" value={editPkg.deliveryDate || ''} onChange={e => setEditPkg({ ...editPkg, deliveryDate: e.target.value })} />
+                  </div>
+                </div>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" onClick={() => setEditModal(false)} className="btn-secondary">Cancel</button>
+                  <button type="submit" className="btn-primary">Save Changes</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Package Modal */}
+      {createModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setCreateModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">Create Order for Vendor</h3>
+              <button onClick={() => setCreateModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[80vh] overflow-y-auto">
+              <form onSubmit={handleCreate} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
+                  <select className="input-field" required value={newPkg.vendorId} onChange={e => setNewPkg(f => ({ ...f, vendorId: e.target.value }))}>
+                    <option value="">— Choose Vendor —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Name <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.customerName} onChange={e => setNewPkg(f => ({ ...f, customerName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Phone <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.customerPhone} onChange={e => setNewPkg(f => ({ ...f, customerPhone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">City</label>
+                    <input type="text" className="input-field" value={newPkg.city} onChange={e => setNewPkg(f => ({ ...f, city: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.address} onChange={e => setNewPkg(f => ({ ...f, address: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Amount (COD) <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                      <input type="number" className="input-field pl-9" required value={newPkg.amount} onChange={e => setNewPkg(f => ({ ...f, amount: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Weight (KG)</label>
+                    <input type="number" className="input-field" step="0.1" value={newPkg.weight} onChange={e => setNewPkg(f => ({ ...f, weight: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Date</label>
+                    <input type="date" className="input-field" value={newPkg.deliveryDate} onChange={e => setNewPkg(f => ({ ...f, deliveryDate: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" onClick={() => setCreateModal(false)} className="btn-secondary">Cancel</button>
+                  <button type="submit" className="btn-primary">Create Order</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Upload Modal */}
+      {csvModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setCsvModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Bulk CSV Upload
+              </h3>
+              <button onClick={() => setCsvModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleCsvUpload} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
+                  <select className="input-field" required value={csvVendorId} onChange={e => setCsvVendorId(e.target.value)}>
+                    <option value="">— Choose Vendor —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Upload CSV File <span className="text-red-500">*</span></label>
+                  <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition-all border border-slate-200 rounded-xl p-2 cursor-pointer" accept=".csv" required onChange={e => setCsvFile(e.target.files[0])} />
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Required Columns</p>
+                    <p className="text-xs font-mono text-amber-700 leading-relaxed bg-white/50 p-2 rounded-lg border border-amber-100">
+                      customerName, customerPhone, address, city, amount, weight, deliveryCharge, outOfValley
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" onClick={() => setCsvModal(false)} className="btn-secondary">Cancel</button>
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={csvUploading}>
+                    {csvUploading ? 'Uploading...' : 'Upload & Import'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Dispatcher Panel (Admin can perform dispatcher actions) ─────────────────
+const AdminDispatcher = () => {
+  const [stats, setStats] = useState({});
+  const [pickups, setPickups] = useState([]);
+  const [warehousePackages, setWarehousePackages] = useState([]);
+  const [returnPackages, setReturnPackages] = useState([]);
+  const [riders, setRiders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [assignMap, setAssignMap] = useState({});
+  const [deliveryRiderMap, setDeliveryRiderMap] = useState({});
+  const [actionLoading, setActionLoading] = useState({});
+  const [activeTab, setActiveTab] = useState('overview');
+  const { showToast } = useToast();
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sRes, pRes, wRes, retRes, rRes] = await Promise.all([
+        api.get('/dispatcher/dashboard'),
+        api.get('/dispatcher/pickups'),
+        api.get('/dispatcher/packages?status=In Warehouse'),
+        api.get('/dispatcher/packages?status=Returned,Returned to Vendor'),
+        api.get('/dispatcher/riders'),
+      ]);
+      setStats(sRes.data.data || {});
+      setPickups(pRes.data.data || []);
+      setWarehousePackages(wRes.data.data || []);
+      setReturnPackages(retRes.data.data || []);
+      setRiders(rRes.data.data || []);
+    } catch { showToast('Failed to load dispatcher data', 'error'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const assignPickup = async (pickupId) => {
+    const riderId = assignMap[pickupId];
+    if (!riderId) return showToast('Select a rider first', 'warning');
+    setActionLoading(s => ({ ...s, [`p_${pickupId}`]: true }));
+    try {
+      await api.put('/dispatcher/assign-pickup', { pickupId, riderId });
+      showToast('Rider assigned for pickup!', 'success');
+      fetchAll();
+    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [`p_${pickupId}`]: false })); }
+  };
+
+  const confirmWarehouse = async (packageId) => {
+    setActionLoading(s => ({ ...s, [`w_${packageId}`]: true }));
+    try {
+      await api.put('/dispatcher/confirm-warehouse', { packageId });
+      showToast('Package confirmed at warehouse!', 'success');
+      fetchAll();
+    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [`w_${packageId}`]: false })); }
+  };
+
+  const assignDelivery = async (packageId) => {
+    const riderId = deliveryRiderMap[packageId];
+    if (!riderId) return showToast('Select a rider first', 'warning');
+    setActionLoading(s => ({ ...s, [`d_${packageId}`]: true }));
+    try {
+      await api.put('/dispatcher/assign-delivery', { packageId, riderId });
+      showToast('Rider assigned for delivery!', 'success');
+      fetchAll();
+    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [`d_${packageId}`]: false })); }
+  };
+
+  const confirmReturn = async (packageId, type) => {
+    setActionLoading(s => ({ ...s, [`r_${packageId}_${type}`]: true }));
+    try {
+      await api.put('/dispatcher/confirm-return', { packageId, type });
+      showToast(`Return ${type} confirmed!`, 'success');
+      fetchAll();
+    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [`r_${packageId}_${type}`]: false })); }
+  };
+
+  const pendingPickups = pickups.filter(p => p.status === 'pending');
+  const assignedPickups = pickups.filter(p => p.status === 'assigned');
+
+  const tabs = [
+    { id: 'overview', label: 'Overview', count: null },
+    { id: 'pickups', label: 'Pickups', count: pendingPickups.length + assignedPickups.length },
+    { id: 'warehouse', label: 'Warehouse', count: warehousePackages.length },
+    { id: 'returns', label: 'Returns', count: returnPackages.length },
+    { id: 'riders', label: 'Riders', count: riders.length },
+  ];
+
+  if (loading) return <div className="p-8 text-center text-slate-500 font-medium">Loading dispatcher panel...</div>;
+
+  return (
+    <div className="animate-fadeIn">
+      {/* Tab Navigation */}
+      <div className="flex overflow-x-auto hide-scrollbar border-b-2 border-slate-200 mb-6 gap-2">
+        {tabs.map(t => (
+          <button 
+            key={t.id} 
+            onClick={() => setActiveTab(t.id)} 
+            className={`px-5 py-3 text-sm font-bold tracking-wide rounded-t-xl transition-colors whitespace-nowrap flex items-center gap-2 ${
+              activeTab === t.id 
+                ? 'bg-brand-600 text-white shadow-sm' 
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            {t.label} 
+            {t.count !== null && (
+              <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === t.id ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                {t.count}
+              </span>
+            )}
+          </button>
+        ))}
+        <div className="flex-1" />
+        <button className="btn-secondary btn-sm mb-1 self-end mr-1 flex items-center gap-1.5" onClick={fetchAll}>
+          <RefreshCw className="w-4 h-4" /> <span className="hidden sm:inline">Refresh</span>
+        </button>
+      </div>
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-scaleIn">
+          <MetricCard title="Pending Pickups" value={stats.pickupsPending ?? 0} color="warning" icon={<span className="text-2xl">🚚</span>} />
+          <MetricCard title="In Warehouse" value={stats.inWarehouse ?? 0} color="purple" icon={<span className="text-2xl">🏭</span>} />
+          <MetricCard title="Unassigned" value={stats.unassigned ?? 0} color="danger" icon={<span className="text-2xl">⚠️</span>} />
+          <MetricCard title="Out for Delivery" value={stats.outForDelivery ?? 0} color="info" icon={<span className="text-2xl">📦</span>} />
+          <MetricCard title="Returns Pending" value={stats.returnedPending ?? 0} color="warning" icon={<span className="text-2xl">↩️</span>} />
+          <MetricCard title="Active Riders" value={stats.activeRiders ?? 0} color="success" icon={<span className="text-2xl">🏍️</span>} />
+        </div>
+      )}
+
+      {/* Pickups Tab */}
+      {activeTab === 'pickups' && (
+        <div className="space-y-6 animate-fadeInUp">
+          <div className="card-premium overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Pending Pickup Requests</h3>
+                <p className="text-sm text-slate-500">{pendingPickups.length} request(s) awaiting rider assignment</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Customer Name</label>
-                  <input type="text" required value={editPkg.customerName} onChange={e => setEditPkg({ ...editPkg, customerName: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Customer Phone</label>
-                  <input type="text" required value={editPkg.customerPhone} onChange={e => setEditPkg({ ...editPkg, customerPhone: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
-                </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                  <tr>
+                    <th className="px-6 py-3">Tracking</th>
+                    <th className="px-6 py-3">Vendor</th>
+                    <th className="px-6 py-3">Customer</th>
+                    <th className="px-6 py-3">Address</th>
+                    <th className="px-6 py-3">Assign Rider</th>
+                    <th className="px-6 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {pendingPickups.length === 0 ? <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-500">No pending pickups.</td></tr>
+                    : pendingPickups.map(p => (
+                    <tr key={p._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.packageId?.trackingCode || '—'}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                      <td className="px-6 py-4 text-slate-700 font-medium">{p.packageId?.customerName || '—'}</td>
+                      <td className="px-6 py-4 text-slate-500 max-w-[160px] truncate">{p.packageId?.address || '—'}</td>
+                      <td className="px-6 py-4">
+                        <select className="input-field py-1.5 text-xs w-40" value={assignMap[p._id] || ''} onChange={e => setAssignMap(m => ({ ...m, [p._id]: e.target.value }))}>
+                          <option value="">Select Rider</option>
+                          {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="btn-primary btn-sm px-4" onClick={() => assignPickup(p._id)} disabled={actionLoading[`p_${p._id}`]}>
+                          {actionLoading[`p_${p._id}`] ? '...' : 'Assign'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {assignedPickups.length > 0 && (
+            <div className="card-premium overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                <h3 className="font-bold text-slate-800 text-lg">Assigned — Awaiting Warehouse Arrival</h3>
+                <p className="text-sm text-slate-500">{assignedPickups.length} pickup(s) assigned</p>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>City</label>
-                  <input type="text" value={editPkg.city || ''} onChange={e => setEditPkg({ ...editPkg, city: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Address</label>
-                  <input type="text" required value={editPkg.address} onChange={e => setEditPkg({ ...editPkg, address: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
-                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                    <tr>
+                      <th className="px-6 py-3">Tracking</th>
+                      <th className="px-6 py-3">Vendor</th>
+                      <th className="px-6 py-3">Rider</th>
+                      <th className="px-6 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 bg-white">
+                    {assignedPickups.map(p => (
+                      <tr key={p._id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.packageId?.trackingCode || '—'}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            {p.assignedRiderId?.name || 'Assigned'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <button className="btn-sm px-4 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold flex items-center justify-end gap-1.5 ml-auto" onClick={() => confirmWarehouse(p.packageId?._id)} disabled={actionLoading[`w_${p.packageId?._id}`]}>
+                            {actionLoading[`w_${p.packageId?._id}`] ? '...' : <><CheckCircle2 className="w-4 h-4" /> Confirm Arrival</>}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Amount (COD)</label>
-                  <input type="number" required value={editPkg.amount} onChange={e => setEditPkg({ ...editPkg, amount: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 4 }}>Weight (KG)</label>
-                  <input type="number" step="0.1" required value={editPkg.weight} onChange={e => setEditPkg({ ...editPkg, weight: e.target.value })} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 6, boxSizing: 'border-box' }} />
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                <button type="button" onClick={() => setEditModal(false)} className="btn btn-outline">Cancel</button>
-                <button type="submit" className="btn btn-primary">Save Changes</button>
-              </div>
-            </form>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Warehouse Tab */}
+      {activeTab === 'warehouse' && (
+        <div className="card-premium overflow-hidden animate-fadeInUp">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 text-lg">Warehouse Packages</h3>
+            <p className="text-sm text-slate-500">{warehousePackages.length} package(s) ready for delivery assignment</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-3">Tracking</th>
+                  <th className="px-6 py-3">Vendor</th>
+                  <th className="px-6 py-3">Customer</th>
+                  <th className="px-6 py-3">Destination</th>
+                  <th className="px-6 py-3">COD</th>
+                  <th className="px-6 py-3">Assign Rider</th>
+                  <th className="px-6 py-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {warehousePackages.length === 0 ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">No packages in warehouse.</td></tr>
+                  : warehousePackages.map(p => (
+                  <tr key={p._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.trackingCode}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
+                    <td className="px-6 py-4 text-slate-500">{p.city || p.address || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
+                    <td className="px-6 py-4">
+                      <select className="input-field py-1.5 text-xs w-40" value={deliveryRiderMap[p._id] || ''} onChange={e => setDeliveryRiderMap(m => ({ ...m, [p._id]: e.target.value }))}>
+                        <option value="">Select Rider</option>
+                        {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button className="btn-primary btn-sm px-4 flex items-center justify-end gap-1.5 ml-auto" onClick={() => assignDelivery(p._id)} disabled={actionLoading[`d_${p._id}`]}>
+                        {actionLoading[`d_${p._id}`] ? '...' : <><Truck className="w-4 h-4" /> Send</>}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Returns Tab */}
+      {activeTab === 'returns' && (
+        <div className="card-premium overflow-hidden animate-fadeInUp">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 text-lg">Reverse Logistics (Returns)</h3>
+            <p className="text-sm text-slate-500">Confirm rider returns and vendor handovers</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-3">Tracking</th>
+                  <th className="px-6 py-3">Vendor</th>
+                  <th className="px-6 py-3">Customer</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3 text-center">Rider Returned</th>
+                  <th className="px-6 py-3 text-center">Vendor Received</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {returnPackages.length === 0 ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">No return packages.</td></tr>
+                  : returnPackages.map(p => (
+                  <tr key={p._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.trackingCode}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
+                    <td className="px-6 py-4">{statusBadge(p.status)}</td>
+                    <td className="px-6 py-4 text-center">
+                      {p.rtvSignoff?.riderReturned ? <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs"><CheckCircle2 className="w-4 h-4" /> Yes</span> : <span className="text-amber-500 font-bold text-xs">No</span>}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {p.rtvSignoff?.vendorReceived ? <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-xs"><CheckCircle2 className="w-4 h-4" /> Yes</span> : <span className="text-amber-500 font-bold text-xs">No</span>}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {!p.rtvSignoff?.riderReturned && (
+                          <button className="btn-sm px-3 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 font-bold whitespace-nowrap" onClick={() => confirmReturn(p._id, 'rider')} disabled={actionLoading[`r_${p._id}_rider`]}>
+                            {actionLoading[`r_${p._id}_rider`] ? '...' : 'Rider Return'}
+                          </button>
+                        )}
+                        {p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived && (
+                          <button className="btn-sm px-3 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold whitespace-nowrap" onClick={() => confirmReturn(p._id, 'vendor')} disabled={actionLoading[`r_${p._id}_vendor`]}>
+                            {actionLoading[`r_${p._id}_vendor`] ? '...' : 'Vendor Handover'}
+                          </button>
+                        )}
+                        {p.rtvSignoff?.vendorReceived && <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200"><CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Complete</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Riders Tab */}
+      {activeTab === 'riders' && (
+        <div className="card-premium overflow-hidden animate-fadeInUp">
+          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="font-bold text-slate-800 text-lg">Active Riders</h3>
+            <p className="text-sm text-slate-500">{riders.length} rider(s) available for assignment</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                <tr>
+                  <th className="px-6 py-3">Name</th>
+                  <th className="px-6 py-3">Email</th>
+                  <th className="px-6 py-3">Contact</th>
+                  <th className="px-6 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {riders.length === 0 ? <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500">No active riders.</td></tr>
+                  : riders.map(r => (
+                  <tr key={r._id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 font-bold text-slate-900">{r.name}</td>
+                    <td className="px-6 py-4 text-slate-500">{r.email}</td>
+                    <td className="px-6 py-4 font-medium text-slate-700">{r.contact || '—'}</td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">Active</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -815,10 +1628,10 @@ const AdminDashboard = () => {
         <Route path="/expenses" element={<AdminExpenses />} />
         <Route path="/users" element={<ManageUsers />} />
         <Route path="/pricing-engine" element={<PricingEngine />} />
-        {/* Redirect old pricing link if users have it bookmarked */}
         <Route path="/pricing" element={<PricingEngine />} />
         <Route path="/scan-history" element={<AdminScanHistory />} />
         <Route path="/packages" element={<AdminPackages />} />
+        <Route path="/dispatcher" element={<AdminDispatcher />} />
         <Route path="/reports" element={<AdminReports />} />
       </Routes>
     </AppShell>

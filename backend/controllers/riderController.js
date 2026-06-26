@@ -164,12 +164,14 @@ export const getRiderSummary = async (req, res) => {
     const riderId = req.user._id;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const [delivered, pending, postponed, cancelled] = await Promise.all([
+    const [delivered, pending, postponed, cancelled, deliveredThisMonth] = await Promise.all([
       Package.countDocuments({ riderId, status: 'Delivered' }),
       Package.countDocuments({ riderId, status: 'Out for Delivery' }),
       Package.countDocuments({ riderId, status: 'Postponed' }),
       Package.countDocuments({ riderId, status: 'Cancelled' }),
+      Package.countDocuments({ riderId, status: 'Delivered', updatedAt: { $gte: startOfMonth } }),
     ]);
 
     // COD wallet
@@ -179,10 +181,11 @@ export const getRiderSummary = async (req, res) => {
     ]);
 
     const totalCOD = codAgg[0]?.totalCOD || 0;
+    const monthlyTarget = req.user.riderMeta?.monthlyTarget || 0;
 
     res.json({
       success: true,
-      data: { delivered, pending, postponed, cancelled, totalCOD },
+      data: { delivered, pending, postponed, cancelled, totalCOD, deliveredThisMonth, monthlyTarget },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

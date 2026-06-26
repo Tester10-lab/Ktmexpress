@@ -41,10 +41,6 @@ const io = new Server(server, {
 });
 
 global.io = io;
-app.use((req, res, next) => {
-  req.io = io;
-  next();
-});
 
 io.use((socket, next) => {
   const token = socket.handshake.auth?.token;
@@ -93,6 +89,12 @@ app.use(process.env.NODE_ENV === 'production'
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 app.use('/api', apiLimiter);
 app.use('/api/auth', authLimiter);
+
+// ─── Socket.io Middleware ──────────────────────────────────────────────────────
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get(['/', '/health', '/api/health'], (req, res) => {

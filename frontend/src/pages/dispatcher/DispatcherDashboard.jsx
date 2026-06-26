@@ -10,19 +10,15 @@ import useNotificationSound from '../../hooks/useNotificationSound';
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
   { name: 'Dashboard', path: '/dispatcher', exact: true, icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
-  { name: 'Pickup Requests', path: '/dispatcher/pickup-requests', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
-  { name: '📷 Scan Station', path: '/dispatcher/scan-station', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9V6a3 3 0 0 1 3-3h3"/><path d="M15 3h3a3 3 0 0 1 3 3v3"/><path d="M3 15v3a3 3 0 0 0 3 3h3"/><path d="M15 21h3a3 3 0 0 0 3-3v-3"/><line x1="8" y1="12" x2="16" y2="12"/></svg> },
-  { name: 'Inbound Scan', path: '/dispatcher/inbound-scan', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 20h20"/><path d="M3 20V7l9-5 9 5v13"/><path d="M9 20v-6h6v6"/></svg> },
-  { name: 'Routing & Assign', path: '/dispatcher/routing-assign', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.94 11A8 8 0 1 0 12 20"/><path d="M12 12l6-6"/></svg> },
+  { name: 'Tasks (Pickup & Delivery)', path: '/dispatcher/tasks', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
   { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> },
   { name: 'Active Riders', path: '/dispatcher/riders', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M15 15.5l-2.5-3.5H9L6.5 15.5"/><circle cx="12" cy="7" r="2"/></svg> },
 ];
 
 const titleMap = {
-  '/dispatcher/pickup-requests': 'Pickup Requests',
+  '/dispatcher/tasks':           'Tasks (Pickup & Delivery)',
   '/dispatcher/scan-station':    '📷 Scan Station — Warehouse Staff',
   '/dispatcher/inbound-scan':    'Inbound Scan — Warehouse',
-  '/dispatcher/routing-assign':  'Routing & Bulk Assignment',
   '/dispatcher/reverse-logistics': 'Reverse Logistics (RTV)',
   '/dispatcher/riders':          'Active Riders',
   '/dispatcher':                 'Warehouse Staff Dashboard',
@@ -134,10 +130,10 @@ const DispatcherHome = () => {
       {/* Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
-          { label: 'Pickup Requests', value: s.pickupsPending || 0, color: '#f59e0b', icon: '🚚', path: '/dispatcher/pickup-requests' },
+          { label: 'Pickups', value: s.pickupsPending || 0, color: '#f59e0b', icon: '🚚', path: '/dispatcher/tasks' },
           { label: 'In Warehouse', value: s.inWarehouse || 0, color: '#8b5cf6', icon: '🏭', path: '/dispatcher/inbound-scan' },
-          { label: 'Unassigned', value: s.unassigned || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/routing-assign' },
-          { label: 'Out for Delivery', value: s.outForDelivery || 0, color: '#06b6d4', icon: '📦', path: '/dispatcher/routing-assign' },
+          { label: 'Unassigned', value: s.unassigned || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/tasks' },
+          { label: 'Out for Delivery', value: s.outForDelivery || 0, color: '#06b6d4', icon: '📦', path: '/dispatcher/tasks' },
           { label: 'Returns Pending', value: s.returnedPending || 0, color: '#6b7280', icon: '↩️', path: '/dispatcher/reverse-logistics' },
           { label: 'Active Riders', value: s.activeRiders || 0, color: '#10b981', icon: '🏍️', path: '/dispatcher/riders' },
         ].map(item => (
@@ -601,7 +597,7 @@ const InboundScan = () => {
       ) : (
         <div style={cardStyle}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Inbound Packages</h3>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Inbound Packages ({filtered.length})</h3>
             <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: '#eff6ff', color: '#1d4ed8' }}>
               {filtered.length} total
             </span>
@@ -949,11 +945,58 @@ const ActiveRiders = () => {
                 <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>{rider.name}</h3>
                 <div style={{ fontSize: 13, color: '#6b7280' }}>📧 {rider.email}</div>
                 <div style={{ fontSize: 13, color: '#6b7280' }}>📞 {rider.contact || 'No contact info'}</div>
+                <div style={{ fontSize: 13, color: '#059669', fontWeight: 600, marginTop: 4 }}>💵 COD Collected: Rs. {(rider.totalCOD || 0).toLocaleString()}</div>
               </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+// ─── Combined Tasks (Pickups & Deliveries) ───────────────────────────────
+const CombinedTasks = () => {
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[
+          { key: 'all', label: 'All Tasks', color: '#6b7280' },
+          { key: 'pickups', label: 'Pickups', color: '#f59e0b' },
+          { key: 'deliveries', label: 'Deliveries', color: '#3b82f6' },
+        ].map(s => (
+          <button 
+            key={s.key} 
+            onClick={() => setActiveFilter(s.key)} 
+            style={{ 
+              padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', 
+              background: activeFilter === s.key ? s.color : 'white', 
+              color: activeFilter === s.key ? 'white' : s.color, 
+              border: `2px solid ${s.color}`
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {(activeFilter === 'all' || activeFilter === 'pickups') && (
+          <div>
+            {activeFilter === 'all' && <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Pickup Tasks</h2>}
+            <PickupRequests />
+          </div>
+        )}
+
+        {(activeFilter === 'all' || activeFilter === 'deliveries') && (
+          <div>
+            {activeFilter === 'all' && <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, marginTop: activeFilter === 'all' ? 16 : 0 }}>Delivery Tasks</h2>}
+            <Routing />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -973,7 +1016,7 @@ const DispatcherDashboard = () => {
         setPendingPickups(pending);
         
       } catch (e) {
-        console.error('Failed to fetch notifications', e);
+        console.error('Failed to fetch notifications:', e.response?.data?.message || e.message);
       }
     };
     
@@ -989,7 +1032,7 @@ const DispatcherDashboard = () => {
     time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
     read: false,
     icon: '🚚',
-    path: '/dispatcher/pickup-requests'
+    path: '/dispatcher/tasks'
   }));
 
   const handleNotificationClick = (n) => {
@@ -1010,10 +1053,9 @@ const DispatcherDashboard = () => {
     >
       <Routes>
         <Route path="/" element={<DispatcherHome />} />
-        <Route path="/pickup-requests" element={<PickupRequests />} />
+        <Route path="/tasks" element={<CombinedTasks />} />
         <Route path="/scan-station" element={<ScanStation role="dispatcher" />} />
         <Route path="/inbound-scan" element={<InboundScan />} />
-        <Route path="/routing-assign" element={<Routing />} />
         <Route path="/reverse-logistics" element={<ReverseLogistics />} />
         <Route path="/riders" element={<ActiveRiders />} />
       </Routes>

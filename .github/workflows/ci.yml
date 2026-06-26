@@ -42,3 +42,5 @@ jobs:
     - name: Frontend Build
       run: npm run build
       working-directory: ./frontend
+      env:
+        VITE_API_URL: https://ktmexpress-backend.onrender.com/api

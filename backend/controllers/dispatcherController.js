@@ -272,7 +272,21 @@ export const getAvailableRiders = async (req, res) => {
   try {
     const riders = await User.find({ role: 'rider', status: 'Active' })
       .select('name email contact')
-      .sort({ name: 1 });
+      .sort({ name: 1 })
+      .lean();
+
+    const codAgg = await Package.aggregate([
+      { $match: { status: 'Delivered', cashReconciled: false, riderId: { $in: riders.map(r => r._id) } } },
+      { $group: { _id: '$riderId', totalCOD: { $sum: '$amount' } } }
+    ]);
+
+    const codMap = {};
+    codAgg.forEach(c => codMap[c._id.toString()] = c.totalCOD);
+
+    riders.forEach(r => {
+      r.totalCOD = codMap[r._id.toString()] || 0;
+    });
+
     res.json({ success: true, data: riders });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

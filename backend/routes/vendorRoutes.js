@@ -12,12 +12,14 @@ import {
   requestReturn,
   addComment,
   getFinance,
+  requestSettlement,
+  getSettlements,
+  uploadCsv,
   getProducts,
   createProduct,
   updateProduct,
-  requestSettlement,
-  getSettlements,
-  uploadCsv
+  deleteProduct,
+  updateStock
  } from '../controllers/vendorController.js';
 import multer from 'multer';
 
@@ -42,9 +44,11 @@ router.get('/finance', getFinance);
 router.get('/settlements', getSettlements);
 router.post('/settlements', requestSettlement);
 
-// Products (Inventory)
+// Products
 router.get('/products', getProducts);
 router.post('/products', createProduct);
 router.put('/products/:id', updateProduct);
+router.delete('/products/:id', deleteProduct);
+router.patch('/products/:id/stock', updateStock);
 
 export default router;

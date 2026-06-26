@@ -43,6 +43,9 @@ const userSchema = new mongoose.Schema(
       customFlatRate: { type: Number, default: null }, // If set, overrides all other rules
       useGlobalPricing: { type: Boolean, default: true }, // Whether to use global settings vs vendor overrides
     },
+    riderMeta: {
+      monthlyTarget: { type: Number, default: 0 },
+    },
     lastActive: {
       type: Date,
       default: Date.now,

@@ -6,10 +6,9 @@ const api = axios.create({
   timeout: 10000,
 });
 
-// Request interceptor — attach token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
+    const token = localStorage.getItem('token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
@@ -30,11 +29,12 @@ api.interceptors.response.use(
           {},
           { withCredentials: true }
         );
-        localStorage.setItem('accessToken', data.token);
+        localStorage.setItem('token', data.token);
         originalRequest.headers.Authorization = `Bearer ${data.token}`;
         return api(originalRequest);
       } catch {
-        localStorage.removeItem('accessToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         window.location.href = '/login';
       }
     }
