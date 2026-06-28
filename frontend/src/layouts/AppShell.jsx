@@ -1,0 +1,181 @@
+import React, { useState, useCallback, useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { Bell, LogOut, Menu, Package, X } from 'lucide-react';
+import { useAuth } from '../store/AuthContext';
+import useNotificationSound from '../hooks/useNotificationSound';
+import { useZoom } from '../hooks/useZoom';
+import { useSwipeGesture } from '../hooks/useSwipeGesture';
+import { useSocket } from '../hooks/useSocket';
+import ZoomBar from '../components/ZoomBar';
+import { useToast } from '../store/ToastContext';
+
+const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications = [], onNotificationClick }) => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const { showToast } = useToast();
+
+  const { playNotification, playAlert } = useNotificationSound();
+  useZoom();
+  useSocket();
+
+  const openSidebar = useCallback(() => setMobileOpen(true), []);
+  const closeSidebar = useCallback(() => setMobileOpen(false), []);
+  const { ref: swipeRef } = useSwipeGesture({
+    onSwipeRight: openSidebar,
+    onSwipeLeft: closeSidebar,
+  });
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const initials = user?.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '??';
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[#F3F4F6]" ref={swipeRef}>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-[9999] px-4 py-2 bg-brand-600 text-white font-semibold rounded-lg">Skip to main content</a>
+
+      {/* Mobile Overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden" onClick={closeSidebar} aria-hidden="true" />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#F3F4F6] shadow-[8px_0_16px_rgba(0,0,0,0.05)] transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        
+        {/* Brand */}
+        <div className="h-16 flex items-center justify-between px-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] flex-shrink-0 relative z-10">
+          <div className="flex items-center gap-3 text-brand-600">
+            <Package className="w-7 h-7" />
+            <div>
+              <h1 className="font-bold text-lg leading-none text-slate-900 tracking-tight">ktmexpress</h1>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600">{roleBadge || 'Workspace'}</span>
+            </div>
+          </div>
+          <button className="lg:hidden p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100" onClick={closeSidebar}>
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
+          {navLinks.map(link => (
+            <NavLink
+              key={link.path}
+              to={link.path}
+              end={link.exact}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) => 
+                `flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                  isActive 
+                    ? 'bg-[#F3F4F6] text-brand-700 shadow-[inset_4px_4px_8px_rgba(0,0,0,0.06),inset_-4px_-4px_8px_rgba(255,255,255,0.8)]' 
+                    : 'text-slate-500 hover:text-brand-600 hover:shadow-[4px_4px_10px_rgba(0,0,0,0.05),-4px_-4px_10px_rgba(255,255,255,0.8)]'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-300 ${isActive ? 'bg-brand-500 text-white shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]' : 'neumorphic-circle text-slate-500'} [&>svg]:w-4 [&>svg]:h-4`}>{link.icon}</div>
+                  {link.name}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Footer / Profile */}
+        <div className="p-4 shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] bg-[#F3F4F6]">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 text-white flex items-center justify-center font-bold shadow-sm shadow-brand-200">
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-slate-900 truncate">{user?.name || 'User'}</h4>
+              <p className="text-xs text-slate-500 truncate">{user?.email || ''}</p>
+            </div>
+          </div>
+          <button onClick={handleLogout} className="btn-secondary w-full text-red-500 hover:text-red-600">
+            <LogOut className="w-4 h-4" />
+            Log Out
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden" id="main-content">
+        
+        {/* Header */}
+        <header className="h-16 flex items-center justify-between px-4 sm:px-8 bg-[#F3F4F6] z-30 sticky top-0 shadow-[0_4px_16px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center gap-4">
+            <button className="lg:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors" onClick={openSidebar}>
+              <Menu className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg font-semibold text-slate-900 truncate">{currentTitle}</h2>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {/* Notifications Dropdown */}
+            <div className="relative">
+              <button
+                className="relative p-2.5 text-slate-500 hover:text-brand-600 rounded-full transition-all focus:outline-none neumorphic-circle hover:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.06),inset_-4px_-4px_8px_rgba(255,255,255,0.8)]"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>
+                )}
+              </button>
+
+              {notificationsOpen && (
+                <div className="absolute right-0 mt-3 w-80 bg-[#F3F4F6] rounded-[20px] shadow-[8px_8px_24px_rgba(0,0,0,0.1),-8px_-8px_24px_rgba(255,255,255,1)] overflow-hidden origin-top-right animate-in fade-in zoom-in duration-200 z-50">
+                  <div className="px-4 py-3 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.02)] flex items-center justify-between relative z-10">
+                    <span className="font-semibold text-sm text-slate-900">Notifications</span>
+                    {unreadCount > 0 && <span className="bg-brand-100 text-brand-700 text-[10px] font-bold px-2 py-0.5 rounded-full">{unreadCount} new</span>}
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center text-slate-500 text-sm">No new notifications</div>
+                    ) : (
+                      <div className="divide-y divide-slate-100">
+                        {notifications.map(n => (
+                          <div
+                            key={n.id}
+                            className={`p-4 cursor-pointer transition-colors flex gap-4 border-b border-white/40 last:border-0 ${n.read ? 'opacity-70 hover:bg-black/5' : 'bg-brand-50/50 hover:bg-brand-100/50'}`}
+                            onClick={() => { setNotificationsOpen(false); if (onNotificationClick) onNotificationClick(n); }}
+                          >
+                            <div className="text-xl shrink-0">{n.icon || '🔔'}</div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900 mb-0.5">{n.title}</p>
+                              <p className="text-xs text-slate-500 line-clamp-2">{n.message}</p>
+                              {n.time && <p className="text-[10px] text-slate-400 mt-1">{n.time}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Viewport */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 scroll-smooth pb-24">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        </div>
+      </main>
+
+      {/* Floating Zoom Bar (desktop only) */}
+      <ZoomBar />
+    </div>
+  );
+};
+
+export default AppShell;

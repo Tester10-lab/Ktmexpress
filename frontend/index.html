@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Mobile-optimised viewport — allow user zoom (accessibility requirement WCAG 1.4.4) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <!-- iOS web-app meta -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Android Chrome address-bar colour (updated by useTheme hook at runtime) -->
+    <meta name="theme-color" content="#2563eb" />
+    <!-- Prevent phone-number detection on iOS -->
+    <meta name="format-detection" content="telephone=no" />
+    <!-- SEO -->
+    <meta name="description" content="ktmexpress Logistics — End-to-end delivery management for vendors, riders and dispatchers. Track packages, manage pickups, and view real-time delivery status." />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>ktmexpress Logistics</title>
+    <!--
+      ── Anti-FOUC theme initialisation ──
+      Runs BEFORE React renders so there is no flash of unstyled content
+      when the user has a saved dark-mode preference.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('exd_theme');
+          var theme = stored === 'dark' || stored === 'light'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
+
