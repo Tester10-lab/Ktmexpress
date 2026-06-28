@@ -6,6 +6,10 @@ dotenv.config();
 
 export const validateEnv = () => {
   try {
+    if (process.env.MONGODB_URI && !process.env.MONGO_URI) {
+      process.env.MONGO_URI = process.env.MONGODB_URI;
+    }
+    
     const env = cleanEnv(process.env, {
       NODE_ENV: str({ choices: ['development', 'test', 'production'], default: 'development' }),
       PORT: port({ default: 5000 }),

@@ -34,7 +34,7 @@ describe('Auth API', () => {
         name: 'Test Admin',
         email: 'admin@test.com',
         password: 'password123',
-        role: 'admin',
+        role: 'vendor',
       });
     expect(res.statusCode).toEqual(201);
     expect(res.body.success).toBeTruthy();

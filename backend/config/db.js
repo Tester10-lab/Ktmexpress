@@ -22,6 +22,18 @@ export const connectDB = async () => {
   const MAX_RETRIES = 5;
   let retries = 0;
 
+  mongoose.connection.on('disconnected', () => {
+    logger.warn('MongoDB disconnected! Mongoose will attempt to reconnect automatically...');
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    logger.info('MongoDB reconnected successfully.');
+  });
+
+  mongoose.connection.on('error', (err) => {
+    logger.error(`MongoDB connection error: ${err.message}`);
+  });
+
   while (retries < MAX_RETRIES) {
     try {
       const conn = await mongoose.connect(mongoUri, {
