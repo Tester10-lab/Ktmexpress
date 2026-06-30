@@ -12,7 +12,7 @@ import {
   Wallet, History, Map, Plus, Search, CheckCircle2,
   XCircle, ArrowLeftRight, Clock, MapPin, Printer, 
   FileText, Eye, Edit2, AlertCircle, X, ChevronRight,
-  Download, Phone, Trash2, Calendar, DollarSign, Receipt, AlertTriangle
+  Download, Phone, Trash2, Calendar, DollarSign, Receipt, AlertTriangle, ArrowUpRight
 } from 'lucide-react';
 
 const navLinks = [
