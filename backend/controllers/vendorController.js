@@ -7,6 +7,7 @@ import fs from 'fs';
 import csv from 'csv-parser';
 import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee } from '../services/pricingService.js';
+import { logger } from '../config/logger.js';
 
 import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 
@@ -183,7 +184,7 @@ export const createPackage = async (req, res) => {
           weight: weight || 0.5
         });
       } catch (e) {
-        console.error('Pricing calculation failed', e);
+        logger.error('Pricing calculation failed', e);
         finalDeliveryCharge = 0;
       }
     }

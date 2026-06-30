@@ -23,7 +23,8 @@ const statusColor = (status) => {
 };
 
 const LabelCard = ({ pkg }) => {
-  const qr = pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(`${window.location.origin}/track?code=${pkg.trackingCode}`)}`;
+  const trackingBase = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+  const qr = pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(`${trackingBase}/track?code=${pkg.trackingCode}`)}`;
   const barcode = pkg.barcodeUrl || `https://barcodeapi.org/api/128/${pkg.trackingCode}`;
   const deliveryDate = pkg.deliveryDate ? new Date(pkg.deliveryDate).toLocaleDateString() : '—';
 

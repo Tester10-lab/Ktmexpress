@@ -16,6 +16,7 @@ export const validateEnv = () => {
       MONGO_URI: str(),
       JWT_SECRET: str(),
       CLIENT_URL: str({ default: 'http://localhost:5173' }),
+      FRONTEND_URL: str({ default: '' }),
     });
     return env;
   } catch (error) {

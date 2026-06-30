@@ -67,14 +67,15 @@ io.on('connection', (socket) => {
   });
 });
 
+// Trust proxy (required for Render/Vercel) - Must be before rate limiters/security
+app.set('trust proxy', 1);
+
 // ─── Security Middleware ────────────────────────────────────────────────────────
 app.use(helmet());
+app.disable('x-powered-by');
 app.use(cors(corsOptions));
 app.use(mongoSanitize());
 app.use(hpp());
-
-// Trust proxy (required for Render/Vercel)
-app.set('trust proxy', 1);
 
 // ─── Performance Middleware ───────────────────────────────────────────────────
 app.use(compression());
@@ -99,13 +100,22 @@ app.use((req, res, next) => {
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get(['/', '/health', '/api/health'], (req, res) => {
+  const dbStateMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+  };
+  const dbStatus = dbStateMap[mongoose.connection.readyState] || 'disconnected';
   const isDbConnected = mongoose.connection.readyState === 1;
   const status = isDbConnected ? 200 : 503;
+  
   res.status(status).json({
-    status: isDbConnected ? 'OK' : 'ERROR',
+    status: isDbConnected ? 'ok' : 'error',
+    database: dbStatus,
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    uptime: process.uptime(),
+    uptime: Math.floor(process.uptime()),
   });
 });
 

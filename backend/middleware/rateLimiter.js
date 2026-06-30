@@ -12,7 +12,7 @@ export const publicLimiter = rateLimit({
 // Authentication endpoints
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // 30 login/register attempts per 15 minutes per IP
+  max: 100, // 100 login/register attempts per 15 minutes per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many auth attempts. Try again in 15 minutes.' },
