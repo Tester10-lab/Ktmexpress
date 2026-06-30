@@ -12,7 +12,7 @@ import {
   Wallet, History, Map, Plus, Search, CheckCircle2,
   XCircle, ArrowLeftRight, Clock, MapPin, Printer, 
   FileText, Eye, Edit2, AlertCircle, X, ChevronRight,
-  Download, Phone, Trash2, Calendar
+  Download, Phone, Trash2, Calendar, DollarSign, Receipt, AlertTriangle
 } from 'lucide-react';
 
 const navLinks = [
@@ -82,21 +82,37 @@ const VendorHome = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      {/* ─── Standard KPIs ─────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div onClick={() => navigate('/vendor/packages')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Today's Packages" value={stats.todayPkgs??0} color="primary" icon={<Package className="w-6 h-6 text-brand-600" />} />
+          <MetricCard title="Today's Packages" value={stats.todayPkgs??0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/packages')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Pending" value={stats.pending??0} color="warning" icon={<Clock className="w-6 h-6 text-amber-600" />} />
+          <MetricCard title="Pending" value={stats.pending??0} color="warning" icon={<Clock className="w-5 h-5 text-amber-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/history')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Delivered" value={stats.delivered??0} color="success" icon={<CheckCircle2 className="w-6 h-6 text-emerald-600" />} />
+          <MetricCard title="Delivered" value={stats.delivered??0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/history')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Returned" value={stats.returned??0} color="danger" icon={<ArrowLeftRight className="w-6 h-6 text-red-600" />} />
+          <MetricCard title="Returned" value={stats.returned??0} color="danger" icon={<ArrowLeftRight className="w-5 h-5 text-red-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/packages')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Pickup Requests" value={stats.pickupRequests??0} color="info" icon={<MapPin className="w-6 h-6 text-sky-600" />} />
+          <MetricCard title="Pickup Requests" value={stats.pickupRequests??0} color="info" icon={<MapPin className="w-5 h-5 text-sky-600" />} />
+        </div>
+      </div>
+
+      {/* ─── Settlement KPIs ───────────────────────────────────── */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8 flex items-center gap-2">
+          <Wallet className="w-4 h-4" /> Settlement Overview
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <MetricCard title="Today's Sales" value={`Rs. ${(stats.todaySales??0).toLocaleString()}`} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
+          <MetricCard title="Today's COD" value={`Rs. ${(stats.todayCOD??0).toLocaleString()}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
+          <MetricCard title="Delivery Charges" value={`Rs. ${(stats.deliveryCharges??0).toLocaleString()}`} color="danger" icon={<Receipt className="w-5 h-5 text-red-600" />} />
+          <MetricCard title="Total Receivable" value={`Rs. ${(stats.amountReceivable??0).toLocaleString()}`} color="success" icon={<ArrowUpRight className="w-5 h-5 text-emerald-600" />} />
+          <MetricCard title="Total Paid" value={`Rs. ${(stats.paid??0).toLocaleString()}`} color="purple" icon={<CheckCircle2 className="w-5 h-5 text-purple-600" />} />
+          <MetricCard title="Pending Settlement" value={`Rs. ${(stats.pendingSettlement??0).toLocaleString()}`} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
         </div>
       </div>
 

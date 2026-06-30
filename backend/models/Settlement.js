@@ -27,6 +27,19 @@ const settlementSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Package',
   }],
+  paidAt: {
+    type: Date,
+    default: null,
+  },
+  reference: {
+    type: String,
+    default: '',
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['Bank Transfer', 'Cash', 'Cheque', 'Other', ''],
+    default: '',
+  },
 }, { timestamps: true });
 
 settlementSchema.index({ vendorId: 1, createdAt: -1 });

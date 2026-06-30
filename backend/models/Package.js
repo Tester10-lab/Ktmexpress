@@ -77,6 +77,37 @@ const packageSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // ─── Settlement Fields ──────────────────────────────────────────────
+    vendorReceivable: {
+      type: Number,
+      default: 0,
+    },
+    codCollected: {
+      type: Boolean,
+      default: false,
+    },
+    codVerified: {
+      type: Boolean,
+      default: false,
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    settlementStatus: {
+      type: String,
+      enum: ['Pending', 'COD Collected', 'COD Verified', 'Payable', 'Paid'],
+      default: 'Pending',
+    },
+    // ─── End Settlement Fields ──────────────────────────────────────────
     deliveryDate: {
       type: Date,
       default: null,
@@ -146,7 +177,7 @@ const packageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for fast lookups
+// ─── Indexes ────────────────────────────────────────────────────────────────
 packageSchema.index({ vendorId: 1, status: 1 });
 packageSchema.index({ riderId: 1, status: 1 });
 packageSchema.index({ status: 1 });
@@ -155,7 +186,13 @@ packageSchema.index({ invoiceId: 1 });
 packageSchema.index({ deletedAt: 1 });
 packageSchema.index({ status: 1, createdAt: -1 });
 packageSchema.index({ trackingCode: 1, deletedAt: 1 });
-// trackingCode index is created automatically by unique:true above
+// Analytics indexes
+packageSchema.index({ status: 1, updatedAt: -1 });
+packageSchema.index({ vendorId: 1, createdAt: -1, status: 1 });
+packageSchema.index({ riderId: 1, status: 1, updatedAt: -1 });
+// Settlement indexes
+packageSchema.index({ settlementStatus: 1, vendorId: 1 });
+packageSchema.index({ codVerified: 1, vendorPaid: 1 });
 
 // Soft delete query middleware
 const excludeSoftDeleted = function(next) {

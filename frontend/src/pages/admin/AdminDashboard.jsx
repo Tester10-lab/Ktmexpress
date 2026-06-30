@@ -7,7 +7,7 @@ import {
   Package, LayoutGrid, BarChart3
 } from 'lucide-react';
 
-import DashboardOverview from './sections/DashboardOverview';
+import AnalyticsDashboard from './sections/AnalyticsDashboard';
 import SettlementPanel from './sections/SettlementPanel';
 import ExpenseLog from './sections/ExpenseLog';
 import UserManagement from './sections/UserManagement';
@@ -111,7 +111,7 @@ const AdminDashboard = () => {
       onNotificationClick={handleNotificationClick}
     >
       <Routes>
-        <Route path="/" element={<DashboardOverview />} />
+        <Route path="/" element={<AnalyticsDashboard />} />
         <Route path="/settlements" element={<SettlementPanel />} />
         <Route path="/expenses" element={<ExpenseLog />} />
         <Route path="/users" element={<UserManagement />} />

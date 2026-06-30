@@ -11,69 +11,270 @@ import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee } from '../services/pricingService.js';
 
+// ─── Simple In-Memory Cache (30s TTL) ──────────────────────────────────────
+let dashboardCache = { data: null, timestamp: 0 };
+const CACHE_TTL = 30 * 1000; // 30 seconds
+
 // GET /api/admin/dashboard
 export const getDashboardStats = async (req, res) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Return cached data if fresh
+    if (dashboardCache.data && (Date.now() - dashboardCache.timestamp) < CACHE_TTL) {
+      return res.json({ success: true, data: dashboardCache.data, cached: true });
+    }
 
-    const [pkgStatsAgg] = await Package.aggregate([
+    const now = new Date();
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    // ── Main Package KPI Aggregation (single $facet) ──
+    const [pkgStats] = await Package.aggregate([
       { $match: { deletedAt: null } },
       {
         $facet: {
-          total: [{ $count: "count" }],
-          delivered: [{ $match: { status: 'Delivered' } }, { $count: "count" }],
-          pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } } }, { $count: "count" }],
-          cancelled: [{ $match: { status: 'Cancelled' } }, { $count: "count" }],
-          returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: "count" }],
-          todayPackages: [{ $match: { createdAt: { $gte: today } } }, { $count: "count" }],
-          todayDeliveries: [{ $match: { status: 'Delivered', updatedAt: { $gte: today } } }, { $count: "count" }],
+          total: [{ $count: 'count' }],
+          delivered: [{ $match: { status: 'Delivered' } }, { $count: 'count' }],
+          pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse'] } } }, { $count: 'count' }],
+          outForDelivery: [{ $match: { status: 'Out for Delivery' } }, { $count: 'count' }],
+          cancelled: [{ $match: { status: 'Cancelled' } }, { $count: 'count' }],
+          returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: 'count' }],
+          todayPackages: [{ $match: { createdAt: { $gte: today } } }, { $count: 'count' }],
+          monthPackages: [{ $match: { createdAt: { $gte: monthStart } } }, { $count: 'count' }],
+          todayDeliveries: [{ $match: { status: 'Delivered', updatedAt: { $gte: today } } }, { $count: 'count' }],
+          // Revenue aggregations
+          deliveredRevenue: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: null, totalCOD: { $sum: '$amount' }, totalCharges: { $sum: '$deliveryCharge' }, totalVendorReceivable: { $sum: '$vendorReceivable' } } }
+          ],
+          todayCOD: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: today } } },
+            { $group: { _id: null, collected: { $sum: '$amount' } } }
+          ],
+          codPending: [
+            { $match: { status: 'Delivered', codVerified: { $ne: true } } },
+            { $group: { _id: null, amount: { $sum: '$amount' } } }
+          ],
+          vendorPayable: [
+            { $match: { status: 'Delivered', vendorPaid: { $ne: true } } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
+          // Daily revenue (last 30 days)
+          dailyRevenue: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: thirtyDaysAgo } } },
+            { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$updatedAt' } }, revenue: { $sum: '$amount' }, charges: { $sum: '$deliveryCharge' }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+          ],
+          // Monthly revenue (last 12 months)
+          monthlyRevenue: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$updatedAt' } }, revenue: { $sum: '$amount' }, charges: { $sum: '$deliveryCharge' }, count: { $sum: 1 } } },
+            { $sort: { _id: -1 } },
+            { $limit: 12 }
+          ],
+          // Status distribution
+          statusDistribution: [
+            { $group: { _id: '$status', count: { $sum: 1 } } },
+            { $sort: { count: -1 } }
+          ],
+          // Orders per day (last 7 days)
+          ordersPerDay: [
+            { $match: { createdAt: { $gte: sevenDaysAgo } } },
+            { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+          ],
+          // Orders per hour (today)
+          ordersPerHour: [
+            { $match: { createdAt: { $gte: today } } },
+            { $group: { _id: { $hour: '$createdAt' }, count: { $sum: 1 } } },
+            { $sort: { _id: 1 } }
+          ],
+          // Rider leaderboard
+          riderLeaderboard: [
+            { $match: { riderId: { $ne: null } } },
+            { $group: {
+              _id: '$riderId',
+              assigned: { $sum: 1 },
+              delivered: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, 1, 0] } },
+              failed: { $sum: { $cond: [{ $in: ['$status', ['Cancelled', 'Returned', 'Returned to Vendor']] }, 1, 0] } },
+              codCollected: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, '$amount', 0] } },
+            }},
+            { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'rider' } },
+            { $unwind: { path: '$rider', preserveNullAndEmptyArrays: true } },
+            { $project: { riderName: '$rider.name', assigned: 1, delivered: 1, failed: 1, codCollected: 1, successRate: { $cond: [{ $gt: ['$assigned', 0] }, { $multiply: [{ $divide: ['$delivered', '$assigned'] }, 100] }, 0] } } },
+            { $sort: { delivered: -1 } },
+            { $limit: 20 }
+          ],
+          // Vendor analytics
+          vendorAnalytics: [
+            { $group: {
+              _id: '$vendorId',
+              orders: { $sum: 1 },
+              codAmount: { $sum: '$amount' },
+              deliveryCharges: { $sum: '$deliveryCharge' },
+              vendorReceivable: { $sum: '$vendorReceivable' },
+              paid: { $sum: { $cond: [{ $eq: ['$vendorPaid', true] }, '$vendorReceivable', 0] } },
+              pending: { $sum: { $cond: [{ $and: [{ $eq: ['$status', 'Delivered'] }, { $ne: ['$vendorPaid', true] }] }, '$vendorReceivable', 0] } },
+            }},
+            { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'vendor' } },
+            { $unwind: { path: '$vendor', preserveNullAndEmptyArrays: true } },
+            { $project: { vendorName: '$vendor.name', orders: 1, codAmount: 1, deliveryCharges: 1, vendorReceivable: 1, paid: 1, pending: 1 } },
+            { $sort: { codAmount: -1 } },
+            { $limit: 20 }
+          ],
         }
       }
     ]);
 
-    const stats = {
-      total: pkgStatsAgg.total[0]?.count || 0,
-      delivered: pkgStatsAgg.delivered[0]?.count || 0,
-      pending: pkgStatsAgg.pending[0]?.count || 0,
-      cancelled: pkgStatsAgg.cancelled[0]?.count || 0,
-      returned: pkgStatsAgg.returned[0]?.count || 0,
-      todayPackages: pkgStatsAgg.todayPackages[0]?.count || 0,
-      todayDeliveries: pkgStatsAgg.todayDeliveries[0]?.count || 0,
-    };
+    const c = (arr) => arr[0]?.count || 0;
+    const g = (arr, field) => arr[0]?.[field] || 0;
 
-    const activeVendors = await User.countDocuments({ role: 'vendor', status: 'Active' });
-    const activeRiders = await User.countDocuments({ role: 'rider', status: 'Active' });
-
-    // Today's pending expenses
-    const todayExpenses = await Expense.countDocuments({ status: 'Pending', date: { $gte: today } });
-
-    // Revenue from delivered packages
-    const revenueAgg = await Package.aggregate([
-      { $match: { status: 'Delivered', deletedAt: null } },
-      { $group: { _id: null, totalRevenue: { $sum: { $ifNull: ['$amount', 0] } }, totalCharges: { $sum: { $ifNull: ['$deliveryCharge', 0] } } } },
+    // User counts
+    const [activeVendors, activeRiders] = await Promise.all([
+      User.countDocuments({ role: 'vendor', status: 'Active' }),
+      User.countDocuments({ role: 'rider', status: 'Active' }),
     ]);
 
-    const revenue = revenueAgg[0] || { totalRevenue: 0, totalCharges: 0 };
+    const todayExpenses = await Expense.countDocuments({ status: 'Pending', date: { $gte: today } });
+
+    const data = {
+      // KPIs
+      totalPackages: c(pkgStats.total),
+      todayPackages: c(pkgStats.todayPackages),
+      monthPackages: c(pkgStats.monthPackages),
+      delivered: c(pkgStats.delivered),
+      pending: c(pkgStats.pending),
+      outForDelivery: c(pkgStats.outForDelivery),
+      cancelled: c(pkgStats.cancelled),
+      returned: c(pkgStats.returned),
+      todayDeliveries: c(pkgStats.todayDeliveries),
+      todayExpenses,
+      activeVendors,
+      activeRiders,
+      // Financial KPIs
+      totalRevenue: g(pkgStats.deliveredRevenue, 'totalCOD'),
+      totalDeliveryCharges: g(pkgStats.deliveredRevenue, 'totalCharges'),
+      profit: g(pkgStats.deliveredRevenue, 'totalCharges'),
+      vendorPayable: g(pkgStats.vendorPayable, 'amount'),
+      todayCOD: g(pkgStats.todayCOD, 'collected'),
+      codPending: g(pkgStats.codPending, 'amount'),
+      // Chart data
+      dailyRevenue: pkgStats.dailyRevenue || [],
+      monthlyRevenue: (pkgStats.monthlyRevenue || []).reverse(),
+      statusDistribution: pkgStats.statusDistribution || [],
+      ordersPerDay: pkgStats.ordersPerDay || [],
+      ordersPerHour: pkgStats.ordersPerHour || [],
+      // Leaderboards
+      riderLeaderboard: pkgStats.riderLeaderboard || [],
+      vendorAnalytics: pkgStats.vendorAnalytics || [],
+    };
+
+    // Cache the result
+    dashboardCache = { data, timestamp: Date.now() };
+
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/settlements/verify-cod/:packageId
+export const verifyCOD = async (req, res) => {
+  try {
+    const pkg = await Package.findById(req.params.packageId);
+    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
+    if (pkg.status !== 'Delivered') return res.status(400).json({ success: false, message: 'Package must be delivered first' });
+
+    pkg.codVerified = true;
+    pkg.verifiedAt = new Date();
+    pkg.settlementStatus = 'COD Verified';
+    pkg.timeline.push({
+      time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      status: pkg.status,
+      message: 'COD verified by admin',
+      user: req.user.name,
+    });
+    await pkg.save();
+
+    // Invalidate dashboard cache
+    dashboardCache.timestamp = 0;
+
+    res.json({ success: true, data: pkg, message: 'COD verified successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/settlements/mark-paid
+export const markVendorPaid = async (req, res) => {
+  try {
+    const { packageIds, reference, paymentMethod } = req.body;
+    if (!packageIds || !packageIds.length) return res.status(400).json({ success: false, message: 'No packages selected' });
+
+    const packages = await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } });
+    if (packages.length === 0) return res.status(400).json({ success: false, message: 'No eligible packages found' });
+
+    const now = new Date();
+    const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
+
+    for (const pkg of packages) {
+      pkg.vendorPaid = true;
+      pkg.paidAmount = pkg.vendorReceivable;
+      pkg.paidAt = now;
+      pkg.settlementStatus = 'Paid';
+      pkg.isSettling = false;
+      pkg.timeline.push({
+        time: nowStr,
+        status: pkg.status,
+        message: `Vendor paid Rs. ${pkg.vendorReceivable}${reference ? ` (Ref: ${reference})` : ''}`,
+        user: req.user.name,
+      });
+      await pkg.save();
+    }
+
+    // Invalidate dashboard cache
+    dashboardCache.timestamp = 0;
 
     res.json({
       success: true,
-      data: {
-        totalPackages: stats.total,
-        delivered: stats.delivered,
-        pending: stats.pending,
-        cancelled: stats.cancelled,
-        returned: stats.returned,
-        todayPackages: stats.todayPackages,
-        todayDeliveries: stats.todayDeliveries,
-        todayExpenses,
-        activeVendors,
-        activeRiders,
-        totalRevenue: revenue.totalRevenue,
-        totalDeliveryCharges: revenue.totalCharges,
-        profit: revenue.totalCharges,
-      },
+      message: `${packages.length} package(s) marked as paid`,
+      data: { count: packages.length }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/admin/settlements/export
+export const exportSettlements = async (req, res) => {
+  try {
+    const { vendor, status, startDate, endDate } = req.query;
+    const filter = { status: 'Delivered', deletedAt: null };
+    if (vendor) filter.vendorId = new mongoose.Types.ObjectId(vendor);
+    if (status === 'paid') filter.vendorPaid = true;
+    else if (status === 'unpaid') filter.vendorPaid = { $ne: true };
+    if (startDate || endDate) {
+      filter.updatedAt = {};
+      if (startDate) filter.updatedAt.$gte = new Date(startDate);
+      if (endDate) { const end = new Date(endDate); end.setHours(23, 59, 59, 999); filter.updatedAt.$lte = end; }
+    }
+
+    const packages = await Package.find(filter)
+      .populate('vendorId', 'name')
+      .populate('riderId', 'name')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    // Generate CSV
+    const header = 'Tracking Code,Vendor,Customer,Amount,Delivery Charge,Vendor Receivable,Status,Settlement Status,Paid,Paid At,Rider\n';
+    const rows = packages.map(p =>
+      `${p.trackingCode},"${p.vendorId?.name || ''}","${p.customerName}",${p.amount},${p.deliveryCharge},${p.vendorReceivable || 0},${p.status},${p.settlementStatus || 'Pending'},${p.vendorPaid ? 'Yes' : 'No'},${p.paidAt ? new Date(p.paidAt).toLocaleDateString() : ''},"${p.riderId?.name || ''}"`
+    ).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=settlements_${Date.now()}.csv`);
+    res.send(header + rows);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -406,6 +607,7 @@ export const createPackageForVendor = async (req, res) => {
       items: items || [],
       amount: Number(amount),
       deliveryCharge: finalDeliveryCharge,
+      vendorReceivable: Math.max(0, Number(amount) - finalDeliveryCharge),
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
@@ -472,6 +674,7 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         items: p.items || [],
         amount: Number(p.amount) || 0,
         deliveryCharge: finalDeliveryCharge,
+        vendorReceivable: Math.max(0, (Number(p.amount) || 0) - finalDeliveryCharge),
         deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
@@ -626,6 +829,7 @@ export const uploadCsvForVendor = async (req, res) => {
               items: [],
               amount: Number(p.amount) || 0,
               deliveryCharge: finalDeliveryCharge,
+              vendorReceivable: Math.max(0, (Number(p.amount) || 0) - finalDeliveryCharge),
             vendorId,
             ...labelUrls,
             status: 'Pending',

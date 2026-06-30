@@ -27,16 +27,51 @@ export const getVendorDashboard = async (req, res) => {
           pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } } }, { $count: "count" }],
           returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: "count" }],
           todayPkgs: [{ $match: { createdAt: { $gte: today } } }, { $count: "count" }],
+          // Settlement KPIs
+          todaySales: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: today } } },
+            { $group: { _id: null, amount: { $sum: '$amount' } } }
+          ],
+          todayCOD: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: today } } },
+            { $group: { _id: null, amount: { $sum: '$amount' } } }
+          ],
+          totalDeliveryCharges: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: null, amount: { $sum: '$deliveryCharge' } } }
+          ],
+          totalReceivable: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
+          totalPaid: [
+            { $match: { status: 'Delivered', vendorPaid: true } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
+          totalPending: [
+            { $match: { status: 'Delivered', vendorPaid: { $ne: true } } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
         }
       }
     ]);
 
+    const c = (arr) => arr[0]?.count || 0;
+    const g = (arr) => arr[0]?.amount || 0;
+
     const stats = {
-      total: aggResult.total[0]?.count || 0,
-      delivered: aggResult.delivered[0]?.count || 0,
-      pending: aggResult.pending[0]?.count || 0,
-      returned: aggResult.returned[0]?.count || 0,
-      todayPkgs: aggResult.todayPkgs[0]?.count || 0,
+      total: c(aggResult.total),
+      delivered: c(aggResult.delivered),
+      pending: c(aggResult.pending),
+      returned: c(aggResult.returned),
+      todayPkgs: c(aggResult.todayPkgs),
+      // Settlement KPIs
+      todaySales: g(aggResult.todaySales),
+      todayCOD: g(aggResult.todayCOD),
+      deliveryCharges: g(aggResult.totalDeliveryCharges),
+      amountReceivable: g(aggResult.totalReceivable),
+      paid: g(aggResult.totalPaid),
+      pendingSettlement: g(aggResult.totalPending),
     };
 
     const pickupRequests = await PickupRequest.countDocuments({ vendorId, status: 'pending' });
@@ -205,6 +240,7 @@ export const createPackage = async (req, res) => {
       items: items || [],
       amount: Number(amount),
       deliveryCharge: finalDeliveryCharge,
+      vendorReceivable: Math.max(0, Number(amount) - finalDeliveryCharge),
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,

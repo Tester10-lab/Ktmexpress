@@ -24,7 +24,10 @@ import {
   updateExpenseStatus,
   getSettlements,
   updateSettlement,
-  requestPickupAdmin
+  requestPickupAdmin,
+  verifyCOD,
+  markVendorPaid,
+  exportSettlements
 } from '../controllers/adminController.js';
 import {
   getGlobalPricingSettings,
@@ -116,5 +119,8 @@ router.get('/expenses', getAllExpenses);
 router.put('/expenses/:id/status', updateExpenseStatus);
 router.get('/settlements', getSettlements);
 router.put('/settlements/:id', updateSettlement);
+router.post('/settlements/verify-cod/:packageId', verifyCOD);
+router.post('/settlements/mark-paid', markVendorPaid);
+router.get('/settlements/export', exportSettlements);
 
 export default router;

@@ -1,48 +1,127 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef, memo } from 'react';
 import api from '../../../api/axios';
 import MetricCard from '../../../components/MetricCard';
 import { useToast } from '../../../store/ToastContext';
-import ScanStation from '../../../components/ScanStation';
 import Pagination from '../../../components/Pagination';
 import { 
-  LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
-  Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
-  MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
-  Edit2, Trash2, Check, X, Bell
+  Users, Plus, Edit2, Trash2, CheckCircle2, XCircle, X
 } from 'lucide-react';
 
-// ─── Status Badge ───────────────────────────────────────────────────────────
-function statusBadge(status) {
-  const styles = {
-    'Delivered': 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    'Cancelled': 'bg-red-100 text-red-700 border-red-200',
-    'Returned': 'bg-sky-100 text-sky-700 border-sky-200',
-    'Returned to Vendor': 'bg-sky-100 text-sky-700 border-sky-200',
-    'Pending': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Pick Up Requested': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Picked Up': 'bg-brand-100 text-brand-700 border-brand-200',
-    'In Warehouse': 'bg-brand-100 text-brand-700 border-brand-200',
-    'Out for Delivery': 'bg-brand-100 text-brand-700 border-brand-200',
-    'Postponed': 'bg-orange-100 text-orange-700 border-orange-200',
-  };
-  const style = styles[status] || 'bg-slate-100 text-slate-700 border-slate-200';
-  return <span className={'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ' + style}>{status}</span>;
-}
+// ─── Extracted Edit User Modal (React.memo prevents parent re-renders from remounting) ──
+const EditUserModal = memo(({ user, onClose, onSave }) => {
+  const [form, setForm] = useState(null);
 
+  // Initialize form only when user identity changes
+  useEffect(() => {
+    if (user) {
+      setForm({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        contact: user.contact || '',
+        status: user.status,
+        shopName: user.vendorMeta?.shopName || '',
+        monthlyTarget: user.riderMeta?.monthlyTarget || 0,
+      });
+    }
+  }, [user?._id]);
+
+  if (!form) return null;
+
+  const handleChange = (field, value) => {
+    setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(form);
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" 
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" 
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <h3 className="font-bold text-slate-900 text-lg">Edit User</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
+                <input type="text" className="input-field" required value={form.name} onChange={e => handleChange('name', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Email (read-only)</label>
+                <input type="email" className="input-field bg-slate-50 text-slate-500" disabled value={form.email} />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Role</label>
+                <input type="text" className="input-field bg-slate-50 text-slate-500 capitalize" disabled value={form.role} />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
+                <select className="input-field" value={form.status} onChange={e => handleChange('status', e.target.value)}>
+                  <option value="Active">Active</option>
+                  <option value="Suspended">Suspended</option>
+                </select>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Contact/Phone</label>
+                <input type="text" className="input-field" value={form.contact} onChange={e => handleChange('contact', e.target.value)} />
+              </div>
+              {form.role === 'vendor' && (
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Shop Name</label>
+                  <input type="text" className="input-field" value={form.shopName} onChange={e => handleChange('shopName', e.target.value)} />
+                </div>
+              )}
+              {form.role === 'rider' && (
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Monthly Target</label>
+                  <input type="number" min="0" className="input-field" value={form.monthlyTarget} onChange={e => handleChange('monthlyTarget', e.target.value)} />
+                </div>
+              )}
+            </div>
+            <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn-primary">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+EditUserModal.displayName = 'EditUserModal';
+
+// ─── Main Component ─────────────────────────────────────────────────────────
 const ManageUsers = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [createModal, setCreateModal] = useState(false);
-  const [editModal, setEditModal] = useState(false);
-  const [editUser, setEditUser] = useState(null);
+  const [editUser, setEditUser] = useState(null); // null = closed, object = open
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '', monthlyTarget: '' });
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [pagination, setPagination] = useState(null);
   const { showToast } = useToast();
 
-  const fetchUsers = () => {
+  // Ref to track if a modal is open — prevents background refetches from causing flicker
+  const modalOpenRef = useRef(false);
+
+  const fetchUsers = useCallback(() => {
+    if (modalOpenRef.current) return; // Don't refetch while editing
     setLoading(true);
     api.get(`/admin/users?page=${page}&limit=${limit}`)
       .then(r => {
@@ -51,56 +130,71 @@ const ManageUsers = () => {
       })
       .catch(() => showToast('Failed to load users', 'error'))
       .finally(() => setLoading(false));
-  };
+  }, [page, limit, showToast]);
 
-  useEffect(() => { fetchUsers(); }, [page, limit]);
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  const toggle = async (id) => {
+  const toggle = useCallback(async (id) => {
     try {
       await api.put(`/admin/users/${id}/toggle-status`);
       showToast('User status updated', 'success');
       fetchUsers();
     } catch { showToast('Failed to update status', 'error'); }
-  };
+  }, [fetchUsers, showToast]);
 
-  const handleDeleteUser = async (id, name) => {
+  const handleDeleteUser = useCallback(async (id, name) => {
     if (!window.confirm(`Delete user "${name}"? This cannot be undone.`)) return;
     try { await api.delete(`/admin/users/${id}`); showToast('User deleted', 'success'); fetchUsers(); }
     catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
-  };
+  }, [fetchUsers, showToast]);
 
-  const createUser = async (e) => {
+  const createUser = useCallback(async (e) => {
     e.preventDefault();
     try {
       await api.post('/admin/users', newUser);
       showToast(`User "${newUser.name}" created!`, 'success');
       setCreateModal(false);
+      modalOpenRef.current = false;
       setNewUser({ name: '', email: '', password: '', role: 'vendor', contact: '', shopName: '', monthlyTarget: '' });
       fetchUsers();
     } catch (err) { showToast(err.response?.data?.message || 'Failed to create user', 'error'); }
-  };
+  }, [newUser, fetchUsers, showToast]);
 
-  const openEditUser = (u) => {
-    setEditUser({ _id: u._id, name: u.name, email: u.email, role: u.role, contact: u.contact || '', status: u.status, shopName: u.vendorMeta?.shopName || '', monthlyTarget: u.riderMeta?.monthlyTarget || 0 });
-    setEditModal(true);
-  };
+  const openEditUser = useCallback((u) => {
+    modalOpenRef.current = true;
+    setEditUser(u);
+  }, []);
 
-  const handleUpdateUser = async (e) => {
-    e.preventDefault();
+  const closeEditModal = useCallback(() => {
+    modalOpenRef.current = false;
+    setEditUser(null);
+  }, []);
+
+  const handleUpdateUser = useCallback(async (form) => {
     try {
-      const payload = { name: editUser.name, contact: editUser.contact, status: editUser.status };
-      if (editUser.role === 'vendor') {
-        payload.vendorMeta = { shopName: editUser.shopName };
+      const payload = { name: form.name, contact: form.contact, status: form.status };
+      if (form.role === 'vendor') {
+        payload.vendorMeta = { shopName: form.shopName };
       }
-      if (editUser.role === 'rider') {
-        payload.riderMeta = { monthlyTarget: parseInt(editUser.monthlyTarget) || 0 };
+      if (form.role === 'rider') {
+        payload.riderMeta = { monthlyTarget: parseInt(form.monthlyTarget) || 0 };
       }
-      await api.put(`/admin/users/${editUser._id}`, payload);
+      await api.put(`/admin/users/${form._id}`, payload);
       showToast('User updated successfully', 'success');
-      setEditModal(false);
+      closeEditModal();
       fetchUsers();
     } catch (err) { showToast(err.response?.data?.message || 'Failed to update user', 'error'); }
-  };
+  }, [fetchUsers, showToast, closeEditModal]);
+
+  const openCreateModal = useCallback(() => {
+    modalOpenRef.current = true;
+    setCreateModal(true);
+  }, []);
+
+  const closeCreateModal = useCallback(() => {
+    modalOpenRef.current = false;
+    setCreateModal(false);
+  }, []);
 
   const roleClass = { 
     admin: 'bg-red-100 text-red-700 border border-red-200', 
@@ -116,7 +210,7 @@ const ManageUsers = () => {
           <h3 className="font-bold text-slate-800 text-lg">Platform Users</h3>
           <p className="text-sm text-slate-500">Manage vendors, dispatchers, and riders</p>
         </div>
-        <button className="btn-primary btn-sm flex items-center gap-2" onClick={() => setCreateModal(true)}>
+        <button className="btn-primary btn-sm flex items-center gap-2" onClick={openCreateModal}>
           <Plus className="w-4 h-4" /> Add User
         </button>
       </div>
@@ -180,13 +274,13 @@ const ManageUsers = () => {
       </div>
       <Pagination pagination={pagination} onPageChange={setPage} limit={limit} onLimitChange={setLimit} />
 
-      {/* Modals can keep some structure but use Tailwind classes */}
+      {/* Create User Modal */}
       {createModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setCreateModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={closeCreateModal}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="font-bold text-slate-900 text-lg">Create New User</h3>
-              <button onClick={() => setCreateModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <button onClick={closeCreateModal} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -232,7 +326,7 @@ const ManageUsers = () => {
                   )}
                 </div>
                 <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
-                  <button type="button" className="btn-secondary" onClick={() => setCreateModal(false)}>Cancel</button>
+                  <button type="button" className="btn-secondary" onClick={closeCreateModal}>Cancel</button>
                   <button type="submit" className="btn-primary">Create User</button>
                 </div>
               </form>
@@ -241,62 +335,13 @@ const ManageUsers = () => {
         </div>
       )}
 
-      {editModal && editUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setEditModal(false)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h3 className="font-bold text-slate-900 text-lg">Edit User</h3>
-              <button onClick={() => setEditModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6">
-              <form onSubmit={handleUpdateUser} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
-                    <input type="text" className="input-field" required value={editUser.name} onChange={e => setEditUser(f => ({ ...f, name: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Email (read-only)</label>
-                    <input type="email" className="input-field bg-slate-50 text-slate-500" disabled value={editUser.email} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Role</label>
-                    <input type="text" className="input-field bg-slate-50 text-slate-500 capitalize" disabled value={editUser.role} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Status</label>
-                    <select className="input-field" value={editUser.status} onChange={e => setEditUser(f => ({ ...f, status: e.target.value }))}>
-                      <option value="Active">Active</option>
-                      <option value="Suspended">Suspended</option>
-                    </select>
-                  </div>
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Contact/Phone</label>
-                    <input type="text" className="input-field" value={editUser.contact} onChange={e => setEditUser(f => ({ ...f, contact: e.target.value }))} />
-                  </div>
-                  {editUser.role === 'vendor' && (
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-sm font-semibold text-slate-700 mb-1">Shop Name</label>
-                      <input type="text" className="input-field" value={editUser.shopName} onChange={e => setEditUser(f => ({ ...f, shopName: e.target.value }))} />
-                    </div>
-                  )}
-                  {editUser.role === 'rider' && (
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-sm font-semibold text-slate-700 mb-1">Monthly Target</label>
-                      <input type="number" min="0" className="input-field" value={editUser.monthlyTarget} onChange={e => setEditUser(f => ({ ...f, monthlyTarget: e.target.value }))} />
-                    </div>
-                  )}
-                </div>
-                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
-                  <button type="button" className="btn-secondary" onClick={() => setEditModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary">Save Changes</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+      {/* Edit User Modal — extracted and memoized */}
+      {editUser && (
+        <EditUserModal
+          user={editUser}
+          onClose={closeEditModal}
+          onSave={handleUpdateUser}
+        />
       )}
     </div>
   );
