@@ -128,7 +128,8 @@ const CameraScanner = ({ onDetected, active }) => {
         } catch (_) {}
       }, 300);
     } catch (e) {
-      setError('Camera access denied. Please allow camera permission or use manual input.');
+      console.error('Camera initialization error:', e);
+      setError(`Camera error (${e.name}): ${e.message}. Please allow permission or use manual input.`);
     }
   }, [onDetected, active]);
 
