@@ -1,0 +1,42 @@
+2026-07-08 20:58:13 [info]: MongoDB connected: ac-1k80wyh-shard-00-02.fqlne0d.mongodb.net
+2026-07-08 21:14:09 [error]: MongoDB connection attempt 1 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:09 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:12 [error]: MongoDB connection attempt 2 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:12 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:18 [error]: MongoDB connection attempt 3 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:18 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:27 [error]: MongoDB connection attempt 4 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:27 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:39 [error]: MongoDB connection attempt 5 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:14:57 [info]: MongoDB connected: ac-1k80wyh-shard-00-02.fqlne0d.mongodb.net
+2026-07-08 21:23:36 [info]: MongoDB connected: ac-1k80wyh-shard-00-00.fqlne0d.mongodb.net
+2026-07-08 21:27:05 [error]: MongoDB connection attempt 1 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:05 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:08 [error]: MongoDB connection attempt 2 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:08 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:14 [error]: MongoDB connection attempt 3 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:14 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:23 [error]: MongoDB connection attempt 4 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:23 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-08 21:27:35 [error]: MongoDB connection attempt 5 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:31 [error]: MongoDB connection attempt 1 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:31 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:34 [error]: MongoDB connection attempt 2 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:34 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:40 [error]: MongoDB connection attempt 3 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:40 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:49 [error]: MongoDB connection attempt 4 failed: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-09 13:12:49 [error]: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2026-07-10 13:51:01 [warn]: MongoDB disconnected! Mongoose will attempt to reconnect automatically...
+2026-07-10 13:51:01 [error]: MongoDB connection attempt 1 failed: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:01 [error]: MongoDB connection error: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:09 [warn]: MongoDB disconnected! Mongoose will attempt to reconnect automatically...
+2026-07-10 13:51:09 [error]: MongoDB connection attempt 2 failed: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:09 [error]: MongoDB connection error: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:20 [warn]: MongoDB disconnected! Mongoose will attempt to reconnect automatically...
+2026-07-10 13:51:20 [error]: MongoDB connection attempt 3 failed: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:20 [error]: MongoDB connection error: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:34 [warn]: MongoDB disconnected! Mongoose will attempt to reconnect automatically...
+2026-07-10 13:51:34 [error]: MongoDB connection attempt 4 failed: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:34 [error]: MongoDB connection error: connect ECONNREFUSED 127.0.0.1:27017
+2026-07-10 13:51:51 [warn]: MongoDB disconnected! Mongoose will attempt to reconnect automatically...
