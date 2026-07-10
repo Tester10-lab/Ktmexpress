@@ -129,7 +129,11 @@ const CameraScanner = ({ onDetected, active }) => {
       }, 300);
     } catch (e) {
       console.error('Camera initialization error:', e);
-      setError(`Camera error (${e.name}): ${e.message}. Please allow permission or use manual input.`);
+      const isHttps = window.isSecureContext ? 'Yes' : 'No';
+      const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      setError(`Camera Error [${e.name}]: ${e.message}. 
+        Debug Info -> HTTPS: ${isHttps} | API Supported: ${hasMedia} | UserAgent: ${navigator.userAgent.substring(0, 50)}...
+        Please ensure you are on HTTPS and have granted camera permissions.`);
     }
   }, [onDetected, active]);
 
