@@ -11,6 +11,7 @@ import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
 import { useRiderHistory } from '../../store/RiderHistoryContext';
 import { getVendorDisplayName } from '../../utils/vendor';
 import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
+import TrackingLink from '../../components/TrackingLink';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
