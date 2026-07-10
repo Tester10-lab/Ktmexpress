@@ -58,7 +58,27 @@ function isPhone(val) {
   return /^\d{6,}$/.test(digits);
 }
 
-// Renders phone number cell — shows — if value is not a real phone number
+/**
+ * Resolves the actual phone number for a package, handling cases where
+ * the phone was stored in the city/address field by mistake.
+ */
+function resolvePhone(p) {
+  if (isPhone(p.customerPhone)) return p.customerPhone;
+  if (isPhone(p.city)) return p.city;       // phone stored in city field
+  if (isPhone(p.address)) return p.address; // phone stored in address field
+  return null;
+}
+
+/**
+ * Resolves the actual destination for a package, skipping phone-number values.
+ */
+function resolveDestination(p) {
+  if (p.city && !isPhone(p.city)) return p.city;
+  if (p.address && !isPhone(p.address)) return p.address;
+  return '—';
+}
+
+// Renders phone number cell — shows — if no valid phone number found
 function PhoneCell({ phone }) {
   if (!isPhone(phone)) return <span style={{ color: '#d1d5db' }}>—</span>;
   return (
@@ -78,6 +98,7 @@ function PhoneCell({ phone }) {
     </div>
   );
 }
+
 
 function Spinner() {
   return (
@@ -1134,9 +1155,9 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
                     <td style={tdStyle}>{p.customerName || '—'}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                      <PhoneCell phone={p.customerPhone} />
+                      <PhoneCell phone={resolvePhone(p)} />
                     </td>
-                    <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
+                    <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{resolveDestination(p)}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{p.amount?.toLocaleString()}</td>
                     <td style={tdStyle}><StatusBadge status={p.status} /></td>
