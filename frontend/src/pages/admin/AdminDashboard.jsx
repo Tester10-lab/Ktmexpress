@@ -805,6 +805,7 @@ const AdminPackages = () => {
   const [newPkg, setNewPkg] = useState({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
   const [csvVendorId, setCsvVendorId] = useState('');
   const [csvVendorSearch, setCsvVendorSearch] = useState('');
+  const [csvVendorDropdownOpen, setCsvVendorDropdownOpen] = useState(false);
   const [csvFile, setCsvFile] = useState(null);
   const [csvUploading, setCsvUploading] = useState(false);
 
@@ -895,6 +896,7 @@ const AdminPackages = () => {
       setCsvModal(false);
       setCsvFile(null);
       setCsvVendorId('');
+      setCsvVendorSearch('');
       fetchPackages();
     } catch (err) { showToast(err.response?.data?.message || 'CSV upload failed', 'error'); }
     finally { setCsvUploading(false); }
@@ -1163,20 +1165,43 @@ const AdminPackages = () => {
               <form onSubmit={handleCsvUpload} className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Search vendor by keyword..."
-                    className="input-field mb-2"
-                    value={csvVendorSearch}
-                    onChange={e => setCsvVendorSearch(e.target.value)}
-                  />
-                  <select className="input-field" required value={csvVendorId} onChange={e => setCsvVendorId(e.target.value)}>
-                    <option value="">— Choose Vendor —</option>
-                    {vendors
-                      .filter(v => (v.name + ' ' + (v.vendorMeta?.shopName || v.email)).toLowerCase().includes(csvVendorSearch.toLowerCase()))
-                      .map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)
-                    }
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search and select vendor..."
+                      className="input-field w-full"
+                      value={csvVendorSearch}
+                      onChange={e => {
+                        setCsvVendorSearch(e.target.value);
+                        setCsvVendorDropdownOpen(true);
+                        setCsvVendorId('');
+                      }}
+                      onFocus={() => setCsvVendorDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setCsvVendorDropdownOpen(false), 200)}
+                    />
+                    {csvVendorDropdownOpen && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        {vendors
+                          .filter(v => (v.name + ' ' + (v.vendorMeta?.shopName || v.email)).toLowerCase().includes(csvVendorSearch.toLowerCase()))
+                          .map(v => (
+                            <div 
+                              key={v._id} 
+                              className="px-4 py-2 hover:bg-brand-50 cursor-pointer text-sm text-slate-700 border-b border-slate-100 last:border-0"
+                              onClick={() => {
+                                setCsvVendorId(v._id);
+                                setCsvVendorSearch(`${v.name} — ${v.vendorMeta?.shopName || v.email}`);
+                                setCsvVendorDropdownOpen(false);
+                              }}
+                            >
+                              {v.name} — {v.vendorMeta?.shopName || v.email}
+                            </div>
+                          ))}
+                        {vendors.filter(v => (v.name + ' ' + (v.vendorMeta?.shopName || v.email)).toLowerCase().includes(csvVendorSearch.toLowerCase())).length === 0 && (
+                          <div className="px-4 py-2 text-sm text-slate-500">No vendors found.</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Upload CSV File <span className="text-red-500">*</span></label>
