@@ -3,9 +3,14 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import ScanStation from '../../components/ScanStation';
+import QrScanner from '../../components/QrScanner';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
+import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
+import { useRiderHistory } from '../../store/RiderHistoryContext';
+import { getVendorDisplayName } from '../../utils/vendor';
+import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
@@ -13,6 +18,7 @@ const navLinks = [
   { name: 'Tasks (Pickup & Delivery)', path: '/dispatcher/tasks', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
   { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> },
   { name: 'Active Riders', path: '/dispatcher/riders', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M15 15.5l-2.5-3.5H9L6.5 15.5"/><circle cx="12" cy="7" r="2"/></svg> },
+  { name: 'COD Handovers', path: '/dispatcher/handovers', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
 ];
 
 const titleMap = {
@@ -21,6 +27,7 @@ const titleMap = {
   '/dispatcher/inbound-scan':    'Inbound Scan — Warehouse',
   '/dispatcher/reverse-logistics': 'Reverse Logistics (RTV)',
   '/dispatcher/riders':          'Active Riders',
+  '/dispatcher/handovers':       'COD Handovers Verification',
   '/dispatcher':                 'Warehouse Staff Dashboard',
 };
 
@@ -28,6 +35,7 @@ const titleMap = {
 const STATUS_COLORS = {
   'Pending': '#f59e0b', 'Pick Up Requested': '#f59e0b', 'Picked Up': '#3b82f6',
   'In Warehouse': '#8b5cf6', 'Out for Delivery': '#06b6d4', 'Delivered': '#10b981',
+  'Dispatched': '#2563eb', 'Arrived': '#4f46e5', 'Sent for Delivery': '#d97706',
   'Postponed': '#f97316', 'Cancelled': '#ef4444', 'Returned': '#ef4444',
   'Returned to Vendor': '#6b7280',
 };
@@ -100,8 +108,20 @@ const DispatcherHome = () => {
   const [stats, setStats] = useState(null);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const { showToast } = useToast();
   const navigate = useNavigate();
+
+  const handleScanSuccess = async (trackingCode) => {
+    try {
+      const res = await api.patch(`/packages/${trackingCode}/warehouse-arrival`);
+      showToast(res.data.message || 'Arrival confirmed!', 'success');
+      // Intentionally not closing scannerOpen to allow rapid scanning
+      fetchAll();
+    } catch (e) {
+      showToast(e.message || 'Failed to confirm arrival', 'error');
+    }
+  };
 
   const fetchAll = useCallback(async () => {
     try {
@@ -127,6 +147,21 @@ const DispatcherHome = () => {
 
   return (
     <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Overview</h2>
+        <ActionBtn onClick={() => setScannerOpen(true)} variant="primary" icon={<span style={{fontSize:16}}>📷</span>}>
+          Scan Arrival
+        </ActionBtn>
+      </div>
+
+      {scannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md h-[90vh] sm:h-auto max-h-[800px]" onClick={e => e.stopPropagation()}>
+            <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} />
+          </div>
+        </div>
+      )}
+
       {/* Stats Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
@@ -168,8 +203,8 @@ const DispatcherHome = () => {
                 <tr><td colSpan="7"><EmptyState message="No packages yet." /></td></tr>
               ) : recent.map(p => (
                 <tr key={p._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                  <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.trackingCode}</td>
-                  <td style={tdStyle}>{p.vendorId?.name || '—'}</td>
+                  <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
+                  <td style={tdStyle}>{getVendorDisplayName(p.vendorId, '—')}</td>
                   <td style={tdStyle}>{p.customerName}</td>
                   <td style={{ ...tdStyle, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{p.city || p.address || '—'}</td>
                   <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>Unassigned</span>}</td>
@@ -187,9 +222,11 @@ const DispatcherHome = () => {
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
 const PickupRequests = () => {
+  const { openTracking } = useTrackingDrawer();
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [vendorSearch, setVendorSearch] = useState('');
   const [assignMap, setAssignMap] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [selected, setSelected] = useState([]);
@@ -199,20 +236,28 @@ const PickupRequests = () => {
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const { showToast } = useToast();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
+      const q = new URLSearchParams();
+      if (vendorSearch) q.append('vendorSearch', vendorSearch);
+      
       const [pRes, rRes] = await Promise.all([
-        api.get('/dispatcher/pickups'),
+        api.get(`/dispatcher/pickups?${q.toString()}`),
         api.get('/dispatcher/riders'),
       ]);
       setPickups(pRes.data.data || []);
       setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load pickup requests', 'error'); }
     finally { setLoading(false); }
-  }, []);
+  }, [vendorSearch, showToast]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [vendorSearch, fetchData]);
 
   const assignPickup = async (pickupId) => {
     const riderId = assignMap[pickupId];
@@ -221,8 +266,8 @@ const PickupRequests = () => {
     try {
       await api.put('/dispatcher/assign-pickup', { pickupId, riderId });
       showToast('Rider assigned for pickup!', 'success');
-      fetchData();
-    } catch (e) { showToast(e.response?.data?.message || 'Failed to assign', 'error'); }
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed to assign', 'error'); }
     finally { setActionLoading(s => ({ ...s, [pickupId]: null })); }
   };
 
@@ -231,8 +276,8 @@ const PickupRequests = () => {
     try {
       await api.put('/dispatcher/confirm-warehouse', { packageId });
       showToast('✓ Package confirmed at warehouse!', 'success');
-      fetchData();
-    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed', 'error'); }
     finally { setActionLoading(s => ({ ...s, [pickupId]: null })); }
   };
 
@@ -253,7 +298,7 @@ const PickupRequests = () => {
       showToast(`✓ ${successCount} pickup(s) assigned!`, 'success');
       setSelected([]);
       setBulkRiderId('');
-      fetchData();
+      fetchData(true);
     } catch (e) { showToast('Bulk assign failed', 'error'); }
     finally { setBulkAssigning(false); }
   };
@@ -274,13 +319,160 @@ const PickupRequests = () => {
       }));
       showToast(`✓ ${successCount} package(s) confirmed at warehouse!`, 'success');
       setSelectedAssigned([]);
-      fetchData();
+      fetchData(true);
     } catch (e) { showToast('Bulk confirm failed', 'error'); }
     finally { setBulkConfirming(false); }
   };
 
   const pending = pickups.filter(p => p.status === 'pending');
   const assigned = pickups.filter(p => p.status === 'assigned');
+
+  // Group pending pickups by vendorId
+  const groupPickupsByVendor = (pickups) => {
+    const grouped = {};
+    pickups.forEach(p => {
+      const vendorIdStr = p.vendorId?._id || p.vendorId || 'unknown';
+      if (!grouped[vendorIdStr]) {
+        grouped[vendorIdStr] = {
+          _id: vendorIdStr,
+          vendorId: p.vendorId,
+          packages: [],
+          oldestRequestedAt: p.requestedAt,
+        };
+      }
+      grouped[vendorIdStr].packages.push(p);
+      if (new Date(p.requestedAt) < new Date(grouped[vendorIdStr].oldestRequestedAt)) {
+        grouped[vendorIdStr].oldestRequestedAt = p.requestedAt;
+      }
+    });
+    return Object.values(grouped);
+  };
+
+  const pendingGrouped = groupPickupsByVendor(pending);
+
+  const assignGroupPickup = async (vendorIdStr) => {
+    const riderId = assignMap[vendorIdStr];
+    if (!riderId) return showToast('Please select a rider first', 'warning');
+    const group = pendingGrouped.find(g => g._id === vendorIdStr);
+    if (!group) return;
+    
+    setActionLoading(s => ({ ...s, [vendorIdStr]: 'assigning' }));
+    let successCount = 0;
+    try {
+      await Promise.all(group.packages.map(async (p) => {
+        try {
+          await api.put('/dispatcher/assign-pickup', { pickupId: p._id, riderId });
+          successCount++;
+        } catch (e) {}
+      }));
+      showToast(`✓ ${successCount} pickup(s) assigned for shop!`, 'success');
+      fetchData(true);
+    } catch (e) {
+      showToast('Failed to assign group', 'error');
+    } finally {
+      setActionLoading(s => ({ ...s, [vendorIdStr]: null }));
+    }
+  };
+
+  const { openShopPickups } = useTrackingDrawer();
+
+  const GroupedPendingTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
+    <div style={cardStyle}>
+      <div style={cardHeaderStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }}></span>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
+          <span style={{ background: color + '20', color, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{items.length} Shops</span>
+        </div>
+        <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              {showCheckboxes && (
+                <th style={{ ...thStyle, width: 44 }}>
+                  <input type="checkbox" onChange={e => onSelectAll(e, items.flatMap(g => g.packages))} checked={items.length > 0 && items.flatMap(g => g.packages).every(p => selectedIds.includes(p._id))} />
+                </th>
+              )}
+              {['Shop Name', 'Total Packages', 'Oldest Requested At', 'Assign Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan="6"><Spinner /></td></tr>
+              : items.length === 0 ? <tr><td colSpan="6"><EmptyState message={vendorSearch ? "No shops found matching your search." : `No ${title.toLowerCase()}.`} /></td></tr>
+              : items.map(g => {
+                const aLoading = actionLoading[g._id];
+                const allSelected = g.packages.every(p => selectedIds.includes(p._id));
+                const shopName = getVendorDisplayName(g.vendorId, 'Unknown Vendor');
+                return (
+                  <tr 
+                    key={g._id} 
+                    style={{ cursor: showCheckboxes ? 'pointer' : 'default', background: allSelected ? '#eff6ff' : '' }} 
+                    onClick={() => showCheckboxes && g.packages.forEach(p => onSelect(p._id))} 
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} 
+                    onMouseLeave={e => e.currentTarget.style.background = allSelected ? '#eff6ff' : ''}
+                  >
+                    {showCheckboxes && (
+                      <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                        <input type="checkbox" checked={allSelected} onChange={() => g.packages.forEach(p => onSelect(p._id))} />
+                      </td>
+                    )}
+                    <td style={tdStyle}>
+                      <button
+                        onClick={e => { e.stopPropagation(); openShopPickups(shopName, g.packages); }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          color: '#1e3a8a',
+                          textAlign: 'left',
+                          textDecoration: 'underline',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6
+                        }}
+                        title="View packages"
+                      >
+                        {shopName} <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: 10, fontSize: 11 }}>{g.packages.length}</span>
+                      </button>
+                    </td>
+                    <td style={tdStyle}>{g.packages.length}</td>
+                    <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{g.oldestRequestedAt ? new Date(g.oldestRequestedAt).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <select
+                          value={assignMap[g._id] || ''}
+                          onChange={e => setAssignMap(m => ({ ...m, [g._id]: e.target.value }))}
+                          style={{ fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', minWidth: 130 }}
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <option value="">Select Rider</option>
+                          {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                        </select>
+                        <ActionBtn 
+                          onClick={(e) => { e.stopPropagation(); assignGroupPickup(g._id); }} 
+                          disabled={aLoading === 'assigning'} 
+                          variant="primary"
+                          icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5.5"/><polyline points="8 11 3 16 8 21"/><circle cx="16.5" cy="7.5" r="3.5"/></svg>}
+                        >
+                          {aLoading === 'assigning' ? '...' : 'Assign'}
+                        </ActionBtn>
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
+                      —
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   const PickupTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
     <div style={cardStyle}>
@@ -290,7 +482,7 @@ const PickupRequests = () => {
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
           <span style={{ background: color + '20', color, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{items.length}</span>
         </div>
-        <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
+        <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={tableStyle}>
@@ -301,12 +493,12 @@ const PickupRequests = () => {
                   <input type="checkbox" onChange={e => onSelectAll(e, items)} checked={items.length > 0 && items.every(i => selectedIds.includes(i._id))} />
                 </th>
               )}
-              {['Tracking', 'Vendor', 'Customer', 'Address', 'Requested', 'Assigned Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+              {['Tracking', 'Shop Name', 'Customer', 'Address', 'Requested', 'Assigned Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {loading ? <tr><td colSpan="7"><Spinner /></td></tr>
-              : items.length === 0 ? <tr><td colSpan="7"><EmptyState message={`No ${title.toLowerCase()}.`} /></td></tr>
+              : items.length === 0 ? <tr><td colSpan="7"><EmptyState message={vendorSearch ? "No packages found." : `No ${title.toLowerCase()}.`} /></td></tr>
               : items.map(p => {
                 const isAssigned = p.status === 'assigned';
                 const aLoading = actionLoading[p._id];
@@ -323,8 +515,29 @@ const PickupRequests = () => {
                         <input type="checkbox" checked={selectedIds.includes(p._id)} onChange={() => onSelect(p._id)} />
                       </td>
                     )}
-                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.packageId?.trackingCode || '—'}</td>
-                    <td style={tdStyle}><div style={{ fontWeight: 600 }}>{p.vendorId?.name || '—'}</div></td>
+                    <td style={tdStyle}><TrackingLink code={p.packageId?.trackingCode} /></td>
+                    <td style={tdStyle}>
+                      {p.packageId?.trackingCode ? (
+                        <button
+                          onClick={e => { e.stopPropagation(); openTracking(p.packageId.trackingCode); }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            color: '#1e3a8a',
+                            textAlign: 'left',
+                            textDecoration: 'underline'
+                          }}
+                          title="View package details"
+                        >
+                          {getVendorDisplayName(p.vendorId, '—')}
+                        </button>
+                      ) : (
+                        <div style={{ fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</div>
+                      )}
+                    </td>
                     <td style={tdStyle}>{p.packageId?.customerName || '—'}</td>
                     <td style={{ ...tdStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.packageId?.address || '—'}</td>
                     <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
@@ -375,6 +588,31 @@ const PickupRequests = () => {
 
   return (
     <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Pickup Requests</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>Assign riders to pickup from vendors</p>
+        </div>
+        <div style={{ position: 'relative', display: 'flex', gap: '8px' }}>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              placeholder="Search by Shop Name, Vendor Name, or Email..."
+              value={vendorSearch}
+              onChange={e => setVendorSearch(e.target.value)}
+              style={{ width: '300px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
+            />
+            {vendorSearch && (
+              <button 
+                onClick={() => setVendorSearch('')}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
+              >×</button>
+            )}
+          </div>
+          <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
+        </div>
+      </div>
+
       {/* Bulk Assign Toolbar for Pending Requests */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, flex: 1 }}>Bulk Assign Pickups</h3>
@@ -419,25 +657,27 @@ const PickupRequests = () => {
           </div>
         </div>
       )}
-
-      <PickupTable 
-        items={pending} 
-        title="Pending Pickup Requests" 
-        color="#f59e0b" 
-        showCheckboxes={true} 
-        selectedIds={selected} 
-        onSelectAll={(e, items) => handleSelectAll(e, items, setSelected)} 
-        onSelect={(id) => handleSelect(id, setSelected)} 
-      />
-      <PickupTable 
-        items={assigned} 
-        title="Assigned — Awaiting Warehouse Confirmation" 
-        color="#3b82f6" 
-        showCheckboxes={true} 
-        selectedIds={selectedAssigned} 
-        onSelectAll={(e, items) => handleSelectAll(e, items, setSelectedAssigned)} 
-        onSelect={(id) => handleSelect(id, setSelectedAssigned)} 
-      />
+      <div style={{ display: 'grid', gap: 30 }}>
+        <GroupedPendingTable
+          title="Pending Pickup Requests"
+          color="#f59e0b"
+          items={pendingGrouped}
+          showCheckboxes
+          selectedIds={selected}
+          onSelectAll={handleSelectAll}
+          onSelect={(id) => handleSelect(id, setSelected)}
+        />
+        
+        <PickupTable
+          items={assigned}
+          title="Assigned — Awaiting Warehouse Confirmation" 
+          color="#3b82f6" 
+          showCheckboxes={true} 
+          selectedIds={selectedAssigned} 
+          onSelectAll={(e, items) => handleSelectAll(e, items, setSelectedAssigned)} 
+          onSelect={(id) => handleSelect(id, setSelectedAssigned)} 
+        />
+      </div>
     </div>
   );
 };
@@ -450,34 +690,60 @@ const InboundScan = () => {
   const [collapsed, setCollapsed] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [search, setSearch] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [riderId, setRiderId] = useState('');
   const { showToast } = useToast();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const handleOutsideValleyAction = async (trackingCode, status) => {
+    const pkg = packages.find(p => p.trackingCode === trackingCode);
+    if (!pkg) return;
+    setActionLoading(s => ({ ...s, [pkg._id]: true }));
     try {
+      await api.put(`/packages/${trackingCode}/outside-valley-status`, { status });
+      showToast(`Package marked as ${status}`, 'success');
+      fetchData(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || 'Failed to update status', 'error');
+    } finally {
+      setActionLoading(s => ({ ...s, [pkg._id]: false }));
+    }
+  };
+
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const q = new URLSearchParams({ status: 'Pick Up Requested,Picked Up,In Warehouse,Dispatched,Arrived,Sent for Delivery' });
+      if (vendorSearch) q.append('vendorSearch', vendorSearch);
+      
       const [pRes, rRes] = await Promise.all([
-        api.get('/dispatcher/packages?status=Pick Up Requested,Picked Up,In Warehouse'),
+        api.get(`/dispatcher/packages?${q.toString()}`),
         api.get('/dispatcher/riders')
       ]);
       setPackages(pRes.data.data || []);
       setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load packages', 'error'); }
     finally { setLoading(false); }
-  }, []);
+  }, [vendorSearch, showToast]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [vendorSearch, fetchData]);
 
   const confirmArrival = async (packageId) => {
     setActionLoading(s => ({ ...s, [packageId]: true }));
     try {
       await api.put('/dispatcher/confirm-warehouse', { packageId });
       showToast('✓ Package confirmed at warehouse!', 'success');
-      fetchData();
-    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed', 'error'); }
     finally { setActionLoading(s => ({ ...s, [packageId]: false })); }
   };
 
@@ -512,7 +778,7 @@ const InboundScan = () => {
       }));
       showToast(`✓ ${count} package(s) confirmed!`, 'success');
       setSelected([]);
-      fetchData();
+      fetchData(true);
     } catch { showToast('Bulk confirm failed', 'error'); }
     finally { setBulkConfirming(false); }
   };
@@ -527,7 +793,7 @@ const InboundScan = () => {
       showToast(`✓ ${res.data.data?.count || toSend.length} package(s) sent for delivery!`, 'success');
       setSelected([]);
       setRiderId('');
-      fetchData();
+      fetchData(true);
     } catch { showToast('Bulk send failed', 'error'); }
     finally { setBulkAssigning(false); }
   };
@@ -547,11 +813,26 @@ const InboundScan = () => {
           onChange={e => setSearch(e.target.value)}
           style={{ flex: '1 1 240px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
         />
+        <div style={{ position: 'relative', flex: '1 1 240px' }}>
+          <input
+            type="text"
+            placeholder="Search by Shop Name, Vendor Name, or Email..."
+            value={vendorSearch}
+            onChange={e => setVendorSearch(e.target.value)}
+            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
+          />
+          {vendorSearch && (
+            <button 
+              onClick={() => setVendorSearch('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
+            >×</button>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
             { label: 'Pick Up Requested', color: '#f59e0b', count: packages.filter(p => p.status === 'Pick Up Requested').length },
             { label: 'Picked Up', color: '#3b82f6', count: packages.filter(p => p.status === 'Picked Up').length },
-            { label: 'In Warehouse', color: '#8b5cf6', count: packages.filter(p => p.status === 'In Warehouse').length },
+            { label: 'In Warehouse', color: '#8b5cf6', count: packages.filter(p => ['In Warehouse', 'Dispatched', 'Arrived', 'Sent for Delivery'].includes(p.status)).length },
           ].map(s => (
             <span key={s.label} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.color + '18', color: s.color, border: `1px solid ${s.color}30` }}>
               {s.label}: {s.count}
@@ -618,15 +899,21 @@ const InboundScan = () => {
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.trackingCode}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || 'Unknown'}</td>
+                    <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, 'Unknown')}</td>
                     <td style={tdStyle}>{p.customerName}</td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city ? `${p.city}, ` : ''}{p.address}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
                     <td style={tdStyle}><StatusBadge status={p.status} /></td>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
-                      {p.status !== 'In Warehouse' ? (
+                      {p.outOfValley ? (
+                        <OutsideValleyActionMenu 
+                          package={p} 
+                          onAction={handleOutsideValleyAction} 
+                          disabled={actionLoading[p._id]} 
+                        />
+                      ) : p.status !== 'In Warehouse' ? (
                         <ActionBtn onClick={() => confirmArrival(p._id)} disabled={actionLoading[p._id]} variant="primary" size="sm">
                           {actionLoading[p._id] ? '...' : '✓ Confirm Arrival'}
                         </ActionBtn>
@@ -657,25 +944,36 @@ const Routing = () => {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [search, setSearch] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
   const { showToast } = useToast();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
+      const q = new URLSearchParams({ status: 'In Warehouse,Out for Delivery,Postponed' });
+      if (vendorSearch) q.append('vendorSearch', vendorSearch);
+      
       const [pRes, rRes] = await Promise.all([
-        api.get('/dispatcher/packages?status=In Warehouse,Out for Delivery,Postponed'),
+        api.get(`/dispatcher/packages?${q.toString()}`),
         api.get('/dispatcher/riders'),
       ]);
       setPackages(pRes.data.data || []);
       setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load', 'error'); }
     finally { setLoading(false); }
-  }, []);
+  }, [vendorSearch, showToast]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [vendorSearch, fetchData]);
+
   const filtered = packages.filter(p =>
-    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || (p.vendorId?.name || '').toLowerCase().includes(search.toLowerCase())
+    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || p.customerName.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleSelectAll = e => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
@@ -690,8 +988,8 @@ const Routing = () => {
       showToast(`✓ ${count} package(s) assigned for delivery!`, 'success');
       setSelected([]);
       setRiderId('');
-      fetchData();
-    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed', 'error'); }
     finally { setAssigning(false); }
   };
 
@@ -703,11 +1001,26 @@ const Routing = () => {
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
         <input
           type="text"
-          placeholder="Search tracking or vendor..."
+          placeholder="Search tracking or customer..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
         />
+        <div style={{ position: 'relative', flex: '1 1 240px' }}>
+          <input
+            type="text"
+            placeholder="Search by Shop Name, Vendor Name, or Email..."
+            value={vendorSearch}
+            onChange={e => setVendorSearch(e.target.value)}
+            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
+          />
+          {vendorSearch && (
+            <button 
+              onClick={() => setVendorSearch('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
+            >×</button>
+          )}
+        </div>
         <select
           value={riderId}
           onChange={e => setRiderId(e.target.value)}
@@ -750,15 +1063,15 @@ const Routing = () => {
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan="9"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="9"><EmptyState message="No packages found." icon="📦" /></td></tr>
+              {loading ? <tr><td colSpan="8"><Spinner /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="8"><EmptyState message={vendorSearch ? "No packages found for this vendor." : "No packages ready for routing."} /></td></tr>
                 : filtered.map(p => (
                   <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.trackingCode}</td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || '—'}</td>
+                    <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
                     <td style={tdStyle}>{p.customerName}</td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
@@ -781,33 +1094,48 @@ const ReverseLogistics = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [filter, setFilter] = useState('all');
+  const [search, setSearch] = useState('');
+  const [vendorSearch, setVendorSearch] = useState('');
   const { showToast } = useToast();
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
-      const r = await api.get('/dispatcher/packages?status=Returned,Returned to Vendor');
+      const q = new URLSearchParams({ status: 'Returned,Returned to Vendor' });
+      if (vendorSearch) q.append('vendorSearch', vendorSearch);
+      
+      const r = await api.get(`/dispatcher/packages?${q.toString()}`);
       setPackages(r.data.data || []);
     } catch { showToast('Failed to load returns', 'error'); }
     finally { setLoading(false); }
-  }, []);
+  }, [vendorSearch, showToast]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [vendorSearch, fetchData]);
 
   const confirmStep = async (packageId, type) => {
     setActionLoading(s => ({ ...s, [packageId]: type }));
     try {
       await api.put('/dispatcher/confirm-return', { packageId, type });
       showToast(`✓ ${type === 'rider' ? 'Rider return' : 'Vendor receipt'} confirmed!`, 'success');
-      fetchData();
-    } catch (e) { showToast(e.response?.data?.message || 'Failed', 'error'); }
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed', 'error'); }
     finally { setActionLoading(s => ({ ...s, [packageId]: null })); }
   };
 
   const filtered = packages.filter(p => {
-    if (filter === 'pending_rider') return !p.rtvSignoff?.riderReturned;
-    if (filter === 'pending_vendor') return p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived;
-    if (filter === 'complete') return p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived;
+    if (filter === 'pending_rider' && p.rtvSignoff?.riderReturned) return false;
+    if (filter === 'pending_vendor' && (!p.rtvSignoff?.riderReturned || p.rtvSignoff?.vendorReceived)) return false;
+    if (filter === 'complete' && (!p.rtvSignoff?.riderReturned || !p.rtvSignoff?.vendorReceived)) return false;
+    
+    if (search && !p.trackingCode.toLowerCase().includes(search.toLowerCase()) && !p.customerName.toLowerCase().includes(search.toLowerCase())) return false;
+    
     return true;
   });
 
@@ -819,6 +1147,31 @@ const ReverseLogistics = () => {
 
   return (
     <div>
+      {/* Search Bar */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Search tracking or customer..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: '1 1 240px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
+        />
+        <div style={{ position: 'relative', flex: '1 1 240px' }}>
+          <input
+            type="text"
+            placeholder="Search by Shop Name, Vendor Name, or Email..."
+            value={vendorSearch}
+            onChange={e => setVendorSearch(e.target.value)}
+            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
+          />
+          {vendorSearch && (
+            <button 
+              onClick={() => setVendorSearch('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
+            >×</button>
+          )}
+        </div>
+      </div>
       {/* Stats + Filter Bar */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         {[
@@ -832,7 +1185,7 @@ const ReverseLogistics = () => {
           </button>
         ))}
         <div style={{ marginLeft: 'auto' }}>
-          <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
+          <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
         </div>
       </div>
 
@@ -851,7 +1204,7 @@ const ReverseLogistics = () => {
             </thead>
             <tbody>
               {loading ? <tr><td colSpan="7"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="7"><EmptyState message="No returns in this category." icon="↩️" /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="7"><EmptyState message={vendorSearch ? "No packages found for this vendor." : "No returns found in this category."} icon="↩️" /></td></tr>
                 : filtered.map(p => {
                   const riderDone = !!p.rtvSignoff?.riderReturned;
                   const vendorDone = !!p.rtvSignoff?.vendorReceived;
@@ -859,8 +1212,8 @@ const ReverseLogistics = () => {
                   const aLoading = actionLoading[p._id];
                   return (
                     <tr key={p._id} style={{ opacity: fullDone ? 0.6 : 1 }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8' }}>{p.trackingCode}</td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || '—'}</td>
+                      <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
                       <td style={tdStyle}>{p.customerName}</td>
                       <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                       <td style={tdStyle}><StatusBadge status={p.status} /></td>
@@ -911,9 +1264,10 @@ const ActiveRiders = () => {
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const { openRiderHistory } = useRiderHistory();
 
-  const fetchRiders = useCallback(async () => {
-    setLoading(true);
+  const fetchRiders = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await api.get('/dispatcher/riders');
       setRiders(res.data.data || []);
@@ -937,7 +1291,13 @@ const ActiveRiders = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {riders.map(rider => (
-            <div key={rider._id} style={{ ...cardStyle, padding: 20, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div 
+              key={rider._id} 
+              style={{ ...cardStyle, padding: 20, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', transition: 'transform 0.1s' }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+              onClick={() => openRiderHistory(rider._id)}
+            >
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }}>
                 {rider.name.charAt(0).toUpperCase()}
               </div>
@@ -1001,6 +1361,114 @@ const CombinedTasks = () => {
   );
 };
 
+// ─── COD Handovers ────────────────────────────────────────────────────────
+const CodHandovers = () => {
+  const [handovers, setHandovers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(null);
+  const { showToast } = useToast();
+
+  const fetchHandovers = async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const res = await api.get('/dispatcher/cod-handovers');
+      setHandovers(res.data.data || []);
+    } catch (e) {
+      showToast('Failed to load handovers', 'error');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHandovers();
+  }, []);
+
+  const handleVerify = async (id, status) => {
+    if (!window.confirm(`Are you sure you want to mark this handover as ${status}?`)) return;
+    setVerifying(id);
+    try {
+      await api.put(`/dispatcher/cod-handovers/${id}/verify`, { status });
+      showToast(`Handover marked as ${status}`, 'success');
+      fetchHandovers(true);
+    } catch (e) {
+      showToast(e.message || 'Failed to verify handover', 'error');
+    } finally {
+      setVerifying(null);
+    }
+  };
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">COD Handovers</h2>
+          <p className="text-sm text-slate-500">Verify cash deposited by riders at the hub.</p>
+        </div>
+      </div>
+
+      <div style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Pending & Completed Handovers</h3>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Date</th>
+                <th style={thStyle}>Rider</th>
+                <th style={thStyle}>Amount</th>
+                <th style={thStyle}>Packages</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {handovers.length === 0 ? (
+                <tr><td colSpan="6"><EmptyState message="No COD handovers found." /></td></tr>
+              ) : (
+                handovers.map(h => (
+                  <tr key={h._id}>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600, color: '#111827' }}>{new Date(h.createdAt).toLocaleDateString()}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280' }}>{new Date(h.createdAt).toLocaleTimeString()}</div>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 600 }}>{h.riderId?.name}</div>
+                      <div style={{ fontSize: 11, color: '#6b7280' }}>{h.riderId?.contact || '-'}</div>
+                    </td>
+                    <td style={tdStyle}><span style={{ fontWeight: 800, color: '#111827' }}>Rs. {h.amount}</span></td>
+                    <td style={tdStyle}><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>{h.packageIds?.length || 0}</span></td>
+                    <td style={tdStyle}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${h.status === 'Verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : h.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        {h.status}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      {h.status === 'Pending Verification' ? (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <ActionBtn onClick={() => handleVerify(h._id, 'Verified')} variant="success" disabled={verifying === h._id}>Verify</ActionBtn>
+                          <ActionBtn onClick={() => handleVerify(h._id, 'Rejected')} variant="danger" disabled={verifying === h._id}>Reject</ActionBtn>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>
+                          By {h.verifiedBy?.name || 'Admin'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── Dispatcher Dashboard Shell ───────────────────────────────────────────
 const DispatcherDashboard = () => {
   const location = useLocation();
@@ -1016,7 +1484,7 @@ const DispatcherDashboard = () => {
         setPendingPickups(pending);
         
       } catch (e) {
-        console.error('Failed to fetch notifications:', e.response?.data?.message || e.message);
+        console.error('Failed to fetch notifications:', e.message || e.message);
       }
     };
     
@@ -1028,7 +1496,7 @@ const DispatcherDashboard = () => {
   const notifications = pendingPickups.map(p => ({
     id: p._id,
     title: 'New Pickup Request',
-    message: `${p.vendorId?.name || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
+    message: `${getVendorDisplayName(p.vendorId, 'A vendor')} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
     time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
     read: false,
     icon: '🚚',
@@ -1058,6 +1526,7 @@ const DispatcherDashboard = () => {
         <Route path="/inbound-scan" element={<InboundScan />} />
         <Route path="/reverse-logistics" element={<ReverseLogistics />} />
         <Route path="/riders" element={<ActiveRiders />} />
+        <Route path="/handovers" element={<CodHandovers />} />
       </Routes>
     </AppShell>
   );
