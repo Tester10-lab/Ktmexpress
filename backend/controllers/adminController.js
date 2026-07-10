@@ -392,11 +392,11 @@ export const createPackageForVendor = async (req, res) => {
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
-      status: 'Pending',
+      status: 'In Warehouse',
       timeline: [{
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: 'Invoice Created',
-        message: `Admin created order on behalf of vendor ${vendor.name}`,
+        status: 'In Warehouse',
+        message: 'Package created directly in warehouse by Admin',
         user: req.user.name,
       }]
     });
@@ -443,11 +443,11 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
-        status: 'Pending',
+        status: 'In Warehouse',
         timeline: [{
           time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          status: 'Invoice Created',
-          message: `Admin bulk created on behalf of vendor ${vendor.name}`,
+          status: 'In Warehouse',
+          message: 'Package created directly in warehouse by Admin',
           user: req.user.name,
         }]
       });
