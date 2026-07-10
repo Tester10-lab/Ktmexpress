@@ -221,7 +221,7 @@ const DispatcherHome = () => {
 };
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
-const PickupRequests = () => {
+const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
   const { openTracking } = useTrackingDrawer();
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
@@ -234,6 +234,7 @@ const PickupRequests = () => {
   const [bulkRiderId, setBulkRiderId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [search, setSearch] = useState('');
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
@@ -324,8 +325,15 @@ const PickupRequests = () => {
     finally { setBulkConfirming(false); }
   };
 
-  const pending = pickups.filter(p => p.status === 'pending');
-  const assigned = pickups.filter(p => p.status === 'assigned');
+  const filteredPickups = pickups.filter(p => {
+    const s = globalSearch || search;
+    return !s || 
+      (p.packageId?.trackingCode || '').toLowerCase().includes(s.toLowerCase()) || 
+      (p.vendorId?.name || '').toLowerCase().includes(s.toLowerCase());
+  });
+
+  const pending = filteredPickups.filter(p => p.status === 'pending');
+  const assigned = filteredPickups.filter(p => p.status === 'assigned');
 
   // Group pending pickups by vendorId
   const groupPickupsByVendor = (pickups) => {
@@ -616,6 +624,15 @@ const PickupRequests = () => {
       {/* Bulk Assign Toolbar for Pending Requests */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, flex: 1 }}>Bulk Assign Pickups</h3>
+        {!hideSearch && (
+          <input
+            type="text"
+            placeholder="Search tracking or vendor..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
+          />
+        )}
         <select
           value={bulkRiderId}
           onChange={e => setBulkRiderId(e.target.value)}
@@ -935,8 +952,8 @@ const InboundScan = () => {
   );
 };
 
-// ─── 4. Routing & Bulk Assign ─────────────────────────────────────────────
-const Routing = () => {
+// ─── 4. Routing & Dispatch (Assigned for Delivery) ───────────────────────
+const Routing = ({ globalSearch = '', hideSearch = false }) => {
   const [packages, setPackages] = useState([]);
   const [riders, setRiders] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -972,9 +989,13 @@ const Routing = () => {
     return () => clearTimeout(timer);
   }, [vendorSearch, fetchData]);
 
-  const filtered = packages.filter(p =>
-    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || p.customerName.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = packages.filter(p => {
+    const s = globalSearch || search;
+    return !s || 
+      (p.trackingCode || '').toLowerCase().includes(s.toLowerCase()) || 
+      (p.customerName || '').toLowerCase().includes(s.toLowerCase()) ||
+      (p.vendorId?.name || '').toLowerCase().includes(s.toLowerCase());
+  });
 
   const handleSelectAll = e => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
   const handleSelect = id => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -999,13 +1020,15 @@ const Routing = () => {
     <div>
       {/* Toolbar */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
-        <input
-          type="text"
-          placeholder="Search tracking or customer..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-        />
+        {!hideSearch && (
+          <input
+            type="text"
+            placeholder="Search tracking or customer..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
+          />
+        )}
         <div style={{ position: 'relative', flex: '1 1 240px' }}>
           <input
             type="text"
@@ -1318,42 +1341,54 @@ const ActiveRiders = () => {
 // ─── Combined Tasks (Pickups & Deliveries) ───────────────────────────────
 const CombinedTasks = () => {
   const [activeFilter, setActiveFilter] = useState('all');
+  const [globalSearch, setGlobalSearch] = useState('');
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[
-          { key: 'all', label: 'All Tasks', color: '#6b7280' },
-          { key: 'pickups', label: 'Pickups', color: '#f59e0b' },
-          { key: 'deliveries', label: 'Deliveries', color: '#3b82f6' },
-        ].map(s => (
-          <button 
-            key={s.key} 
-            onClick={() => setActiveFilter(s.key)} 
-            style={{ 
-              padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', 
-              background: activeFilter === s.key ? s.color : 'white', 
-              color: activeFilter === s.key ? 'white' : s.color, 
-              border: `2px solid ${s.color}`
-            }}
-          >
-            {s.label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {[
+            { key: 'all', label: 'All Tasks', color: '#6b7280' },
+            { key: 'pickups', label: 'Pickups', color: '#f59e0b' },
+            { key: 'deliveries', label: 'Deliveries', color: '#3b82f6' },
+          ].map(s => (
+            <button 
+              key={s.key} 
+              onClick={() => setActiveFilter(s.key)} 
+              style={{ 
+                padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', 
+                background: activeFilter === s.key ? s.color : 'white', 
+                color: activeFilter === s.key ? 'white' : s.color, 
+                border: `2px solid ${s.color}`
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {activeFilter === 'all' && (
+          <input
+            type="text"
+            placeholder="Search all tasks by tracking or vendor..."
+            value={globalSearch}
+            onChange={e => setGlobalSearch(e.target.value)}
+            style={{ flex: '0 1 300px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
+          />
+        )}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {(activeFilter === 'all' || activeFilter === 'pickups') && (
           <div>
             {activeFilter === 'all' && <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Pickup Tasks</h2>}
-            <PickupRequests />
+            <PickupRequests globalSearch={activeFilter === 'all' ? globalSearch : ''} hideSearch={activeFilter === 'all'} />
           </div>
         )}
 
         {(activeFilter === 'all' || activeFilter === 'deliveries') && (
           <div>
             {activeFilter === 'all' && <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, marginTop: activeFilter === 'all' ? 16 : 0 }}>Delivery Tasks</h2>}
-            <Routing />
+            <Routing globalSearch={activeFilter === 'all' ? globalSearch : ''} hideSearch={activeFilter === 'all'} />
           </div>
         )}
       </div>
