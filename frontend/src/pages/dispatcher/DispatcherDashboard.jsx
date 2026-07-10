@@ -221,13 +221,8 @@ const DispatcherHome = () => {
 };
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
-<<<<<<< HEAD
 const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
   const { openTracking } = useTrackingDrawer();
-=======
-const PickupRequests = () => {
-  const openTracking = () => {}; // const { openTracking } = useTrackingDrawer();
->>>>>>> d7b9ec4 (fix: Replace all vendor.name with getVendorDisplayName helper globally across frontend)
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
