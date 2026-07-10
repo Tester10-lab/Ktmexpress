@@ -51,6 +51,34 @@ function StatusBadge({ status }) {
   );
 }
 
+// Returns true only if value looks like a real phone number (≥6 digits, no letters)
+function isPhone(val) {
+  if (!val) return false;
+  const digits = String(val).replace(/[\s\-\(\)\+\.]/g, '');
+  return /^\d{6,}$/.test(digits);
+}
+
+// Renders phone number cell — shows — if value is not a real phone number
+function PhoneCell({ phone }) {
+  if (!isPhone(phone)) return <span style={{ color: '#d1d5db' }}>—</span>;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <a
+        href={`tel:${phone}`}
+        style={{ color: '#2563eb', fontWeight: 600, fontSize: 12, textDecoration: 'none', fontFamily: 'monospace' }}
+        onClick={e => e.stopPropagation()}
+      >
+        📞 {phone}
+      </a>
+      <button
+        title="Copy phone number"
+        onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(phone); }}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px' }}
+      >⧉</button>
+    </div>
+  );
+}
+
 function Spinner() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
@@ -1106,22 +1134,7 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
                     <td style={tdStyle}>{p.customerName || '—'}</td>
                     <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                      {p.customerPhone ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <a
-                            href={`tel:${p.customerPhone}`}
-                            style={{ color: '#2563eb', fontWeight: 600, fontSize: 12, textDecoration: 'none', fontFamily: 'monospace' }}
-                            onClick={e => e.stopPropagation()}
-                          >
-                            📞 {p.customerPhone}
-                          </a>
-                          <button
-                            title="Copy"
-                            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(p.customerPhone); }}
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px' }}
-                          >⧉</button>
-                        </div>
-                      ) : <span style={{ color: '#d1d5db' }}>—</span>}
+                      <PhoneCell phone={p.customerPhone} />
                     </td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
