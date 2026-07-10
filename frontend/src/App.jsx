@@ -6,6 +6,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 import { AuthProvider } from './store/AuthContext';
 import { ToastProvider } from './store/ToastContext';
+import { TrackingDrawerProvider } from './store/TrackingDrawerContext';
+import { RiderHistoryProvider } from './store/RiderHistoryContext';
 
 // Public pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -33,27 +35,31 @@ function App() {
       <ErrorBoundary>
         <AuthProvider>
           <ToastProvider>
-            <Suspense fallback={<Loader />}>
-              <Routes>
-            {/* Public */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/tracking" element={<TrackPackage />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route path="/branches" element={<Branches />} />
-            <Route path="/contact" element={<Contact />} />
+            <TrackingDrawerProvider>
+              <RiderHistoryProvider>
+                <Suspense fallback={<Loader />}>
+                  <Routes>
+                {/* Public */}
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/tracking" element={<TrackPackage />} />
+                <Route path="/pricing" element={<Pricing />} />
+                <Route path="/branches" element={<Branches />} />
+                <Route path="/contact" element={<Contact />} />
 
-            {/* Protected */}
-            <Route element={<PrivateRoute />}>
-              <Route path="/vendor/*" element={<VendorDashboard />} />
-              <Route path="/admin/*" element={<AdminDashboard />} />
-              <Route path="/dispatcher/*" element={<DispatcherDashboard />} />
-              <Route path="/rider/*" element={<RiderDashboard />} />
-            </Route>
+                {/* Protected */}
+                <Route element={<PrivateRoute />}>
+                  <Route path="/vendor/*" element={<VendorDashboard />} />
+                  <Route path="/admin/*" element={<AdminDashboard />} />
+                  <Route path="/dispatcher/*" element={<DispatcherDashboard />} />
+                  <Route path="/rider/*" element={<RiderDashboard />} />
+                </Route>
 
-            <Route path="*" element={<div>404 - Page Not Found</div>} />
-              </Routes>
-            </Suspense>
+                <Route path="*" element={<div>404 - Page Not Found</div>} />
+                  </Routes>
+                </Suspense>
+              </RiderHistoryProvider>
+            </TrackingDrawerProvider>
           </ToastProvider>
         </AuthProvider>
       </ErrorBoundary>
