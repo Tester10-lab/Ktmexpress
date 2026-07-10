@@ -4,6 +4,7 @@ import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
+import { getVendorDisplayName } from '../../utils/vendor';
 import { 
   Package, Truck, Wallet, History, MapPin, Navigation, 
   CheckCircle2, XCircle, Clock, Search, AlertCircle, X,
@@ -191,7 +192,7 @@ const MyDeliveries = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <h4 className="text-lg font-bold text-slate-900">{pkg.trackingCode}</h4>
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
-                  🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
+                  🏢 {getVendorDisplayName(pkg.vendorId, 'Vendor')}
                 </span>
                 {statusBadge(pkg.status)}
               </div>
@@ -715,7 +716,7 @@ const RiderDashboard = () => {
             id: p._id,
             title: p.status === 'Pick Up Requested' ? 'New Pickup Assigned' : 'New Delivery Assigned',
             message: p.status === 'Pick Up Requested' 
-              ? `Collect package from ${p.vendorId?.name || 'Vendor'}`
+              ? `Collect package from ${getVendorDisplayName(p.vendorId, 'Vendor')}`
               : `Deliver ${p.trackingCode} to ${p.customerName}`,
             time: new Date(p.updatedAt || p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             read: false,

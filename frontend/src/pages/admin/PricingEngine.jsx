@@ -3,6 +3,7 @@ import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import MetricCard from '../../components/MetricCard';
 import Pagination from '../../components/Pagination';
+import { getVendorDisplayName } from '../../utils/vendor';
 import { 
   DollarSign, Weight, MapPin, Users, Search, Plus, Map, 
   Trash2, Edit2, CheckCircle2, XCircle, AlertTriangle, RefreshCw, X 
@@ -556,7 +557,7 @@ const PricingEngine = () => {
                       return (
                         <tr key={v._id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900">{v.name}</div>
+                            <div className="font-bold text-slate-900">{getVendorDisplayName(v, 'Unknown')}</div>
                             <div className="text-xs text-slate-500 mt-0.5">{meta.shopName || v.email}</div>
                           </td>
                           <td className="px-6 py-4">
@@ -732,7 +733,7 @@ const PricingEngine = () => {
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">Configure Pricing Rules</h3>
-                <p className="text-sm text-slate-500 mt-0.5">{vendorForm.name} {vendorForm.shopName ? `— ${vendorForm.shopName}` : ''}</p>
+                <p className="text-sm text-slate-500 mt-0.5">{vendorForm.shopName || vendorForm.name}</p>
               </div>
               <button onClick={() => setVendorModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <X className="w-5 h-5" />

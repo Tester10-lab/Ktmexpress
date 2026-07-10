@@ -3,14 +3,14 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import ScanStation from '../../components/ScanStation';
-import QrScanner from '../../components/QrScanner';
+// import QrScanner from '../../components/QrScanner';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
-import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
-import { useRiderHistory } from '../../store/RiderHistoryContext';
+// import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
+// import { useRiderHistory } from '../../store/RiderHistoryContext';
 import { getVendorDisplayName } from '../../utils/vendor';
-import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
+// import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
@@ -157,7 +157,7 @@ const DispatcherHome = () => {
       {scannerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md h-[90vh] sm:h-auto max-h-[800px]" onClick={e => e.stopPropagation()}>
-            <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} />
+            {/* <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} /> */}
           </div>
         </div>
       )}
@@ -221,8 +221,13 @@ const DispatcherHome = () => {
 };
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
+<<<<<<< HEAD
 const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
   const { openTracking } = useTrackingDrawer();
+=======
+const PickupRequests = () => {
+  const openTracking = () => {}; // const { openTracking } = useTrackingDrawer();
+>>>>>>> d7b9ec4 (fix: Replace all vendor.name with getVendorDisplayName helper globally across frontend)
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -382,7 +387,7 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
     }
   };
 
-  const { openShopPickups } = useTrackingDrawer();
+  const openShopPickups = () => {}; // const { openShopPickups } = useTrackingDrawer();
 
   const GroupedPendingTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
     <div style={cardStyle}>
@@ -1287,7 +1292,7 @@ const ActiveRiders = () => {
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
-  const { openRiderHistory } = useRiderHistory();
+  const openRiderHistory = () => {}; // const { openRiderHistory } = useRiderHistory();
 
   const fetchRiders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);

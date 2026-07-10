@@ -4,6 +4,7 @@ import AppShell from '../../layouts/AppShell';
 import api from '../../api/axios';
 import MetricCard from '../../components/MetricCard';
 import { useToast } from '../../store/ToastContext';
+import { getVendorDisplayName } from '../../utils/vendor';
 import PricingEngine from './PricingEngine';
 import ScanStation from '../../components/ScanStation';
 import Pagination from '../../components/Pagination';
@@ -249,7 +250,7 @@ const ManageUsers = () => {
                 : users.map(u => (
                   <tr key={u._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-bold text-slate-900">{u.name}</div>
+                      <div className="font-bold text-slate-900">{u.role === 'vendor' ? getVendorDisplayName(u) : (u.name || 'Unknown')}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{u.email}</div>
                     </td>
                     <td className="px-6 py-4">
@@ -563,7 +564,7 @@ const AdminReports = () => {
               : analytics.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No analytics data yet.</td></tr>
                 : analytics.map((a, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 font-bold text-slate-900">{a.vendorInfo?.[0]?.name || 'Unknown'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(a.vendorInfo?.[0], 'Unknown')}</td>
                     <td className="px-6 py-4 text-center font-medium text-slate-700">{a.count}</td>
                     <td className="px-6 py-4 text-right font-bold text-emerald-600">Rs. {a.grossRevenue?.toLocaleString()}</td>
                     <td className="px-6 py-4 text-right font-bold text-red-500">Rs. {a.deliveryCosts?.toLocaleString()}</td>
@@ -631,7 +632,7 @@ const AdminSettlements = () => {
                   <tr key={s._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(s.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4">
-                      <div className="font-bold text-slate-900">{s.vendorId?.name || 'Unknown'}</div>
+                      <div className="font-bold text-slate-900">{getVendorDisplayName(s.vendorId, 'Unknown')}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{s.vendorId?.vendorMeta?.shopName}</div>
                     </td>
                     <td className="px-6 py-4 font-bold text-brand-600 text-base">Rs. {s.requestedAmount?.toLocaleString()}</td>
@@ -1001,7 +1002,7 @@ const AdminPackages = () => {
                     </td>
                     <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.trackingCode}</td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(p.vendorId, '—')}</td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{p.customerName}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{p.city ? `${p.city}, ` : ''}{p.address}</div>
@@ -1105,7 +1106,7 @@ const AdminPackages = () => {
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
                   <select className="input-field" required value={newPkg.vendorId} onChange={e => setNewPkg(f => ({ ...f, vendorId: e.target.value }))}>
                     <option value="">— Choose Vendor —</option>
-                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
+                    {vendors.map(v => <option key={v._id} value={v._id}>{getVendorDisplayName(v, v.email)}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -1186,7 +1187,7 @@ const AdminPackages = () => {
                     {csvVendorDropdownOpen && (
                       <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                         {vendors
-                          .filter(v => (v.name + ' ' + (v.vendorMeta?.shopName || v.email)).toLowerCase().includes(csvVendorSearch.toLowerCase()))
+                          .filter(v => getVendorDisplayName(v, v.email).toLowerCase().includes(csvVendorSearch.toLowerCase()))
                           .map(v => (
                             <div 
                               key={v._id} 
@@ -1197,10 +1198,10 @@ const AdminPackages = () => {
                                 setCsvVendorDropdownOpen(false);
                               }}
                             >
-                              {v.name} — {v.vendorMeta?.shopName || v.email}
+                              {getVendorDisplayName(v, v.email)}
                             </div>
                           ))}
-                        {vendors.filter(v => (v.name + ' ' + (v.vendorMeta?.shopName || v.email)).toLowerCase().includes(csvVendorSearch.toLowerCase())).length === 0 && (
+                        {vendors.filter(v => getVendorDisplayName(v, v.email).toLowerCase().includes(csvVendorSearch.toLowerCase())).length === 0 && (
                           <div className="px-4 py-2 text-sm text-slate-500">No vendors found.</div>
                         )}
                       </div>
@@ -1391,7 +1392,7 @@ const AdminDispatcher = () => {
                     : pendingPickups.map(p => (
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.packageId?.trackingCode || '—'}</td>
-                      <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(p.vendorId, '—')}</td>
                       <td className="px-6 py-4 text-slate-700 font-medium">{p.packageId?.customerName || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 max-w-[160px] truncate">{p.packageId?.address || '—'}</td>
                       <td className="px-6 py-4">
@@ -1432,7 +1433,7 @@ const AdminDispatcher = () => {
                     {assignedPickups.map(p => (
                       <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.packageId?.trackingCode || '—'}</td>
-                        <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(p.vendorId, '—')}</td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {p.assignedRiderId?.name || 'Assigned'}
@@ -1478,7 +1479,7 @@ const AdminDispatcher = () => {
                   : warehousePackages.map(p => (
                   <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.trackingCode}</td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(p.vendorId, '—')}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                     <td className="px-6 py-4 text-slate-500">{p.city || p.address || '—'}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
@@ -1526,7 +1527,7 @@ const AdminDispatcher = () => {
                   : returnPackages.map(p => (
                   <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-mono font-bold text-brand-600">{p.trackingCode}</td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(p.vendorId, '—')}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                     <td className="px-6 py-4">{statusBadge(p.status)}</td>
                     <td className="px-6 py-4 text-center">

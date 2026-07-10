@@ -127,3 +127,9 @@
 2026-07-02 18:54:04 [info]: Server running on port 5000 [development]
 2026-07-08 19:29:42 [info]: MongoDB connected: 127.0.0.1
 2026-07-08 19:29:42 [info]: Server running on port 5000 [development]
+2026-07-10 17:34:26 [error]: MongoDB connection attempt 1 failed: querySrv ECONNREFUSED _mongodb._tcp.cluster0.fqlne0d.mongodb.net
+2026-07-10 17:34:29 [error]: MongoDB connection attempt 2 failed: querySrv ECONNREFUSED _mongodb._tcp.cluster0.fqlne0d.mongodb.net
+2026-07-10 17:34:35 [error]: MongoDB connection attempt 3 failed: querySrv ECONNREFUSED _mongodb._tcp.cluster0.fqlne0d.mongodb.net
+2026-07-10 17:37:22 [error]: MongoDB connection attempt 1 failed: querySrv ECONNREFUSED _mongodb._tcp.cluster0.fqlne0d.mongodb.net
+2026-07-10 17:37:25 [error]: MongoDB connection attempt 2 failed: querySrv ECONNREFUSED _mongodb._tcp.cluster0.fqlne0d.mongodb.net
+2026-07-10 17:37:31 [error]: MongoDB connection attempt 3 failed: querySrv ECONNREFUSED _mongodb._tcp.cluster0.fqlne0d.mongodb.net

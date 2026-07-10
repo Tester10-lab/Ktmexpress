@@ -7,6 +7,7 @@ import { useZoom } from '../hooks/useZoom';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import ZoomBar from '../components/ZoomBar';
 import { useToast } from '../store/ToastContext';
+import { getVendorDisplayName } from '../utils/vendor';
 
 const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications = [], onNotificationClick }) => {
   const { user, logout } = useAuth();
@@ -56,7 +57,8 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
     navigate('/login');
   };
 
-  const initials = user?.name ? user.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) : '??';
+  const displayName = user?.role === 'vendor' ? getVendorDisplayName(user) : (user?.name || 'User');
+  const initials = displayName.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -114,7 +116,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
               {initials}
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-semibold text-slate-900 truncate">{user?.name || 'User'}</h4>
+              <h4 className="text-sm font-semibold text-slate-900 truncate">{displayName}</h4>
               <p className="text-xs text-slate-500 truncate">{user?.email || ''}</p>
             </div>
           </div>
