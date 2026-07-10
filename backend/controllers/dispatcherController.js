@@ -11,9 +11,9 @@ function nowStr() {
 export const getPickupRequests = async (req, res) => {
   try {
     const pickups = await PickupRequest.find({ status: { $in: ['pending', 'assigned'] } })
-      .populate('packageId', 'trackingCode customerName address vendorId')
+      .populate('packageId', 'trackingCode customerName customerPhone city address vendorId parcelRef')
       .populate('vendorId', 'name email phone vendorMeta')
-      .populate('assignedRiderId', 'name')
+      .populate('assignedRiderId', 'name contact')
       .sort({ requestedAt: -1 });
 
     res.json({ success: true, data: pickups });
@@ -246,14 +246,20 @@ export const getAllPackagesForDispatcher = async (req, res) => {
     const { status, search } = req.query;
     const filter = {};
     if (status && status !== 'all') {
-      // Support comma-separated statuses
       const statuses = status.split(',');
       filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
     }
-    if (search) filter.$or = [
-      { trackingCode: { $regex: search, $options: 'i' } },
-      { customerName: { $regex: search, $options: 'i' } },
-    ];
+    if (search) {
+      const s = search.replace(/[\s\-\(\)]/g, ''); // normalize phone
+      filter.$or = [
+        { trackingCode:   { $regex: search, $options: 'i' } },
+        { customerName:   { $regex: search, $options: 'i' } },
+        { customerPhone:  { $regex: s,      $options: 'i' } },
+        { address:        { $regex: search, $options: 'i' } },
+        { city:           { $regex: search, $options: 'i' } },
+        { parcelRef:      { $regex: search, $options: 'i' } },
+      ];
+    }
 
     const packages = await Package.find(filter)
       .populate('vendorId', 'name email phone vendorMeta')
@@ -266,6 +272,7 @@ export const getAllPackagesForDispatcher = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // GET /api/dispatcher/riders
 export const getAvailableRiders = async (req, res) => {

@@ -991,11 +991,19 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
   }, [vendorSearch, fetchData]);
 
   const filtered = packages.filter(p => {
-    const s = globalSearch || search;
-    return !s || 
-      (p.trackingCode || '').toLowerCase().includes(s.toLowerCase()) || 
-      (p.customerName || '').toLowerCase().includes(s.toLowerCase()) ||
-      (p.vendorId?.name || '').toLowerCase().includes(s.toLowerCase());
+    const raw = globalSearch || search;
+    if (!raw) return true;
+    const s = raw.toLowerCase();
+    const sPhone = raw.replace(/[\s\-\(\)]/g, '');
+    return (
+      (p.trackingCode || '').toLowerCase().includes(s) ||
+      (p.customerName || '').toLowerCase().includes(s) ||
+      (p.customerPhone || '').replace(/[\s\-]/g, '').includes(sPhone) ||
+      (getVendorDisplayName(p.vendorId, '')).toLowerCase().includes(s) ||
+      (p.city || p.address || '').toLowerCase().includes(s) ||
+      (p.riderId?.name || '').toLowerCase().includes(s) ||
+      (p.parcelRef || '').toLowerCase().includes(s)
+    );
   });
 
   const handleSelectAll = e => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
@@ -1024,7 +1032,7 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
         {!hideSearch && (
           <input
             type="text"
-            placeholder="Search tracking or customer..."
+            placeholder="Search by tracking, customer, phone, destination, rider..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
@@ -1083,20 +1091,38 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
                 <th style={{ ...thStyle, width: 44 }}>
                   <input type="checkbox" onChange={handleSelectAll} checked={filtered.length > 0 && selected.length === filtered.length} />
                 </th>
-                {['Tracking', 'Vendor', 'Customer', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                {['Tracking', 'Vendor', 'Customer', 'Phone Number', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan="8"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="8"><EmptyState message={vendorSearch ? "No packages found for this vendor." : "No packages ready for routing."} /></td></tr>
+              {loading ? <tr><td colSpan="10"><Spinner /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="10"><EmptyState message={vendorSearch ? "No packages found for this vendor." : "No packages ready for routing."} /></td></tr>
                 : filtered.map(p => (
-                  <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
+                  <tr key={p._id} style={{ cursor: 'pointer', background: selected.includes(p._id) ? '#eff6ff' : '' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
                     <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
-                    <td style={tdStyle}>{p.customerName}</td>
+                    <td style={tdStyle}>{p.customerName || '—'}</td>
+                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                      {p.customerPhone ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <a
+                            href={`tel:${p.customerPhone}`}
+                            style={{ color: '#2563eb', fontWeight: 600, fontSize: 12, textDecoration: 'none', fontFamily: 'monospace' }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            📞 {p.customerPhone}
+                          </a>
+                          <button
+                            title="Copy"
+                            onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(p.customerPhone); }}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px' }}
+                          >⧉</button>
+                        </div>
+                      ) : <span style={{ color: '#d1d5db' }}>—</span>}
+                    </td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{p.amount?.toLocaleString()}</td>
