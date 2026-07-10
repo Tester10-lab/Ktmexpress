@@ -3,14 +3,14 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import ScanStation from '../../components/ScanStation';
-// import QrScanner from '../../components/QrScanner';
+import QrScanner from '../../components/QrScanner';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
-// import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
-// import { useRiderHistory } from '../../store/RiderHistoryContext';
+import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
+import { useRiderHistory } from '../../store/RiderHistoryContext';
 import { getVendorDisplayName } from '../../utils/vendor';
-// import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
+import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
