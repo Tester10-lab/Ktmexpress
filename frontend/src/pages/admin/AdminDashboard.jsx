@@ -879,7 +879,11 @@ const AdminPackages = () => {
       showToast('Package created successfully', 'success');
       setCreateModal(false);
       setNewPkg({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
-      fetchPackages();
+      if (page === 1) {
+        fetchPackages();
+      } else {
+        setPage(1);
+      }
     } catch (err) { showToast(err.response?.data?.message || 'Failed to create package', 'error'); }
   };
 

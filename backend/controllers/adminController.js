@@ -287,7 +287,7 @@ export const getAllPackagesAdmin = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [packages, total] = await Promise.all([
-      Package.find(filter).populate('vendorId','name').populate('riderId','name').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Package.find(filter).populate('vendorId', 'name email phone vendorMeta').populate('riderId','name').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
       Package.countDocuments(filter),
     ]);
 
@@ -666,7 +666,7 @@ export const getSettlements = async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
     const [settlements, total] = await Promise.all([
-      Settlement.find().populate('vendorId', 'name vendorMeta').populate('packageIds').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Settlement.find().populate('vendorId', 'name email phone vendorMeta').populate('packageIds').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
       Settlement.countDocuments()
     ]);
 

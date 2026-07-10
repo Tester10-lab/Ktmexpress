@@ -24,7 +24,7 @@ export const getMyDeliveries = async (req, res) => {
     }
 
     const packages = await Package.find(filter)
-      .populate('vendorId', 'name vendorMeta')
+      .populate('vendorId', 'name email phone vendorMeta')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: packages });

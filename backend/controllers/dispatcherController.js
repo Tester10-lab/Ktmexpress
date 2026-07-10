@@ -12,7 +12,7 @@ export const getPickupRequests = async (req, res) => {
   try {
     const pickups = await PickupRequest.find({ status: { $in: ['pending', 'assigned'] } })
       .populate('packageId', 'trackingCode customerName address vendorId')
-      .populate('vendorId', 'name vendorMeta')
+      .populate('vendorId', 'name email phone vendorMeta')
       .populate('assignedRiderId', 'name')
       .sort({ requestedAt: -1 });
 
@@ -256,7 +256,7 @@ export const getAllPackagesForDispatcher = async (req, res) => {
     ];
 
     const packages = await Package.find(filter)
-      .populate('vendorId', 'name email')
+      .populate('vendorId', 'name email phone vendorMeta')
       .populate('riderId', 'name contact')
       .sort({ createdAt: -1 })
       .limit(500);

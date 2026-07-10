@@ -24,7 +24,7 @@ export const getAllPackages = async (req, res) => {
 
     const [packages, total] = await Promise.all([
       Package.find(filter)
-        .populate('vendorId', 'name vendorMeta')
+        .populate('vendorId', 'name email phone vendorMeta')
         .populate('riderId', 'name contact')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -58,7 +58,7 @@ export const getPackageByCode = async (req, res) => {
         { invoiceId: code.toUpperCase() },
       ],
     })
-      .populate('vendorId', 'name vendorMeta')
+      .populate('vendorId', 'name email phone vendorMeta')
       .populate('riderId', 'name contact')
       .lean();
 
