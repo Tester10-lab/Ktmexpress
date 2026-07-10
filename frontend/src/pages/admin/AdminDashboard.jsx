@@ -804,6 +804,7 @@ const AdminPackages = () => {
   const [vendors, setVendors] = useState([]);
   const [newPkg, setNewPkg] = useState({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
   const [csvVendorId, setCsvVendorId] = useState('');
+  const [csvVendorSearch, setCsvVendorSearch] = useState('');
   const [csvFile, setCsvFile] = useState(null);
   const [csvUploading, setCsvUploading] = useState(false);
 
@@ -1162,9 +1163,19 @@ const AdminPackages = () => {
               <form onSubmit={handleCsvUpload} className="space-y-5">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Search vendor by keyword..."
+                    className="input-field mb-2"
+                    value={csvVendorSearch}
+                    onChange={e => setCsvVendorSearch(e.target.value)}
+                  />
                   <select className="input-field" required value={csvVendorId} onChange={e => setCsvVendorId(e.target.value)}>
                     <option value="">— Choose Vendor —</option>
-                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
+                    {vendors
+                      .filter(v => (v.name + ' ' + (v.vendorMeta?.shopName || v.email)).toLowerCase().includes(csvVendorSearch.toLowerCase()))
+                      .map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)
+                    }
                   </select>
                 </div>
                 <div>
