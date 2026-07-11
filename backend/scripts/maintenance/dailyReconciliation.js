@@ -2,10 +2,10 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
-import Package from '../models/Package.js';
-import { connectDB } from '../config/db.js';
-import { logger } from '../config/logger.js';
-import { sendEmail } from '../utils/emailService.js';
+import Package from '../../models/Package.js';
+import { connectDB } from '../../config/db.js';
+import { logger } from '../../config/logger.js';
+import { sendEmail } from '../../utils/emailService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

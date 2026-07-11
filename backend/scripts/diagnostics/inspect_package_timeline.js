@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-import Package from '../models/Package.js';
+import Package from '../../models/Package.js';
 
 async function run() {
   await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/ktmexpress');

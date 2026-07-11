@@ -7,9 +7,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-import Package from '../models/Package.js';
-import ScanEvent from '../models/ScanEvent.js';
-import AuditLog from '../models/AuditLog.js';
+import Package from '../../models/Package.js';
+import ScanEvent from '../../models/ScanEvent.js';
+import AuditLog from '../../models/AuditLog.js';
 
 async function run() {
   console.log('=== Database Production Readiness Migration ===');

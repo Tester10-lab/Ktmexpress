@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
-import User from '../models/User.js';
-import Package from '../models/Package.js';
-import Expense from '../models/Expense.js';
+import User from '../../models/User.js';
+import Package from '../../models/Package.js';
+import Expense from '../../models/Expense.js';
 
 async function run() {
   const mongod = await MongoMemoryServer.create();

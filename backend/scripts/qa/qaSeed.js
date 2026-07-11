@@ -9,9 +9,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-import User from '../models/User.js';
-import Package from '../models/Package.js';
-import Settlement from '../models/Settlement.js';
+import User from '../../models/User.js';
+import Package from '../../models/Package.js';
+import Settlement from '../../models/Settlement.js';
 
 // Connect to DB
 const connectDB = async () => {
