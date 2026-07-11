@@ -1,6 +1,6 @@
 import Package from '../models/Package.js';
-import PickupRequest from '../models/PickupRequest.js';
 import User from '../models/User.js';
+import PickupRequest from '../models/PickupRequest.js';
 import CodHandover from '../models/CodHandover.js';
 import { canTransition } from '../services/packageTransitions.js';
 
@@ -12,7 +12,15 @@ function nowStr() {
 // GET /api/dispatcher/pickups
 export const getPickupRequests = async (req, res) => {
   try {
-    const pickups = await PickupRequest.find({ status: { $in: ['pending', 'assigned'] } })
+    const { status, vendorId, search } = req.query;
+    const query = {};
+
+    if (status) query.status = status;
+    else query.status = { $in: ['pending', 'assigned'] };
+
+    if (vendorId) query.vendorId = vendorId;
+
+    const assignedPickups = await PickupRequest.find(query)
       .populate('packageId', 'trackingCode customerName address vendorId')
       .populate('vendorId', 'name vendorMeta')
       .populate('assignedRiderId', 'name')
@@ -262,13 +270,25 @@ export const getAllPackagesForDispatcher = async (req, res) => {
       const statuses = status.split(',');
       filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
     }
-    if (search) filter.$or = [
-      { trackingCode: { $regex: search, $options: 'i' } },
-      { customerName: { $regex: search, $options: 'i' } },
-    ];
+    if (search) {
+      const matchingVendors = await User.find({
+        role: 'vendor',
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      const vendorIds = matchingVendors.map(v => v._id);
+
+      filter.$or = [
+        { trackingCode: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { vendorId: { $in: vendorIds } }
+      ];
+    }
 
     const packages = await Package.find(filter)
-      .populate('vendorId', 'name email')
+      .populate('vendorId', 'name email vendorMeta')
       .populate('riderId', 'name contact')
       .sort({ createdAt: -1 })
       .limit(500);

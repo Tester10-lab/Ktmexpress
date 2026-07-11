@@ -456,7 +456,7 @@ const PendingVerification = () => {
                             <TrackingLink code={p.trackingCode} />
                             {p.invoiceId && <span className="ml-2 text-[10px] text-slate-400 font-bold border border-slate-200 px-1 rounded">{p.invoiceId}</span>}
                           </div>
-                          <div className="text-[10px] text-slate-400 mt-1">Vendor: <span className="font-bold text-slate-600">{p.vendorId?.name || 'Unknown'}</span></div>
+                          <div className="text-[10px] text-slate-400 mt-1">Vendor: <span className="font-bold text-slate-600">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</span></div>
                           <div className="text-[10px] text-slate-400">Recipient: <span className="text-slate-600 font-semibold">{p.customerName} ({p.customerPhone})</span></div>
                         </td>
                         <td className="px-6 py-4">

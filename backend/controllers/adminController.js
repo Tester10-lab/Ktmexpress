@@ -14,6 +14,7 @@ import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee } from '../services/pricingService.js';
 import { processCsvImport } from '../utils/csvHelper.js';
+import { PACKAGE_STATUS } from '../constants/packageStatus.js';
 
 // ─── Simple In-Memory Cache (30s TTL) ──────────────────────────────────────
 let dashboardCache = { data: null, timestamp: 0 };
@@ -534,14 +535,26 @@ export const getAllPackagesAdmin = async (req, res) => {
     const filter = {};
     if (status && status !== 'all') filter.status = status;
     if (vendor) filter.vendorId = vendor;
-    if (search) filter.$or = [
-      { trackingCode: { $regex: search, $options: 'i' } },
-      { customerName: { $regex: search, $options: 'i' } },
-    ];
+    if (search) {
+      const matchingVendors = await User.find({
+        role: 'vendor',
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      const vendorIds = matchingVendors.map(v => v._id);
+
+      filter.$or = [
+        { trackingCode: { $regex: search, $options: 'i' } },
+        { customerName: { $regex: search, $options: 'i' } },
+        { vendorId: { $in: vendorIds } }
+      ];
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [packages, total] = await Promise.all([
-      Package.find(filter).populate('vendorId','name').populate('riderId','name').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+      Package.find(filter).populate('vendorId', 'name email vendorMeta').populate('riderId', 'name').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
       Package.countDocuments(filter),
     ]);
 
@@ -670,14 +683,19 @@ export const createPackageForVendor = async (req, res) => {
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
-      status: 'Pending',
+      status: PACKAGE_STATUS.IN_WAREHOUSE,
       timeline: [{
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: 'Invoice Created',
-        message: `Admin created order on behalf of vendor ${vendor.name}`,
+        status: PACKAGE_STATUS.IN_WAREHOUSE,
+        message: `Package created by Admin - Received directly in Warehouse`,
         user: req.user.name,
       }]
     });
+
+    if (req.io) {
+      req.io.to('role_admin').emit('package:created', pkg);
+      req.io.to('role_dispatcher').emit('package:created', pkg);
+    }
 
     dashboardCache.timestamp = 0;
     res.status(201).json({ success: true, data: pkg });
@@ -738,19 +756,26 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
-        status: 'Pending',
+        status: PACKAGE_STATUS.IN_WAREHOUSE,
         timeline: [{
           time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          status: 'Invoice Created',
-          message: `Admin bulk created on behalf of vendor ${vendor.name}`,
+          status: PACKAGE_STATUS.IN_WAREHOUSE,
+          message: `Package created by Admin - Received directly in Warehouse`,
           user: req.user.name,
         }]
       });
       createdPackages.push(pkg);
     }
 
+    if (req.io) {
+      createdPackages.forEach(pkg => {
+        req.io.to('role_admin').emit('package:created', pkg);
+        req.io.to('role_dispatcher').emit('package:created', pkg);
+      });
+    }
+
     dashboardCache.timestamp = 0;
-    res.status(201).json({ success: true, data: createdPackages });
+    res.status(201).json({ success: true, data: createdPackages, message: `Successfully created ${createdPackages.length} packages.` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

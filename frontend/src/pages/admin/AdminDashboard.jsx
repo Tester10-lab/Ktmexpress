@@ -65,7 +65,7 @@ const AdminDashboard = () => {
           notifs.push({
             id: `settle_${s._id}`,
             title: 'Settlement Request',
-            message: `${s.vendorId?.name || 'A vendor'} requested Rs. ${s.requestedAmount}`,
+            message: `${(s.vendorId?.vendorMeta?.shopName || s.vendorId?.name) || 'A vendor'} requested Rs. ${s.requestedAmount}`,
             time: new Date(s.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             read: false,
             icon: '💰',

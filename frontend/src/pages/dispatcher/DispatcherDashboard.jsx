@@ -8,6 +8,7 @@ import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
 import TrackingLink from '../../components/TrackingLink';
+import { useSocket } from '../../hooks/useSocket';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
@@ -107,6 +108,7 @@ const DispatcherHome = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const socket = useSocket();
 
   const handleScanSuccess = async (trackingCode) => {
     try {
@@ -136,6 +138,13 @@ const DispatcherHome = () => {
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
   }, [fetchAll]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleCreated = () => fetchAll();
+    socket.on('package:created', handleCreated);
+    return () => socket.off('package:created', handleCreated);
+  }, [socket, fetchAll]);
 
   if (loading) return <Spinner />;
 
@@ -200,7 +209,7 @@ const DispatcherHome = () => {
               ) : recent.map(p => (
                 <tr key={p._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                  <td style={tdStyle}>{p.vendorId?.name || '—'}</td>
+                  <td style={tdStyle}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                   <td style={tdStyle}>{p.customerName}</td>
                   <td style={{ ...tdStyle, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{p.city || p.address || '—'}</td>
                   <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>Unassigned</span>}</td>
@@ -355,7 +364,7 @@ const PickupRequests = () => {
                       </td>
                     )}
                     <td style={tdStyle}><TrackingLink code={p.packageId?.trackingCode} /></td>
-                    <td style={tdStyle}><div style={{ fontWeight: 600 }}>{p.vendorId?.name || '—'}</div></td>
+                    <td style={tdStyle}><div style={{ fontWeight: 600 }}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</div></td>
                     <td style={tdStyle}>{p.packageId?.customerName || '—'}</td>
                     <td style={{ ...tdStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.packageId?.address || '—'}</td>
                     <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
@@ -650,7 +659,7 @@ const InboundScan = () => {
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
                     <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || 'Unknown'}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</td>
                     <td style={tdStyle}>{p.customerName}</td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city ? `${p.city}, ` : ''}{p.address}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
@@ -706,7 +715,7 @@ const Routing = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filtered = packages.filter(p =>
-    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || (p.vendorId?.name || '').toLowerCase().includes(search.toLowerCase())
+    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || ((p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const handleSelectAll = e => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
@@ -789,7 +798,7 @@ const Routing = () => {
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
                     <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || '—'}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                     <td style={tdStyle}>{p.customerName}</td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
@@ -891,7 +900,7 @@ const ReverseLogistics = () => {
                   return (
                     <tr key={p._id} style={{ opacity: fullDone ? 0.6 : 1 }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || '—'}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                       <td style={tdStyle}>{p.customerName}</td>
                       <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                       <td style={tdStyle}><StatusBadge status={p.status} /></td>
@@ -1225,7 +1234,7 @@ const ActiveRiders = () => {
                                       <TrackingLink code={p.trackingCode} />
                                     </td>
                                     <td style={tdStyle}>
-                                      <div style={{ fontWeight: 700 }}>{p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || 'Unknown'}</div>
+                                      <div style={{ fontWeight: 700 }}>{p.vendorId?.vendorMeta?.shopName || (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</div>
                                       <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
                                         {p.outOfValley ? '🏔️ Outside Valley' : '🏡 Inside Valley'}
                                       </div>
@@ -1480,7 +1489,7 @@ const DispatcherDashboard = () => {
   const notifications = pendingPickups.map(p => ({
     id: p._id,
     title: 'New Pickup Request',
-    message: `${p.vendorId?.name || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
+    message: `${(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
     time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
     read: false,
     icon: '🚚',

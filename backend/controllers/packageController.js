@@ -1,4 +1,5 @@
 import Package from '../models/Package.js';
+import User from '../models/User.js';
 import ScanEvent from '../models/ScanEvent.js';
 import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
@@ -14,11 +15,21 @@ export const getAllPackages = async (req, res) => {
     if (vendor) filter.vendorId = vendor;
     if (rider) filter.riderId = rider;
     if (search) {
+      const matchingVendors = await User.find({
+        role: 'vendor',
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      const vendorIds = matchingVendors.map(v => v._id);
+
       filter.$or = [
         { trackingCode: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
         { invoiceId: { $regex: search, $options: 'i' } },
         { address: { $regex: search, $options: 'i' } },
+        { vendorId: { $in: vendorIds } }
       ];
     }
 

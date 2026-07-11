@@ -205,7 +205,7 @@ const AdminSettlements = () => {
                       <div><TrackingLink code={p.trackingCode} /></div>
                       <div className="text-xs text-slate-500 mt-0.5">{new Date(p.createdAt).toLocaleDateString()}</div>
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-700">{p.vendorId?.name || 'Unknown'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-700">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</td>
                     <td className="px-6 py-4 text-right font-medium">Rs. {p.amount}</td>
                     <td className="px-6 py-4 text-right font-medium text-red-500">Rs. {p.deliveryCharge}</td>
                     <td className="px-6 py-4 text-right font-bold text-brand-600">Rs. {p.vendorReceivable}</td>

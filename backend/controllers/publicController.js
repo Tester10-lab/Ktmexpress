@@ -12,9 +12,8 @@ export const trackPackage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid tracking code format.' });
     }
 
-    // We populate the rider info but only select what's safe for public view
-    const pkg = await Package.findOne({ trackingCode })
-      .populate('riderId', 'name contact');
+    // We don't populate rider info for public view to protect privacy
+    const pkg = await Package.findOne({ trackingCode });
       
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Tracking code not found.' });
@@ -24,18 +23,12 @@ export const trackPackage = async (req, res) => {
     const publicData = {
       trackingCode: pkg.trackingCode,
       status: pkg.status,
-      customerName: pkg.customerName.replace(/.(?=.{2})/g, '*'), // Mask part of name for privacy
-      city: pkg.city,
       timeline: pkg.timeline.map(t => ({
         time: t.time,
         status: t.status,
         message: t.message ? t.message.replace(/by\s+[A-Za-z0-9\s_-]+/gi, '').trim() : '', // Strip "by AdminName" details
         location: t.location || ''
       })),
-      rider: pkg.status === 'Out for Delivery' && pkg.riderId ? {
-        name: pkg.riderId.name,
-        contact: pkg.riderId.contact
-      } : null,
       updatedAt: pkg.updatedAt
     };
 

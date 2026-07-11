@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../../api/axios';
 import MetricCard from '../../../components/MetricCard';
 import { useToast } from '../../../store/ToastContext';
+import { useSocket } from '../../../hooks/useSocket';
 import ScanStation from '../../../components/ScanStation';
 import Pagination from '../../../components/Pagination';
 import TrackingLink from '../../../components/TrackingLink';
@@ -41,6 +42,7 @@ const AdminPackages = () => {
   const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
   const { showToast } = useToast();
+  const socket = useSocket();
 
   const [editModal, setEditModal] = useState(false);
   const [editPkg, setEditPkg] = useState(null);
@@ -76,6 +78,15 @@ const AdminPackages = () => {
 
   useEffect(() => { fetchPackages(); }, [page, limit, statusFilter]);
   useEffect(() => { fetchVendors(); }, []);
+  
+  useEffect(() => {
+    if (!socket) return;
+    const handleCreated = () => {
+      fetchPackages(true);
+    };
+    socket.on('package:created', handleCreated);
+    return () => socket.off('package:created', handleCreated);
+  }, [socket]);
 
   const openEdit = (pkg) => {
     setEditPkg({ ...pkg, deliveryDate: pkg.deliveryDate ? new Date(pkg.deliveryDate).toISOString().split('T')[0] : '' });
@@ -270,7 +281,7 @@ const AdminPackages = () => {
                     </td>
                     <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—'}</td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{p.customerName}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{p.city ? `${p.city}, ` : ''}{p.address}</div>

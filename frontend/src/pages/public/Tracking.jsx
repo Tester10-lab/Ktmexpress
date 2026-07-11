@@ -97,31 +97,12 @@ const Tracking = () => {
               </div>
 
               {/* Info Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6 border-b border-slate-100 bg-slate-50/50">
-                <div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Recipient</p>
-                  <p className="font-semibold text-slate-900">{pkg.customerName} {pkg.city ? `· ${pkg.city}` : ''}</p>
-                </div>
-                <div>
+              <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex justify-end">
+                <div className="text-right">
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Last Updated</p>
                   <p className="font-semibold text-slate-900">{new Date(pkg.updatedAt).toLocaleString()}</p>
                 </div>
               </div>
-
-              {/* Rider Alert */}
-              {pkg.rider && (
-                <div className="m-6 mb-2 p-4 bg-brand-50 border border-brand-200 rounded-xl flex justify-between items-center flex-wrap gap-4">
-                  <div>
-                    <p className="text-xs font-bold text-brand-600 uppercase tracking-wider mb-1">Out for delivery by</p>
-                    <p className="font-bold text-brand-900 text-lg">{pkg.rider.name}</p>
-                  </div>
-                  {pkg.rider.contact && (
-                    <a href={`tel:${pkg.rider.contact}`} className="btn-primary shadow-brand-500/20 shadow-md">
-                      <Phone className="w-4 h-4" /> Call Rider
-                    </a>
-                  )}
-                </div>
-              )}
 
               {/* QR / Barcode */}
               <div className="m-6 flex flex-wrap gap-6">

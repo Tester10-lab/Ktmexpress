@@ -258,6 +258,8 @@ export const createPackage = async (req, res) => {
         message: `Vendor ${req.user.name} created order ${pkg.trackingCode}`,
         type: 'new_order'
       });
+      req.io.to('role_admin').emit('package:created', pkg);
+      req.io.to('role_dispatcher').emit('package:created', pkg);
     }
 
     res.status(201).json({ success: true, data: pkg });
@@ -342,7 +344,13 @@ export const bulkCreatePackages = async (req, res) => {
       });
       createdPackages.push(pkg);
     }
-    
+    if (req.io) {
+      createdPackages.forEach(pkg => {
+        req.io.to('role_admin').emit('package:created', pkg);
+        req.io.to('role_dispatcher').emit('package:created', pkg);
+      });
+    }
+
     res.status(201).json({ success: true, data: createdPackages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

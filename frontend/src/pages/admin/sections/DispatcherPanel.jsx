@@ -249,7 +249,7 @@ const AdminDispatcher = () => {
                     : pendingPickups.map(p => (
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4"><TrackingLink code={p.packageId?.trackingCode} /></td>
-                      <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                       <td className="px-6 py-4 text-slate-700 font-medium">{p.packageId?.customerName || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 max-w-[160px] truncate">{p.packageId?.address || '—'}</td>
                       <td className="px-6 py-4">
@@ -290,7 +290,7 @@ const AdminDispatcher = () => {
                     {assignedPickups.map(p => (
                       <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4"><TrackingLink code={p.packageId?.trackingCode} /></td>
-                        <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {p.assignedRiderId?.name || 'Assigned'}
@@ -336,7 +336,7 @@ const AdminDispatcher = () => {
                   : warehousePackages.map(p => (
                   <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                     <td className="px-6 py-4 text-slate-500">{p.city || p.address || '—'}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
@@ -384,7 +384,7 @@ const AdminDispatcher = () => {
                   : returnPackages.map(p => (
                   <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
                     <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                     <td className="px-6 py-4">{statusBadge(p.status)}</td>
                     <td className="px-6 py-4 text-center">
@@ -622,7 +622,7 @@ const AdminDispatcher = () => {
                                       <TrackingLink code={p.trackingCode} />
                                     </td>
                                     <td className="px-4 py-3">
-                                      <div className="font-bold text-slate-700">{p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || 'Unknown'}</div>
+                                      <div className="font-bold text-slate-700">{p.vendorId?.vendorMeta?.shopName || (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</div>
                                       <div className="text-[10px] text-slate-400 font-medium">
                                         {p.outOfValley ? '🏔️ Outside Valley' : '🏡 Inside Valley'}
                                       </div>

@@ -132,7 +132,7 @@ const TrackingDrawer = () => {
                     {pkg.vendorId && (
                       <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Vendor</p>
-                        <p className="font-semibold text-slate-900">{pkg.vendorId.name || pkg.vendorId}</p>
+                        <p className="font-semibold text-slate-900">{(pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name) || pkg.vendorId}</p>
                       </div>
                     )}
                     <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
