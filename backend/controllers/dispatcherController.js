@@ -1,6 +1,7 @@
 import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
 import User from '../models/User.js';
+import CodHandover from '../models/CodHandover.js';
 
 // Helper: get timestamp string
 function nowStr() {
@@ -11,9 +12,9 @@ function nowStr() {
 export const getPickupRequests = async (req, res) => {
   try {
     const pickups = await PickupRequest.find({ status: { $in: ['pending', 'assigned'] } })
-      .populate('packageId', 'trackingCode customerName customerPhone city address vendorId parcelRef')
-      .populate('vendorId', 'name email phone vendorMeta')
-      .populate('assignedRiderId', 'name contact')
+      .populate('packageId', 'trackingCode customerName address vendorId')
+      .populate('vendorId', 'name vendorMeta')
+      .populate('assignedRiderId', 'name')
       .sort({ requestedAt: -1 });
 
     res.json({ success: true, data: pickups });
@@ -87,9 +88,9 @@ export const confirmWarehouseArrival = async (req, res) => {
     });
     await pkg.save();
 
-    // Update pickup request
-    await PickupRequest.findOneAndUpdate(
-      { packageId: pkg._id },
+    // Update all active pickup requests for this package to prevent stuck duplicates
+    await PickupRequest.updateMany(
+      { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
       { status: 'completed', completedAt: new Date() }
     );
 
@@ -246,23 +247,17 @@ export const getAllPackagesForDispatcher = async (req, res) => {
     const { status, search } = req.query;
     const filter = {};
     if (status && status !== 'all') {
+      // Support comma-separated statuses
       const statuses = status.split(',');
       filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
     }
-    if (search) {
-      const s = search.replace(/[\s\-\(\)]/g, ''); // normalize phone
-      filter.$or = [
-        { trackingCode:   { $regex: search, $options: 'i' } },
-        { customerName:   { $regex: search, $options: 'i' } },
-        { customerPhone:  { $regex: s,      $options: 'i' } },
-        { address:        { $regex: search, $options: 'i' } },
-        { city:           { $regex: search, $options: 'i' } },
-        { parcelRef:      { $regex: search, $options: 'i' } },
-      ];
-    }
+    if (search) filter.$or = [
+      { trackingCode: { $regex: search, $options: 'i' } },
+      { customerName: { $regex: search, $options: 'i' } },
+    ];
 
     const packages = await Package.find(filter)
-      .populate('vendorId', 'name email phone vendorMeta')
+      .populate('vendorId', 'name email')
       .populate('riderId', 'name contact')
       .sort({ createdAt: -1 })
       .limit(500);
@@ -273,7 +268,6 @@ export const getAllPackagesForDispatcher = async (req, res) => {
   }
 };
 
-
 // GET /api/dispatcher/riders
 export const getAvailableRiders = async (req, res) => {
   try {
@@ -283,7 +277,7 @@ export const getAvailableRiders = async (req, res) => {
       .lean();
 
     const codAgg = await Package.aggregate([
-      { $match: { status: 'Delivered', cashReconciled: false, riderId: { $in: riders.map(r => r._id) } } },
+      { $match: { status: 'Delivered', cashReconciled: false, deletedAt: null, riderId: { $in: riders.map(r => r._id) } } },
       { $group: { _id: '$riderId', totalCOD: { $sum: '$amount' } } }
     ]);
 
@@ -299,3 +293,141 @@ export const getAvailableRiders = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// GET /api/dispatcher/cod-handovers
+export const getCodHandovers = async (req, res) => {
+  try {
+    const { status } = req.query;
+    const filter = {};
+    if (status && status !== 'all') filter.status = status;
+
+    const handovers = await CodHandover.find(filter)
+      .populate('riderId', 'name contact')
+      .populate('verifiedBy', 'name')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: handovers });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/dispatcher/cod-handovers/:id/verify
+export const verifyCodHandover = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, remarks } = req.body;
+
+    const handover = await CodHandover.findById(id);
+    if (!handover) return res.status(404).json({ success: false, message: 'Handover not found.' });
+
+    if (handover.status !== 'Pending Verification') {
+      return res.status(400).json({ success: false, message: 'Handover already processed.' });
+    }
+
+    handover.status = status; // 'Verified' or 'Rejected'
+    handover.remarks = remarks || handover.remarks;
+    handover.verifiedBy = req.user._id;
+    handover.verifiedAt = new Date();
+
+    await handover.save();
+
+    if (status === 'Verified') {
+      await Package.updateMany(
+        { _id: { $in: handover.packageIds } },
+        { $set: { cashReconciled: true } }
+      );
+    }
+
+    res.json({ success: true, data: handover, message: `Handover ${status.toLowerCase()} successfully.` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/dispatcher/riders/:id/history
+export const getRiderHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, vendorId, valley, startDate, endDate } = req.query;
+
+    const rider = await User.findOne({ _id: id, role: 'rider' });
+    if (!rider) {
+      return res.status(404).json({ success: false, message: 'Rider not found.' });
+    }
+
+    // Base filter matching any package this rider has ever touched (assigned, timelines, etc.)
+    const baseFilter = {
+      $or: [
+        { riderId: id },
+        { 'timeline.user': rider.name },
+        { 'timeline.message': { $regex: new RegExp(rider.name, 'i') } }
+      ]
+    };
+
+    // Calculate absolute lifetime KPIs
+    const allPkgs = await Package.find(baseFilter).lean();
+
+    const lifetimeStats = {
+      totalHandled: allPkgs.length,
+      totalPickedUp: allPkgs.filter(p => ['Picked Up', 'Out for Delivery', 'Delivered', 'Postponed', 'Cancelled', 'Returned', 'Returned to Vendor'].includes(p.status) || p.timeline.some(t => t.status === 'Picked Up')).length,
+      totalDelivered: allPkgs.filter(p => p.status === 'Delivered').length,
+      totalFailedReturned: allPkgs.filter(p => ['Cancelled', 'Returned', 'Returned to Vendor'].includes(p.status)).length,
+      totalCODCollected: allPkgs.filter(p => p.status === 'Delivered').reduce((sum, p) => sum + (p.riderSubmission?.amount !== undefined ? p.riderSubmission.amount : p.amount || 0), 0),
+      currentAssigned: allPkgs.filter(p => p.riderId?.toString() === id.toString() && ['Out for Delivery', 'Picked Up'].includes(p.status)).length
+    };
+
+    // Apply filtering query
+    const filteredQuery = { ...baseFilter };
+
+    if (status && status !== 'all') {
+      filteredQuery.status = status;
+    }
+
+    if (vendorId && vendorId !== 'all') {
+      filteredQuery.vendorId = vendorId;
+    }
+
+    if (valley === 'inside') {
+      filteredQuery.outOfValley = false;
+    } else if (valley === 'outside') {
+      filteredQuery.outOfValley = true;
+    }
+
+    if (startDate || endDate) {
+      filteredQuery.createdAt = {};
+      if (startDate) {
+        filteredQuery.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filteredQuery.createdAt.$lte = end;
+      }
+    }
+
+    const packagesList = await Package.find(filteredQuery)
+      .populate('vendorId', 'name vendorMeta')
+      .populate('riderId', 'name')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: {
+        rider: {
+          id: rider._id,
+          name: rider.name,
+          email: rider.email,
+          contact: rider.contact,
+        },
+        stats: lifetimeStats,
+        packages: packagesList
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+

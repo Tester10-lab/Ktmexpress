@@ -1,54 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Search, Rocket, MapPin, Receipt, BarChart3, Bike, ShieldCheck, ArrowRight } from 'lucide-react';
-
-const PublicNav = ({ active }) => (
-  <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <Link to="/" className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
-          <Package className="w-5 h-5" />
-        </div>
-        <span className="font-bold text-xl tracking-tight text-slate-900">ktmexpress</span>
-      </Link>
-      <nav className="hidden md:flex items-center gap-1">
-        {[
-          { label: 'Branches', path: '/branches' },
-          { label: 'Pricing', path: '/pricing' },
-          { label: 'Contact', path: '/contact' },
-        ].map(({ label, path }) => (
-          <Link 
-            key={path} 
-            to={path} 
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              active === path ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
-        <div className="w-px h-6 bg-slate-200 mx-2" />
-        <Link to="/login" className="btn-primary ml-2">Login</Link>
-      </nav>
-      {/* Mobile Nav Button */}
-      <div className="md:hidden">
-        <Link to="/login" className="btn-primary btn-sm">Login</Link>
-      </div>
-    </div>
-  </header>
-);
-
-const PublicFooter = () => (
-  <footer className="bg-slate-950 text-slate-400 py-12 px-6 text-center border-t border-slate-800">
-    <div className="max-w-7xl mx-auto flex flex-col items-center">
-      <div className="flex items-center gap-2 mb-4">
-        <Package className="w-5 h-5 text-brand-500" />
-        <span className="font-bold text-slate-200">ktmexpress Logistics</span>
-      </div>
-      <p className="text-sm">© {new Date().getFullYear()} ktmexpress Logistics SaaS. All rights reserved.</p>
-    </div>
-  </footer>
-);
+import { Search, Rocket, MapPin, Receipt, BarChart3, Bike, ShieldCheck } from 'lucide-react';
+import PublicNav from '../../components/PublicNav';
+import PublicFooter from '../../components/PublicFooter';
 
 const Home = () => {
   const [code, setCode] = useState('');

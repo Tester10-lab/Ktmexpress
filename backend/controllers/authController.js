@@ -24,6 +24,13 @@ export const register = async (req, res) => {
   try {
     const { name, email, password, role, contact, vendorMeta } = req.body;
 
+    if (role && role !== 'vendor') {
+      return res.status(403).json({
+        success: false,
+        message: 'Role registration restricted. Only vendor accounts can be created publicly.',
+      });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
@@ -45,7 +52,7 @@ export const register = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Set refresh token in HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, {
+    res.cookie(`refreshToken_${role}`, refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
@@ -63,6 +70,8 @@ export const register = async (req, res) => {
         contact: user.contact,
         status: user.status,
         vendorMeta: user.vendorMeta,
+        isSuperAdmin: user.isSuperAdmin,
+        permissions: user.permissions,
       },
     });
   } catch (error) {
@@ -90,6 +99,7 @@ export const login = async (req, res) => {
         message: 'Invalid credentials.',
       });
     }
+
 
     if (user.isLocked) {
       const msLeft = user.lockUntil - Date.now();
@@ -126,7 +136,7 @@ export const login = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Set refresh token in HTTP-only cookie
-    res.cookie('refreshToken', refreshToken, {
+    res.cookie(`refreshToken_${user.role}`, refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
@@ -144,6 +154,8 @@ export const login = async (req, res) => {
         contact: user.contact,
         status: user.status,
         vendorMeta: user.vendorMeta,
+        isSuperAdmin: user.isSuperAdmin,
+        permissions: user.permissions,
       },
     });
   } catch (error) {
@@ -164,6 +176,8 @@ export const getProfile = async (req, res) => {
         contact: req.user.contact,
         status: req.user.status,
         vendorMeta: req.user.vendorMeta,
+        isSuperAdmin: req.user.isSuperAdmin,
+        permissions: req.user.permissions,
       },
     });
   } catch (error) {
@@ -174,7 +188,10 @@ export const getProfile = async (req, res) => {
 // POST /api/auth/refresh
 export const refreshToken = async (req, res) => {
   try {
-    const rfToken = req.cookies.refreshToken;
+    const { role } = req.body;
+    if (!role) return res.status(400).json({ success: false, message: 'Role is required' });
+
+    const rfToken = req.cookies[`refreshToken_${role}`];
     if (!rfToken) return res.status(401).json({ success: false, message: 'Not authenticated' });
 
     const decoded = jwt.verify(rfToken, process.env.JWT_SECRET);
@@ -193,7 +210,10 @@ export const refreshToken = async (req, res) => {
 
 // POST /api/auth/logout
 export const logout = (req, res) => {
-  res.clearCookie('refreshToken', {
+  const { role } = req.body;
+  if (!role) return res.status(400).json({ success: false, message: 'Role is required' });
+
+  res.clearCookie(`refreshToken_${role}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',

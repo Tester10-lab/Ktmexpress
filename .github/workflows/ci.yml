@@ -1,46 +1,43 @@
-name: Logistics CI
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main, master ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
     strategy:
       matrix:
-        node-version: [20.x]
-
+        node-version: [18.x]
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        cache-dependency-path: '**/package-lock.json'
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
 
-    - name: Install Backend Dependencies
-      run: npm ci
-      working-directory: ./backend
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: npm ci
 
-    - name: Install Frontend Dependencies
-      run: npm ci
-      working-directory: ./frontend
+      - name: Run backend tests
+        working-directory: ./backend
+        run: npm test
+        env:
+          JWT_SECRET: testing_secret
+          MONGO_URI: ${{ secrets.MONGO_URI }}
 
-    - name: Backend Tests
-      run: npm test
-      working-directory: ./backend
-      env:
-        JWT_SECRET: testing_secret
-        MONGO_URI: mongodb://localhost:27017/logistic_test
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
 
-    - name: Frontend Build
-      run: npm run build
-      working-directory: ./frontend
-      env:
-        VITE_API_URL: https://ktmexpress-backend.onrender.com/api
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}

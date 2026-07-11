@@ -7,7 +7,10 @@ import {
   getPackageByCode,
   updatePackage,
   createPackage,
+  trackPackage,
+  confirmWarehouseArrival
  } from '../controllers/packageController.js';
+import { warehouseArrivalLimiter } from '../middleware/rateLimiter.js';
 
 // All routes require auth
 router.use(auth);
@@ -20,6 +23,12 @@ router.get('/', roleGuard('admin', 'dispatcher'), getAllPackages);
 
 // Get package by tracking code (all roles)
 router.get('/:code', getPackageByCode);
+
+// Authenticated Tracking (Vendor only needs their own, admin/dispatcher any)
+router.get('/track/:trackingCode', trackPackage);
+
+// Warehouse Arrival (Admin/Dispatcher only)
+router.patch('/:trackingCode/warehouse-arrival', roleGuard('admin', 'dispatcher'), warehouseArrivalLimiter, confirmWarehouseArrival);
 
 // Update package (admin only override)
 router.put('/:id', roleGuard('admin'), updatePackage);

@@ -1,5 +1,7 @@
 import React, { useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useSettings } from '../store/SettingsContext';
+import brandLogo from '../assets/logo.png';
 
 /**
  * PrintLabel Component
@@ -23,7 +25,9 @@ const statusColor = (status) => {
 };
 
 const LabelCard = ({ pkg }) => {
-  const qr = pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(`http://localhost:5173/track?code=${pkg.trackingCode}`)}`;
+  const { logoUrl } = useSettings();
+  const trackingBase = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+  const qr = pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(`${trackingBase}/track?code=${pkg.trackingCode}`)}`;
   const barcode = pkg.barcodeUrl || `https://barcodeapi.org/api/128/${pkg.trackingCode}`;
   const deliveryDate = pkg.deliveryDate ? new Date(pkg.deliveryDate).toLocaleDateString() : '—';
 
@@ -32,13 +36,11 @@ const LabelCard = ({ pkg }) => {
       {/* Header */}
       <div className="label-header">
         <div className="label-logo">
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/>
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-            <line x1="12" y1="22.08" x2="12" y2="12"/>
-          </svg>
-          <span className="label-company-name">{COMPANY_NAME}</span>
+          {logoUrl ? (
+            <img src={logoUrl} alt={COMPANY_NAME} className="h-6 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
+          ) : (
+            <img src={brandLogo} alt={COMPANY_NAME} className="h-6 object-contain" />
+          )}
         </div>
         <div className="label-tagline">{COMPANY_TAGLINE}</div>
       </div>

@@ -2,8 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../../api/axios';
 import MetricCard from '../../../components/MetricCard';
-import { useTrackingDrawer } from '../../../store/TrackingDrawerContext';
-import { getVendorDisplayName } from '../../../utils/vendor';
 import { useToast } from '../../../store/ToastContext';
 import ScanStation from '../../../components/ScanStation';
 import Pagination from '../../../components/Pagination';
@@ -11,14 +9,9 @@ import TrackingLink from '../../../components/TrackingLink';
 import { 
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
-  MapPin, CheckCircle, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
-  Edit2, Trash2, Check, X, Bell, Printer, QrCode, Barcode
+  MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
+  Edit2, Trash2, Check, X, Bell
 } from 'lucide-react';
-
-const getAssetUrl = (endpoint) => {
-  const base = api.defaults.baseURL || 'http://localhost:5000/api';
-  return `${base.replace(/\/+$/, '')}${endpoint}`;
-};
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
@@ -44,7 +37,6 @@ const AdminPackages = () => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(20);
   const [search, setSearch] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
@@ -61,11 +53,10 @@ const AdminPackages = () => {
   const [csvFile, setCsvFile] = useState(null);
   const [csvUploading, setCsvUploading] = useState(false);
 
-  const fetchPackages = (silent = false, targetPage = page) => {
+  const fetchPackages = (silent = false) => {
     if (!silent) setLoading(true);
-    const q = new URLSearchParams({ page: targetPage, limit });
+    const q = new URLSearchParams({ page, limit });
     if (search) q.append('search', search);
-    if (vendorSearch) q.append('vendorSearch', vendorSearch);
     if (statusFilter) q.append('status', statusFilter);
     
     api.get(`/admin/packages?${q.toString()}`)
@@ -85,15 +76,6 @@ const AdminPackages = () => {
 
   useEffect(() => { fetchPackages(); }, [page, limit, statusFilter]);
   useEffect(() => { fetchVendors(); }, []);
-
-  // Debounced Vendor Search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setPage(1);
-      fetchPackages(false, 1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [vendorSearch]);
 
   const openEdit = (pkg) => {
     setEditPkg({ ...pkg, deliveryDate: pkg.deliveryDate ? new Date(pkg.deliveryDate).toISOString().split('T')[0] : '' });
@@ -235,42 +217,13 @@ const AdminPackages = () => {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
               type="text" 
-              className="input-field py-2 pl-9 pr-8 w-full sm:w-64" 
+              className="input-field py-2 pl-9 w-full sm:w-64" 
               placeholder="Search tracking or customer..." 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && fetchPackages()} 
             />
-            {search && (
-              <button 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                onClick={() => { setSearch(''); setPage(1); fetchPackages(); }}
-              >
-                ×
-              </button>
-            )}
           </div>
-          
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              className="input-field py-2 pl-9 pr-8 w-full sm:w-72" 
-              placeholder="Search by Shop Name, Vendor Name, or Email..." 
-              value={vendorSearch} 
-              onChange={e => setVendorSearch(e.target.value)} 
-              onKeyDown={e => e.key === 'Enter' && fetchPackages()} 
-            />
-            {vendorSearch && (
-              <button 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 font-bold"
-                onClick={() => { setVendorSearch(''); }}
-              >
-                ×
-              </button>
-            )}
-          </div>
-          
           <button className="btn-secondary py-2" onClick={() => { setPage(1); fetchPackages(); }}>Search</button>
           
           <div className="w-px h-8 bg-slate-200 mx-1 hidden lg:block" />
@@ -309,7 +262,7 @@ const AdminPackages = () => {
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {loading ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
-              : packages.length === 0 ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">{vendorSearch ? 'No packages found for this vendor.' : 'No packages found.'}</td></tr>
+              : packages.length === 0 ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">No packages found.</td></tr>
                 : packages.map(p => (
                   <tr key={p._id} className={`hover:bg-slate-50 transition-colors ${selected.includes(p._id) ? 'bg-brand-50/30' : ''}`}>
                     <td className="px-6 py-4">
@@ -317,7 +270,7 @@ const AdminPackages = () => {
                     </td>
                     <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
                     <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{getVendorDisplayName(p.vendorId, '—')}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">{p.vendorId?.name || '—'}</td>
                     <td className="px-6 py-4">
                       <div className="font-semibold text-slate-800">{p.customerName}</div>
                       <div className="text-xs text-slate-500 mt-0.5">{p.city ? `${p.city}, ` : ''}{p.address}</div>
@@ -328,20 +281,11 @@ const AdminPackages = () => {
                     <td className="px-6 py-4">{statusBadge(p.status)}</td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-2 justify-end">
-                        <a href={getAssetUrl(`/public/shipment/${p._id}/label`)} target="_blank" rel="noopener noreferrer" className="btn-sm p-1.5 rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100" title="Print Label">
-                          <Printer className="w-4 h-4" />
-                        </a>
-                        <a href={getAssetUrl(`/public/shipment/${p._id}/qrcode`)} target="_blank" rel="noopener noreferrer" className="btn-sm p-1.5 rounded bg-slate-50 text-slate-700 hover:bg-slate-100" title="Download QR">
-                          <QrCode className="w-4 h-4" />
-                        </a>
-                        <a href={getAssetUrl(`/public/shipment/${p._id}/barcode`)} target="_blank" rel="noopener noreferrer" className="btn-sm p-1.5 rounded bg-slate-50 text-slate-700 hover:bg-slate-100" title="Download Barcode">
-                          <Barcode className="w-4 h-4" />
-                        </a>
-                        <button className="btn-secondary btn-sm p-1.5" onClick={() => openEdit(p)} title="Edit">
+                      <div className="flex gap-2">
+                        <button className="btn-secondary btn-sm p-2" onClick={() => openEdit(p)} title="Edit">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        <button className="btn-sm p-1.5 rounded bg-red-50 text-red-700 hover:bg-red-100" onClick={() => handleDelete(p._id, p.trackingCode)} title="Delete">
+                        <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" onClick={() => handleDelete(p._id, p.trackingCode)} title="Delete">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -431,7 +375,7 @@ const AdminPackages = () => {
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
                   <select className="input-field" required value={newPkg.vendorId} onChange={e => setNewPkg(f => ({ ...f, vendorId: e.target.value }))}>
                     <option value="">— Choose Vendor —</option>
-                    {vendors.map(v => <option key={v._id} value={v._id}>{getVendorDisplayName(v)}</option>)}
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -497,7 +441,7 @@ const AdminPackages = () => {
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
                   <select className="input-field" required value={csvVendorId} onChange={e => setCsvVendorId(e.target.value)}>
                     <option value="">— Choose Vendor —</option>
-                    {vendors.map(v => <option key={v._id} value={v._id}>{getVendorDisplayName(v)}</option>)}
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
                   </select>
                 </div>
                 <div>

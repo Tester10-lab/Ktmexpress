@@ -3,16 +3,18 @@ const router = express.Router();
 import auth from '../middleware/auth.js';
 import roleGuard from '../middleware/roleGuard.js';
 import { auditAction } from '../middleware/auditMiddleware.js';
+import { authorize } from '../middleware/permissionMiddleware.js';
+import { verifyRateLimiter, bulkVerifyRateLimiter, reopenRateLimiter } from '../middleware/rateLimitMiddleware.js';
 import multer from 'multer';
 import { 
   getDashboardStats,
   getFinancialAnalytics,
   updatePricing,
   getAllUsers,
-  toggleUserStatus,
   createUser,
-  deleteUser,
   updateUser,
+  suspendUser,
+  reactivateUser,
   getAllPackagesAdmin,
   updatePackageAdmin,
   deletePackageAdmin,
@@ -24,7 +26,15 @@ import {
   updateExpenseStatus,
   getSettlements,
   updateSettlement,
-  requestPickupAdmin
+  requestPickupAdmin,
+  verifyCOD,
+  markVendorPaid,
+  exportSettlements,
+  uploadLogo,
+  savePackageVerificationDraft,
+  verifyPackageAdmin,
+  reopenPackageAdmin,
+  bulkVerifyPackagesAdmin
 } from '../controllers/adminController.js';
 import {
   getGlobalPricingSettings,
@@ -48,8 +58,30 @@ import {
 
 import { validateGlobalSettings, validateOutsideValleyFee } from '../middleware/pricingValidation.js';
 
-// Multer config for CSV uploads
-const upload = multer({ dest: 'uploads/' });
+// Multer config for CSV uploads - hardened with fileFilter and limits
+const upload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
+  fileFilter: (req, file, cb) => {
+    const isCsv = file.mimetype === 'text/csv' || 
+                  file.mimetype === 'application/vnd.ms-excel' ||
+                  file.originalname.toLowerCase().endsWith('.csv');
+    if (!isCsv) {
+      return cb(new Error('Only CSV files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
+
+// Multer config for image uploads (logos)
+const imageUpload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files are allowed!'), false);
+  }
+});
 
 // All routes require auth + admin role
 router.use(auth, roleGuard('admin'));
@@ -61,10 +93,11 @@ router.get('/dashboard', getDashboardStats);
 router.get('/analytics', getFinancialAnalytics);
 router.put('/pricing', updatePricing);
 
-// --- Pricing Engine ---
+// --- Pricing & System Settings (Admin only) ---
 router.get('/pricing-engine/settings', getGlobalPricingSettings);
-router.put('/pricing-engine/settings', validateGlobalSettings, updateGlobalPricingSettings);
 router.get('/pricing-engine/summary', getPricingDashboardSummary);
+router.put('/pricing-engine/settings', validateGlobalSettings, updateGlobalPricingSettings);
+router.post('/settings/logo', imageUpload.single('logo'), uploadLogo);
 router.get('/pricing-engine/outside-valley', getOutsideValleyFees);
 router.post('/pricing-engine/outside-valley', validateOutsideValleyFee, createOutsideValleyFee);
 router.put('/pricing-engine/outside-valley/:id', updateOutsideValleyFee);
@@ -84,8 +117,8 @@ router.patch('/delivery-charges/:id/toggle', toggleDeliveryChargeRule);
 router.get('/users', getAllUsers);
 router.post('/users', createUser);
 router.put('/users/:id', updateUser);
-router.delete('/users/:id', deleteUser);
-router.put('/users/:id/toggle-status', toggleUserStatus);
+router.patch('/users/:id/suspend', suspendUser);
+router.patch('/users/:id/reactivate', reactivateUser);
 
 // Package management (CRUD + bulk)
 router.get('/packages', getAllPackagesAdmin);
@@ -104,5 +137,14 @@ router.get('/expenses', getAllExpenses);
 router.put('/expenses/:id/status', updateExpenseStatus);
 router.get('/settlements', getSettlements);
 router.put('/settlements/:id', updateSettlement);
+router.post('/settlements/verify-cod/:packageId', verifyCOD);
+router.post('/settlements/mark-paid', markVendorPaid);
+router.get('/settlements/export', exportSettlements);
+
+// Operational & Financial Verification endpoints
+router.put('/packages/:id/verification-draft', authorize('canEditVerification'), savePackageVerificationDraft);
+router.post('/packages/:id/verify-action', verifyRateLimiter, authorize('canVerifyPackages'), verifyPackageAdmin);
+router.post('/packages/:id/reopen', reopenRateLimiter, authorize('canReopenVerification'), reopenPackageAdmin);
+router.post('/packages/bulk-verify', bulkVerifyRateLimiter, authorize('canVerifyPackages'), bulkVerifyPackagesAdmin);
 
 export default router;

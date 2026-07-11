@@ -7,10 +7,6 @@ import QrScanner from '../../components/QrScanner';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
-import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
-import { useRiderHistory } from '../../store/RiderHistoryContext';
-import { getVendorDisplayName } from '../../utils/vendor';
-import OutsideValleyActionMenu from '../../components/OutsideValleyActionMenu';
 import TrackingLink from '../../components/TrackingLink';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
@@ -36,7 +32,6 @@ const titleMap = {
 const STATUS_COLORS = {
   'Pending': '#f59e0b', 'Pick Up Requested': '#f59e0b', 'Picked Up': '#3b82f6',
   'In Warehouse': '#8b5cf6', 'Out for Delivery': '#06b6d4', 'Delivered': '#10b981',
-  'Dispatched': '#2563eb', 'Arrived': '#4f46e5', 'Sent for Delivery': '#d97706',
   'Postponed': '#f97316', 'Cancelled': '#ef4444', 'Returned': '#ef4444',
   'Returned to Vendor': '#6b7280',
 };
@@ -50,55 +45,6 @@ function StatusBadge({ status }) {
     </span>
   );
 }
-
-// Returns true only if value looks like a real phone number (≥6 digits, no letters)
-function isPhone(val) {
-  if (!val) return false;
-  const digits = String(val).replace(/[\s\-\(\)\+\.]/g, '');
-  return /^\d{6,}$/.test(digits);
-}
-
-/**
- * Resolves the actual phone number for a package, handling cases where
- * the phone was stored in the city/address field by mistake.
- */
-function resolvePhone(p) {
-  if (isPhone(p.customerPhone)) return p.customerPhone;
-  if (isPhone(p.city)) return p.city;       // phone stored in city field
-  if (isPhone(p.address)) return p.address; // phone stored in address field
-  return null;
-}
-
-/**
- * Resolves the actual destination for a package, skipping phone-number values.
- */
-function resolveDestination(p) {
-  if (p.city && !isPhone(p.city)) return p.city;
-  if (p.address && !isPhone(p.address)) return p.address;
-  return '—';
-}
-
-// Renders phone number cell — shows — if no valid phone number found
-function PhoneCell({ phone }) {
-  if (!isPhone(phone)) return <span style={{ color: '#d1d5db' }}>—</span>;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <a
-        href={`tel:${phone}`}
-        style={{ color: '#2563eb', fontWeight: 600, fontSize: 12, textDecoration: 'none', fontFamily: 'monospace' }}
-        onClick={e => e.stopPropagation()}
-      >
-        📞 {phone}
-      </a>
-      <button
-        title="Copy phone number"
-        onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(phone); }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 11, padding: '0 2px' }}
-      >⧉</button>
-    </div>
-  );
-}
-
 
 function Spinner() {
   return (
@@ -207,7 +153,7 @@ const DispatcherHome = () => {
       {scannerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md h-[90vh] sm:h-auto max-h-[800px]" onClick={e => e.stopPropagation()}>
-            {/* <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} /> */}
+            <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} />
           </div>
         </div>
       )}
@@ -254,7 +200,7 @@ const DispatcherHome = () => {
               ) : recent.map(p => (
                 <tr key={p._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                  <td style={tdStyle}>{getVendorDisplayName(p.vendorId, '—')}</td>
+                  <td style={tdStyle}>{p.vendorId?.name || '—'}</td>
                   <td style={tdStyle}>{p.customerName}</td>
                   <td style={{ ...tdStyle, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{p.city || p.address || '—'}</td>
                   <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>Unassigned</span>}</td>
@@ -271,12 +217,10 @@ const DispatcherHome = () => {
 };
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
-const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
-  const { openTracking } = useTrackingDrawer();
+const PickupRequests = () => {
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [vendorSearch, setVendorSearch] = useState('');
   const [assignMap, setAssignMap] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [selected, setSelected] = useState([]);
@@ -284,31 +228,22 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
   const [bulkRiderId, setBulkRiderId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [bulkConfirming, setBulkConfirming] = useState(false);
-  const [search, setSearch] = useState('');
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const q = new URLSearchParams();
-      if (vendorSearch) q.append('vendorSearch', vendorSearch);
-      
       const [pRes, rRes] = await Promise.all([
-        api.get(`/dispatcher/pickups?${q.toString()}`),
+        api.get('/dispatcher/pickups'),
         api.get('/dispatcher/riders'),
       ]);
       setPickups(pRes.data.data || []);
       setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load pickup requests', 'error'); }
     finally { setLoading(false); }
-  }, [vendorSearch, showToast]);
+  }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [vendorSearch, fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const assignPickup = async (pickupId) => {
     const riderId = assignMap[pickupId];
@@ -375,162 +310,8 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
     finally { setBulkConfirming(false); }
   };
 
-  const filteredPickups = pickups.filter(p => {
-    const s = globalSearch || search;
-    return !s || 
-      (p.packageId?.trackingCode || '').toLowerCase().includes(s.toLowerCase()) || 
-      (p.vendorId?.name || '').toLowerCase().includes(s.toLowerCase());
-  });
-
-  const pending = filteredPickups.filter(p => p.status === 'pending');
-  const assigned = filteredPickups.filter(p => p.status === 'assigned');
-
-  // Group pending pickups by vendorId
-  const groupPickupsByVendor = (pickups) => {
-    const grouped = {};
-    pickups.forEach(p => {
-      const vendorIdStr = p.vendorId?._id || p.vendorId || 'unknown';
-      if (!grouped[vendorIdStr]) {
-        grouped[vendorIdStr] = {
-          _id: vendorIdStr,
-          vendorId: p.vendorId,
-          packages: [],
-          oldestRequestedAt: p.requestedAt,
-        };
-      }
-      grouped[vendorIdStr].packages.push(p);
-      if (new Date(p.requestedAt) < new Date(grouped[vendorIdStr].oldestRequestedAt)) {
-        grouped[vendorIdStr].oldestRequestedAt = p.requestedAt;
-      }
-    });
-    return Object.values(grouped);
-  };
-
-  const pendingGrouped = groupPickupsByVendor(pending);
-
-  const assignGroupPickup = async (vendorIdStr) => {
-    const riderId = assignMap[vendorIdStr];
-    if (!riderId) return showToast('Please select a rider first', 'warning');
-    const group = pendingGrouped.find(g => g._id === vendorIdStr);
-    if (!group) return;
-    
-    setActionLoading(s => ({ ...s, [vendorIdStr]: 'assigning' }));
-    let successCount = 0;
-    try {
-      await Promise.all(group.packages.map(async (p) => {
-        try {
-          await api.put('/dispatcher/assign-pickup', { pickupId: p._id, riderId });
-          successCount++;
-        } catch (e) {}
-      }));
-      showToast(`✓ ${successCount} pickup(s) assigned for shop!`, 'success');
-      fetchData(true);
-    } catch (e) {
-      showToast('Failed to assign group', 'error');
-    } finally {
-      setActionLoading(s => ({ ...s, [vendorIdStr]: null }));
-    }
-  };
-
-  const openShopPickups = () => {}; // const { openShopPickups } = useTrackingDrawer();
-
-  const GroupedPendingTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
-    <div style={cardStyle}>
-      <div style={cardHeaderStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }}></span>
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
-          <span style={{ background: color + '20', color, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{items.length} Shops</span>
-        </div>
-        <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
-      </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              {showCheckboxes && (
-                <th style={{ ...thStyle, width: 44 }}>
-                  <input type="checkbox" onChange={e => onSelectAll(e, items.flatMap(g => g.packages))} checked={items.length > 0 && items.flatMap(g => g.packages).every(p => selectedIds.includes(p._id))} />
-                </th>
-              )}
-              {['Shop Name', 'Total Packages', 'Oldest Requested At', 'Assign Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? <tr><td colSpan="6"><Spinner /></td></tr>
-              : items.length === 0 ? <tr><td colSpan="6"><EmptyState message={vendorSearch ? "No shops found matching your search." : `No ${title.toLowerCase()}.`} /></td></tr>
-              : items.map(g => {
-                const aLoading = actionLoading[g._id];
-                const allSelected = g.packages.every(p => selectedIds.includes(p._id));
-                const shopName = getVendorDisplayName(g.vendorId, 'Unknown Vendor');
-                return (
-                  <tr 
-                    key={g._id} 
-                    style={{ cursor: showCheckboxes ? 'pointer' : 'default', background: allSelected ? '#eff6ff' : '' }} 
-                    onClick={() => showCheckboxes && g.packages.forEach(p => onSelect(p._id))} 
-                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} 
-                    onMouseLeave={e => e.currentTarget.style.background = allSelected ? '#eff6ff' : ''}
-                  >
-                    {showCheckboxes && (
-                      <td style={tdStyle} onClick={e => e.stopPropagation()}>
-                        <input type="checkbox" checked={allSelected} onChange={() => g.packages.forEach(p => onSelect(p._id))} />
-                      </td>
-                    )}
-                    <td style={tdStyle}>
-                      <button
-                        onClick={e => { e.stopPropagation(); openShopPickups(shopName, g.packages); }}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          color: '#1e3a8a',
-                          textAlign: 'left',
-                          textDecoration: 'underline',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6
-                        }}
-                        title="View packages"
-                      >
-                        {shopName} <span style={{ background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: 10, fontSize: 11 }}>{g.packages.length}</span>
-                      </button>
-                    </td>
-                    <td style={tdStyle}>{g.packages.length}</td>
-                    <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{g.oldestRequestedAt ? new Date(g.oldestRequestedAt).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
-                    <td style={tdStyle}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <select
-                          value={assignMap[g._id] || ''}
-                          onChange={e => setAssignMap(m => ({ ...m, [g._id]: e.target.value }))}
-                          style={{ fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 8px', minWidth: 130 }}
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <option value="">Select Rider</option>
-                          {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
-                        </select>
-                        <ActionBtn 
-                          onClick={(e) => { e.stopPropagation(); assignGroupPickup(g._id); }} 
-                          disabled={aLoading === 'assigning'} 
-                          variant="primary"
-                          icon={<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5.5"/><polyline points="8 11 3 16 8 21"/><circle cx="16.5" cy="7.5" r="3.5"/></svg>}
-                        >
-                          {aLoading === 'assigning' ? '...' : 'Assign'}
-                        </ActionBtn>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      —
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  const pending = pickups.filter(p => p.status === 'pending');
+  const assigned = pickups.filter(p => p.status === 'assigned');
 
   const PickupTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
     <div style={cardStyle}>
@@ -540,7 +321,7 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
           <span style={{ background: color + '20', color, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{items.length}</span>
         </div>
-        <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
+        <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={tableStyle}>
@@ -551,12 +332,12 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
                   <input type="checkbox" onChange={e => onSelectAll(e, items)} checked={items.length > 0 && items.every(i => selectedIds.includes(i._id))} />
                 </th>
               )}
-              {['Tracking', 'Shop Name', 'Customer', 'Address', 'Requested', 'Assigned Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+              {['Tracking', 'Vendor', 'Customer', 'Address', 'Requested', 'Assigned Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
             {loading ? <tr><td colSpan="7"><Spinner /></td></tr>
-              : items.length === 0 ? <tr><td colSpan="7"><EmptyState message={vendorSearch ? "No packages found." : `No ${title.toLowerCase()}.`} /></td></tr>
+              : items.length === 0 ? <tr><td colSpan="7"><EmptyState message={`No ${title.toLowerCase()}.`} /></td></tr>
               : items.map(p => {
                 const isAssigned = p.status === 'assigned';
                 const aLoading = actionLoading[p._id];
@@ -574,28 +355,7 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
                       </td>
                     )}
                     <td style={tdStyle}><TrackingLink code={p.packageId?.trackingCode} /></td>
-                    <td style={tdStyle}>
-                      {p.packageId?.trackingCode ? (
-                        <button
-                          onClick={e => { e.stopPropagation(); openTracking(p.packageId.trackingCode); }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            color: '#1e3a8a',
-                            textAlign: 'left',
-                            textDecoration: 'underline'
-                          }}
-                          title="View package details"
-                        >
-                          {getVendorDisplayName(p.vendorId, '—')}
-                        </button>
-                      ) : (
-                        <div style={{ fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</div>
-                      )}
-                    </td>
+                    <td style={tdStyle}><div style={{ fontWeight: 600 }}>{p.vendorId?.name || '—'}</div></td>
                     <td style={tdStyle}>{p.packageId?.customerName || '—'}</td>
                     <td style={{ ...tdStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.packageId?.address || '—'}</td>
                     <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
@@ -646,43 +406,9 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 20 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Pickup Requests</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6b7280' }}>Assign riders to pickup from vendors</p>
-        </div>
-        <div style={{ position: 'relative', display: 'flex', gap: '8px' }}>
-          <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Search by Shop Name, Vendor Name, or Email..."
-              value={vendorSearch}
-              onChange={e => setVendorSearch(e.target.value)}
-              style={{ width: '300px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
-            />
-            {vendorSearch && (
-              <button 
-                onClick={() => setVendorSearch('')}
-                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
-              >×</button>
-            )}
-          </div>
-          <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
-        </div>
-      </div>
-
       {/* Bulk Assign Toolbar for Pending Requests */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, flex: 1 }}>Bulk Assign Pickups</h3>
-        {!hideSearch && (
-          <input
-            type="text"
-            placeholder="Search tracking or vendor..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-          />
-        )}
         <select
           value={bulkRiderId}
           onChange={e => setBulkRiderId(e.target.value)}
@@ -724,27 +450,25 @@ const PickupRequests = ({ globalSearch = '', hideSearch = false }) => {
           </div>
         </div>
       )}
-      <div style={{ display: 'grid', gap: 30 }}>
-        <GroupedPendingTable
-          title="Pending Pickup Requests"
-          color="#f59e0b"
-          items={pendingGrouped}
-          showCheckboxes
-          selectedIds={selected}
-          onSelectAll={handleSelectAll}
-          onSelect={(id) => handleSelect(id, setSelected)}
-        />
-        
-        <PickupTable
-          items={assigned}
-          title="Assigned — Awaiting Warehouse Confirmation" 
-          color="#3b82f6" 
-          showCheckboxes={true} 
-          selectedIds={selectedAssigned} 
-          onSelectAll={(e, items) => handleSelectAll(e, items, setSelectedAssigned)} 
-          onSelect={(id) => handleSelect(id, setSelectedAssigned)} 
-        />
-      </div>
+
+      <PickupTable 
+        items={pending} 
+        title="Pending Pickup Requests" 
+        color="#f59e0b" 
+        showCheckboxes={true} 
+        selectedIds={selected} 
+        onSelectAll={(e, items) => handleSelectAll(e, items, setSelected)} 
+        onSelect={(id) => handleSelect(id, setSelected)} 
+      />
+      <PickupTable 
+        items={assigned} 
+        title="Assigned — Awaiting Warehouse Confirmation" 
+        color="#3b82f6" 
+        showCheckboxes={true} 
+        selectedIds={selectedAssigned} 
+        onSelectAll={(e, items) => handleSelectAll(e, items, setSelectedAssigned)} 
+        onSelect={(id) => handleSelect(id, setSelectedAssigned)} 
+      />
     </div>
   );
 };
@@ -757,52 +481,26 @@ const InboundScan = () => {
   const [collapsed, setCollapsed] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [search, setSearch] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [riderId, setRiderId] = useState('');
   const { showToast } = useToast();
 
-  const handleOutsideValleyAction = async (trackingCode, status) => {
-    const pkg = packages.find(p => p.trackingCode === trackingCode);
-    if (!pkg) return;
-    setActionLoading(s => ({ ...s, [pkg._id]: true }));
-    try {
-      await api.put(`/packages/${trackingCode}/outside-valley-status`, { status });
-      showToast(`Package marked as ${status}`, 'success');
-      fetchData(true);
-    } catch (e) {
-      showToast(e.response?.data?.message || 'Failed to update status', 'error');
-    } finally {
-      setActionLoading(s => ({ ...s, [pkg._id]: false }));
-    }
-  };
-
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const q = new URLSearchParams({ status: 'Pick Up Requested,Picked Up,In Warehouse,Dispatched,Arrived,Sent for Delivery' });
-      if (vendorSearch) q.append('vendorSearch', vendorSearch);
-      
       const [pRes, rRes] = await Promise.all([
-        api.get(`/dispatcher/packages?${q.toString()}`),
+        api.get('/dispatcher/packages?status=Pick Up Requested,Picked Up,In Warehouse'),
         api.get('/dispatcher/riders')
       ]);
       setPackages(pRes.data.data || []);
       setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load packages', 'error'); }
     finally { setLoading(false); }
-  }, [vendorSearch, showToast]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [vendorSearch, fetchData]);
 
   const confirmArrival = async (packageId) => {
     setActionLoading(s => ({ ...s, [packageId]: true }));
@@ -880,26 +578,11 @@ const InboundScan = () => {
           onChange={e => setSearch(e.target.value)}
           style={{ flex: '1 1 240px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
         />
-        <div style={{ position: 'relative', flex: '1 1 240px' }}>
-          <input
-            type="text"
-            placeholder="Search by Shop Name, Vendor Name, or Email..."
-            value={vendorSearch}
-            onChange={e => setVendorSearch(e.target.value)}
-            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
-          />
-          {vendorSearch && (
-            <button 
-              onClick={() => setVendorSearch('')}
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
-            >×</button>
-          )}
-        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
             { label: 'Pick Up Requested', color: '#f59e0b', count: packages.filter(p => p.status === 'Pick Up Requested').length },
             { label: 'Picked Up', color: '#3b82f6', count: packages.filter(p => p.status === 'Picked Up').length },
-            { label: 'In Warehouse', color: '#8b5cf6', count: packages.filter(p => ['In Warehouse', 'Dispatched', 'Arrived', 'Sent for Delivery'].includes(p.status)).length },
+            { label: 'In Warehouse', color: '#8b5cf6', count: packages.filter(p => p.status === 'In Warehouse').length },
           ].map(s => (
             <span key={s.label} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: s.color + '18', color: s.color, border: `1px solid ${s.color}30` }}>
               {s.label}: {s.count}
@@ -967,20 +650,14 @@ const InboundScan = () => {
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
                     <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, 'Unknown')}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || 'Unknown'}</td>
                     <td style={tdStyle}>{p.customerName}</td>
                     <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city ? `${p.city}, ` : ''}{p.address}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
                     <td style={tdStyle}><StatusBadge status={p.status} /></td>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
-                      {p.outOfValley ? (
-                        <OutsideValleyActionMenu 
-                          package={p} 
-                          onAction={handleOutsideValleyAction} 
-                          disabled={actionLoading[p._id]} 
-                        />
-                      ) : p.status !== 'In Warehouse' ? (
+                      {p.status !== 'In Warehouse' ? (
                         <ActionBtn onClick={() => confirmArrival(p._id)} disabled={actionLoading[p._id]} variant="primary" size="sm">
                           {actionLoading[p._id] ? '...' : '✓ Confirm Arrival'}
                         </ActionBtn>
@@ -1002,8 +679,8 @@ const InboundScan = () => {
   );
 };
 
-// ─── 4. Routing & Dispatch (Assigned for Delivery) ───────────────────────
-const Routing = ({ globalSearch = '', hideSearch = false }) => {
+// ─── 4. Routing & Bulk Assign ─────────────────────────────────────────────
+const Routing = () => {
   const [packages, setPackages] = useState([]);
   const [riders, setRiders] = useState([]);
   const [selected, setSelected] = useState([]);
@@ -1011,49 +688,26 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [search, setSearch] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const q = new URLSearchParams({ status: 'In Warehouse,Out for Delivery,Postponed' });
-      if (vendorSearch) q.append('vendorSearch', vendorSearch);
-      
       const [pRes, rRes] = await Promise.all([
-        api.get(`/dispatcher/packages?${q.toString()}`),
+        api.get('/dispatcher/packages?status=In Warehouse,Out for Delivery,Postponed'),
         api.get('/dispatcher/riders'),
       ]);
       setPackages(pRes.data.data || []);
       setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load', 'error'); }
     finally { setLoading(false); }
-  }, [vendorSearch, showToast]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [vendorSearch, fetchData]);
-
-  const filtered = packages.filter(p => {
-    const raw = globalSearch || search;
-    if (!raw) return true;
-    const s = raw.toLowerCase();
-    const sPhone = raw.replace(/[\s\-\(\)]/g, '');
-    return (
-      (p.trackingCode || '').toLowerCase().includes(s) ||
-      (p.customerName || '').toLowerCase().includes(s) ||
-      (p.customerPhone || '').replace(/[\s\-]/g, '').includes(sPhone) ||
-      (getVendorDisplayName(p.vendorId, '')).toLowerCase().includes(s) ||
-      (p.city || p.address || '').toLowerCase().includes(s) ||
-      (p.riderId?.name || '').toLowerCase().includes(s) ||
-      (p.parcelRef || '').toLowerCase().includes(s)
-    );
-  });
+  const filtered = packages.filter(p =>
+    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || (p.vendorId?.name || '').toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSelectAll = e => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
   const handleSelect = id => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -1078,30 +732,13 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
     <div>
       {/* Toolbar */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
-        {!hideSearch && (
-          <input
-            type="text"
-            placeholder="Search by tracking, customer, phone, destination, rider..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-          />
-        )}
-        <div style={{ position: 'relative', flex: '1 1 240px' }}>
-          <input
-            type="text"
-            placeholder="Search by Shop Name, Vendor Name, or Email..."
-            value={vendorSearch}
-            onChange={e => setVendorSearch(e.target.value)}
-            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
-          />
-          {vendorSearch && (
-            <button 
-              onClick={() => setVendorSearch('')}
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
-            >×</button>
-          )}
-        </div>
+        <input
+          type="text"
+          placeholder="Search tracking or vendor..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
+        />
         <select
           value={riderId}
           onChange={e => setRiderId(e.target.value)}
@@ -1140,24 +777,21 @@ const Routing = ({ globalSearch = '', hideSearch = false }) => {
                 <th style={{ ...thStyle, width: 44 }}>
                   <input type="checkbox" onChange={handleSelectAll} checked={filtered.length > 0 && selected.length === filtered.length} />
                 </th>
-                {['Tracking', 'Vendor', 'Customer', 'Phone Number', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                {['Tracking', 'Vendor', 'Customer', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan="10"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="10"><EmptyState message={vendorSearch ? "No packages found for this vendor." : "No packages ready for routing."} /></td></tr>
+              {loading ? <tr><td colSpan="9"><Spinner /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="9"><EmptyState message="No packages found." icon="📦" /></td></tr>
                 : filtered.map(p => (
-                  <tr key={p._id} style={{ cursor: 'pointer', background: selected.includes(p._id) ? '#eff6ff' : '' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
+                  <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selected.includes(p._id)} onChange={() => handleSelect(p._id)} />
                     </td>
                     <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
-                    <td style={tdStyle}>{p.customerName || '—'}</td>
-                    <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                      <PhoneCell phone={resolvePhone(p)} />
-                    </td>
-                    <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{resolveDestination(p)}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || '—'}</td>
+                    <td style={tdStyle}>{p.customerName}</td>
+                    <td style={{ ...tdStyle, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.city || p.address || '—'}</td>
                     <td style={tdStyle}>{p.weight} kg</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{p.amount?.toLocaleString()}</td>
                     <td style={tdStyle}><StatusBadge status={p.status} /></td>
@@ -1178,30 +812,18 @@ const ReverseLogistics = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [filter, setFilter] = useState('all');
-  const [search, setSearch] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const q = new URLSearchParams({ status: 'Returned,Returned to Vendor' });
-      if (vendorSearch) q.append('vendorSearch', vendorSearch);
-      
-      const r = await api.get(`/dispatcher/packages?${q.toString()}`);
+      const r = await api.get('/dispatcher/packages?status=Returned,Returned to Vendor');
       setPackages(r.data.data || []);
     } catch { showToast('Failed to load returns', 'error'); }
     finally { setLoading(false); }
-  }, [vendorSearch, showToast]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [vendorSearch, fetchData]);
 
   const confirmStep = async (packageId, type) => {
     setActionLoading(s => ({ ...s, [packageId]: type }));
@@ -1214,12 +836,9 @@ const ReverseLogistics = () => {
   };
 
   const filtered = packages.filter(p => {
-    if (filter === 'pending_rider' && p.rtvSignoff?.riderReturned) return false;
-    if (filter === 'pending_vendor' && (!p.rtvSignoff?.riderReturned || p.rtvSignoff?.vendorReceived)) return false;
-    if (filter === 'complete' && (!p.rtvSignoff?.riderReturned || !p.rtvSignoff?.vendorReceived)) return false;
-    
-    if (search && !p.trackingCode.toLowerCase().includes(search.toLowerCase()) && !p.customerName.toLowerCase().includes(search.toLowerCase())) return false;
-    
+    if (filter === 'pending_rider') return !p.rtvSignoff?.riderReturned;
+    if (filter === 'pending_vendor') return p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived;
+    if (filter === 'complete') return p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived;
     return true;
   });
 
@@ -1231,31 +850,6 @@ const ReverseLogistics = () => {
 
   return (
     <div>
-      {/* Search Bar */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search tracking or customer..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ flex: '1 1 240px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-        />
-        <div style={{ position: 'relative', flex: '1 1 240px' }}>
-          <input
-            type="text"
-            placeholder="Search by Shop Name, Vendor Name, or Email..."
-            value={vendorSearch}
-            onChange={e => setVendorSearch(e.target.value)}
-            style={{ width: '100%', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 30px 8px 14px', fontSize: 13, outline: 'none' }}
-          />
-          {vendorSearch && (
-            <button 
-              onClick={() => setVendorSearch('')}
-              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontWeight: 'bold' }}
-            >×</button>
-          )}
-        </div>
-      </div>
       {/* Stats + Filter Bar */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         {[
@@ -1269,7 +863,7 @@ const ReverseLogistics = () => {
           </button>
         ))}
         <div style={{ marginLeft: 'auto' }}>
-          <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
+          <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
         </div>
       </div>
 
@@ -1288,7 +882,7 @@ const ReverseLogistics = () => {
             </thead>
             <tbody>
               {loading ? <tr><td colSpan="7"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="7"><EmptyState message={vendorSearch ? "No packages found for this vendor." : "No returns found in this category."} icon="↩️" /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="7"><EmptyState message="No returns in this category." icon="↩️" /></td></tr>
                 : filtered.map(p => {
                   const riderDone = !!p.rtvSignoff?.riderReturned;
                   const vendorDone = !!p.rtvSignoff?.vendorReceived;
@@ -1297,7 +891,7 @@ const ReverseLogistics = () => {
                   return (
                     <tr key={p._id} style={{ opacity: fullDone ? 0.6 : 1 }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                       <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{getVendorDisplayName(p.vendorId, '—')}</td>
+                      <td style={{ ...tdStyle, fontWeight: 600 }}>{p.vendorId?.name || '—'}</td>
                       <td style={tdStyle}>{p.customerName}</td>
                       <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db' }}>—</span>}</td>
                       <td style={tdStyle}><StatusBadge status={p.status} /></td>
@@ -1348,7 +942,19 @@ const ActiveRiders = () => {
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
-  const openRiderHistory = () => {}; // const { openRiderHistory } = useRiderHistory();
+
+  const [hoveredId, setHoveredId] = useState(null);
+  const [selectedRider, setSelectedRider] = useState(null);
+  const [riderHistory, setRiderHistory] = useState(null);
+  const [riderHistoryLoading, setRiderHistoryLoading] = useState(false);
+  const [historyFilters, setHistoryFilters] = useState({
+    status: 'all',
+    vendorId: 'all',
+    valley: 'all',
+    startDate: '',
+    endDate: '',
+  });
+  const [expandedTimelines, setExpandedTimelines] = useState(new Set());
 
   const fetchRiders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -1359,7 +965,55 @@ const ActiveRiders = () => {
     finally { setLoading(false); }
   }, [showToast]);
 
+  const fetchRiderHistory = useCallback(async (riderId, filters = {}) => {
+    setRiderHistoryLoading(true);
+    try {
+      let query = '';
+      const params = [];
+      if (filters.status && filters.status !== 'all') params.push(`status=${filters.status}`);
+      if (filters.vendorId && filters.vendorId !== 'all') params.push(`vendorId=${filters.vendorId}`);
+      if (filters.valley && filters.valley !== 'all') params.push(`valley=${filters.valley}`);
+      if (filters.startDate) params.push(`startDate=${filters.startDate}`);
+      if (filters.endDate) params.push(`endDate=${filters.endDate}`);
+      
+      if (params.length > 0) {
+        query = '?' + params.join('&');
+      }
+      const res = await api.get(`/dispatcher/riders/${riderId}/history${query}`);
+      setRiderHistory(res.data.data);
+    } catch {
+      showToast('Failed to load rider history', 'error');
+    } finally {
+      setRiderHistoryLoading(false);
+    }
+  }, [showToast]);
+
   useEffect(() => { fetchRiders(); }, [fetchRiders]);
+
+  useEffect(() => {
+    if (selectedRider) {
+      fetchRiderHistory(selectedRider._id, historyFilters);
+    }
+  }, [selectedRider, historyFilters, fetchRiderHistory]);
+
+  const handleRiderClick = (rider) => {
+    setHistoryFilters({
+      status: 'all',
+      vendorId: 'all',
+      valley: 'all',
+      startDate: '',
+      endDate: '',
+    });
+    setExpandedTimelines(new Set());
+    setSelectedRider(rider);
+  };
+
+  const toggleTimeline = (pkgId) => {
+    const newSet = new Set(expandedTimelines);
+    if (newSet.has(pkgId)) newSet.delete(pkgId);
+    else newSet.add(pkgId);
+    setExpandedTimelines(newSet);
+  };
 
   if (loading) return <Spinner />;
 
@@ -1377,79 +1031,313 @@ const ActiveRiders = () => {
           {riders.map(rider => (
             <div 
               key={rider._id} 
-              style={{ ...cardStyle, padding: 20, marginBottom: 0, display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer', transition: 'transform 0.1s' }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'none'}
-              onClick={() => openRiderHistory(rider._id)}
+              onClick={() => handleRiderClick(rider)}
+              onMouseEnter={() => setHoveredId(rider._id)}
+              onMouseLeave={() => setHoveredId(null)}
+              style={{ 
+                ...cardStyle, 
+                padding: 20, 
+                marginBottom: 0, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 16,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                transform: hoveredId === rider._id ? 'translateY(-2px)' : 'none',
+                boxShadow: hoveredId === rider._id ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : 'none',
+                borderColor: hoveredId === rider._id ? '#2563eb' : '#e5e7eb'
+              }}
             >
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#eff6ff', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700 }}>
                 {rider.name.charAt(0).toUpperCase()}
               </div>
               <div>
                 <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>{rider.name}</h3>
-                <div style={{ fontSize: 13, color: '#6b7280' }}>📧 {rider.email}</div>
-                <div style={{ fontSize: 13, color: '#6b7280' }}>📞 {rider.contact || 'No contact info'}</div>
+                <div style={{ fontSize: 13, color: '#6b7280' }} onClick={(e) => e.stopPropagation()}>📧 {rider.email}</div>
+                <div style={{ fontSize: 13, color: '#6b7280' }} onClick={(e) => e.stopPropagation()}>📞 {rider.contact || 'No contact info'}</div>
                 <div style={{ fontSize: 13, color: '#059669', fontWeight: 600, marginTop: 4 }}>💵 COD Collected: Rs. {(rider.totalCOD || 0).toLocaleString()}</div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Rider History Drawer/Modal */}
+      {selectedRider && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ width: '100%', maxWidth: 850, background: '#fff', boxShadow: '-4px 0 24px rgba(0,0,0,0.15)', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>🏍️ Rider Activity History: {selectedRider.name}</h3>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                  <span style={{ marginRight: 16 }}>📧 {selectedRider.email}</span>
+                  <span>📞 {selectedRider.contact || 'No contact'}</span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedRider(null)}
+                style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#9ca3af', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 6 }}
+                onMouseEnter={(e) => e.target.style.color = '#374151'}
+                onMouseLeave={(e) => e.target.style.color = '#9ca3af'}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+              {riderHistoryLoading ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#9ca3af', fontSize: 14 }}>Loading activity history...</div>
+              ) : !riderHistory ? (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: '#9ca3af', fontSize: 14 }}>Failed to load rider statistics.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  
+                  {/* KPIs */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 10 }}>
+                    {[
+                      { label: 'Handled', value: riderHistory.stats.totalHandled, color: '#f3f4f6', tColor: '#374151' },
+                      { label: 'Picked Up', value: riderHistory.stats.totalPickedUp, color: '#dbeafe', tColor: '#1e40af' },
+                      { label: 'Delivered', value: riderHistory.stats.totalDelivered, color: '#d1fae5', tColor: '#065f46' },
+                      { label: 'Failed/Ret', value: riderHistory.stats.totalFailedReturned, color: '#fee2e2', tColor: '#991b1b' },
+                      { label: 'COD Collected', value: `Rs. ${riderHistory.stats.totalCODCollected.toLocaleString()}`, color: '#fef3c7', tColor: '#92400e' },
+                      { label: 'Assigned Now', value: riderHistory.stats.currentAssigned, color: '#f3e8ff', tColor: '#6b21a8' }
+                    ].map((kpi, idx) => (
+                      <div key={idx} style={{ background: kpi.color, border: '1px solid rgba(0,0,0,0.05)', borderRadius: 8, padding: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 64 }}>
+                        <div style={{ fontSize: 9, fontWeight: 700, color: kpi.tColor, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{kpi.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: kpi.tColor }}>{kpi.value}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Filters */}
+                  <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Status</label>
+                      <select 
+                        style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                        value={historyFilters.status}
+                        onChange={(e) => setHistoryFilters({ ...historyFilters, status: e.target.value })}
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="In Warehouse">In Warehouse</option>
+                        <option value="Picked Up">Picked Up</option>
+                        <option value="Out for Delivery">Out for Delivery</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Postponed">Postponed</option>
+                        <option value="Hold">Hold</option>
+                        <option value="Cancelled">Cancelled</option>
+                        <option value="Returned">Returned</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Vendor</label>
+                      <select 
+                        style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                        value={historyFilters.vendorId}
+                        onChange={(e) => setHistoryFilters({ ...historyFilters, vendorId: e.target.value })}
+                      >
+                        <option value="all">All Vendors</option>
+                        {(() => {
+                          const uniqueVendors = [];
+                          const seen = new Set();
+                          (riderHistory.packages || []).forEach(p => {
+                            const v = p.vendorId;
+                            if (v && !seen.has(v._id)) {
+                              seen.add(v._id);
+                              uniqueVendors.push(v);
+                            }
+                          });
+                          return uniqueVendors.map(v => (
+                            <option key={v._id} value={v._id}>
+                              {v.vendorMeta?.shopName || v.name}
+                            </option>
+                          ));
+                        })()}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Region</label>
+                      <select 
+                        style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                        value={historyFilters.valley}
+                        onChange={(e) => setHistoryFilters({ ...historyFilters, valley: e.target.value })}
+                      >
+                        <option value="all">All Regions</option>
+                        <option value="inside">Inside Valley</option>
+                        <option value="outside">Outside Valley</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Start Date</label>
+                      <input 
+                        type="date"
+                        style={{ width: '105%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }}
+                        value={historyFilters.startDate}
+                        onChange={(e) => setHistoryFilters({ ...historyFilters, startDate: e.target.value })}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>End Date</label>
+                      <input 
+                        type="date"
+                        style={{ width: '105%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }}
+                        value={historyFilters.endDate}
+                        onChange={(e) => setHistoryFilters({ ...historyFilters, endDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Packages Table */}
+                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                    <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                      <table style={tableStyle}>
+                        <thead>
+                          <tr>
+                            <th style={thStyle}>Tracking Code</th>
+                            <th style={thStyle}>Vendor / Region</th>
+                            <th style={thStyle}>Customer</th>
+                            <th style={thStyle}>COD / Dates</th>
+                            <th style={thStyle}>Status</th>
+                            <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody style={{ fontSize: 12 }}>
+                          {riderHistory.packages.length === 0 ? (
+                            <tr>
+                              <td colSpan="6" style={{ ...tdStyle, textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                                No historical packages match the selected criteria.
+                              </td>
+                            </tr>
+                          ) : (
+                            riderHistory.packages.map(p => {
+                              const isTimelineExpanded = expandedTimelines.has(p._id);
+                              return (
+                                <React.Fragment key={p._id}>
+                                  <tr>
+                                    <td style={tdStyle}>
+                                      <TrackingLink code={p.trackingCode} />
+                                    </td>
+                                    <td style={tdStyle}>
+                                      <div style={{ fontWeight: 700 }}>{p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || 'Unknown'}</div>
+                                      <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
+                                        {p.outOfValley ? '🏔️ Outside Valley' : '🏡 Inside Valley'}
+                                      </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                      <div style={{ fontWeight: 700 }}>{p.customerName}</div>
+                                      <div style={{ color: '#6b7280' }}>{p.customerPhone}</div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                      <div style={{ fontWeight: 800 }}>Rs. {p.amount}</div>
+                                      <div style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>
+                                        Created: {new Date(p.createdAt).toLocaleDateString()}
+                                      </div>
+                                    </td>
+                                    <td style={tdStyle}>
+                                      <StatusBadge status={p.status} />
+                                    </td>
+                                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                                      <button 
+                                        onClick={() => toggleTimeline(p._id)}
+                                        style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                      >
+                                        {isTimelineExpanded ? 'Hide' : 'Timeline'}
+                                      </button>
+                                    </td>
+                                  </tr>
+
+                                  {isTimelineExpanded && (
+                                    <tr>
+                                      <td colSpan="6" style={{ ...tdStyle, background: '#f9fafb' }}>
+                                        <div style={{ paddingLeft: 16, borderLeft: '2px solid #3b82f6' }}>
+                                          <div style={{ fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 6 }}>Package Timeline Log</div>
+                                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
+                                            {p.timeline.map((t, idx) => (
+                                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#374151' }}>
+                                                <div>
+                                                  <span style={{ fontWeight: 700 }}>[{t.status}]</span> {t.message}
+                                                  {t.user && <span style={{ fontSize: 9, color: '#9ca3af' }}> (by {t.user})</span>}
+                                                </div>
+                                                <div style={{ fontSize: 9, color: '#9ca3af', marginLeft: 16, whiteSpace: 'nowrap' }}>{t.time}</div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={drawerFooterStyle}>
+              <ActionBtn onClick={() => setSelectedRider(null)} variant="secondary">Close History</ActionBtn>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
+
 // ─── Combined Tasks (Pickups & Deliveries) ───────────────────────────────
 const CombinedTasks = () => {
   const [activeFilter, setActiveFilter] = useState('all');
-  const [globalSearch, setGlobalSearch] = useState('');
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {[
-            { key: 'all', label: 'All Tasks', color: '#6b7280' },
-            { key: 'pickups', label: 'Pickups', color: '#f59e0b' },
-            { key: 'deliveries', label: 'Deliveries', color: '#3b82f6' },
-          ].map(s => (
-            <button 
-              key={s.key} 
-              onClick={() => setActiveFilter(s.key)} 
-              style={{ 
-                padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', 
-                background: activeFilter === s.key ? s.color : 'white', 
-                color: activeFilter === s.key ? 'white' : s.color, 
-                border: `2px solid ${s.color}`
-              }}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-        {activeFilter === 'all' && (
-          <input
-            type="text"
-            placeholder="Search all tasks by tracking or vendor..."
-            value={globalSearch}
-            onChange={e => setGlobalSearch(e.target.value)}
-            style={{ flex: '0 1 300px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-          />
-        )}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[
+          { key: 'all', label: 'All Tasks', color: '#6b7280' },
+          { key: 'pickups', label: 'Pickups', color: '#f59e0b' },
+          { key: 'deliveries', label: 'Deliveries', color: '#3b82f6' },
+        ].map(s => (
+          <button 
+            key={s.key} 
+            onClick={() => setActiveFilter(s.key)} 
+            style={{ 
+              padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', 
+              background: activeFilter === s.key ? s.color : 'white', 
+              color: activeFilter === s.key ? 'white' : s.color, 
+              border: `2px solid ${s.color}`
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
         {(activeFilter === 'all' || activeFilter === 'pickups') && (
           <div>
             {activeFilter === 'all' && <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Pickup Tasks</h2>}
-            <PickupRequests globalSearch={activeFilter === 'all' ? globalSearch : ''} hideSearch={activeFilter === 'all'} />
+            <PickupRequests />
           </div>
         )}
 
         {(activeFilter === 'all' || activeFilter === 'deliveries') && (
           <div>
             {activeFilter === 'all' && <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, marginTop: activeFilter === 'all' ? 16 : 0 }}>Delivery Tasks</h2>}
-            <Routing globalSearch={activeFilter === 'all' ? globalSearch : ''} hideSearch={activeFilter === 'all'} />
+            <Routing />
           </div>
         )}
       </div>
@@ -1592,7 +1480,7 @@ const DispatcherDashboard = () => {
   const notifications = pendingPickups.map(p => ({
     id: p._id,
     title: 'New Pickup Request',
-    message: `${getVendorDisplayName(p.vendorId, 'A vendor')} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
+    message: `${p.vendorId?.name || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
     time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
     read: false,
     icon: '🚚',

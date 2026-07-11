@@ -4,7 +4,7 @@ import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
-import { getVendorDisplayName } from '../../utils/vendor';
+import TrackingLink from '../../components/TrackingLink';
 import { 
   Package, Truck, Wallet, History, MapPin, Navigation, 
   CheckCircle2, XCircle, Clock, Search, AlertCircle, X,
@@ -25,8 +25,11 @@ const titleMap = {
   '/rider/expense-history': 'Expense History',
 };
 
-function statusBadge(status) {
+function statusBadge(status, verificationStatus) {
   const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
+  if (verificationStatus === 'Pending' || verificationStatus === 'Reopened') {
+    return <span className={`${base} bg-amber-50 text-amber-700 border-amber-200`}>⏳ Pending Verification</span>;
+  }
   const styles = {
     'Delivered': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'Cancelled': 'bg-red-50 text-red-700 border-red-200',
@@ -56,8 +59,8 @@ const MyDeliveries = () => {
   
   const { showToast } = useToast();
 
-  const fetchAll = async () => {
-    setLoading(true);
+  const fetchAll = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [d, p] = await Promise.all([
         api.get('/rider/deliveries?type=delivery'), 
@@ -87,8 +90,8 @@ const MyDeliveries = () => {
       await api.put('/rider/update-status',{packageId:actionModal.pkg._id,action:actionModal.action,comment:form.comment,cashCollected:Number(form.cashCollected),newDate:form.newDate});
       showToast('Status updated!','success');
       setActionModal({open:false,pkg:null,action:''});
-      fetchAll();
-    } catch(err) { showToast(err.response?.data?.message||'Failed','error'); }
+      fetchAll(true);
+    } catch(err) { showToast(err.message||'Failed','error'); }
   };
 
   const handleBulkPickup = async () => {
@@ -96,9 +99,9 @@ const MyDeliveries = () => {
     try {
       await api.put('/rider/bulk-pickup', { packageIds: selectedPickups });
       showToast(`${selectedPickups.length} pickups confirmed!`, 'success');
-      fetchAll();
+      fetchAll(true);
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to confirm bulk pickup', 'error');
+      showToast(err.message || 'Failed to confirm bulk pickup', 'error');
     }
   };
 
@@ -123,10 +126,10 @@ const MyDeliveries = () => {
       }));
       showToast(`${count} deliveries marked as Completed!`, 'success');
       setSelectedDeliveries([]);
-      fetchAll();
+      fetchAll(true);
     } catch (err) {
       showToast('Some deliveries failed to update', 'error');
-      fetchAll();
+      fetchAll(true);
     }
   };
 
@@ -134,6 +137,14 @@ const MyDeliveries = () => {
 
   // Filtering Logic
   const filteredDeliveries = deliveries.filter(d => {
+    const isPendingVerification = d.deliveryVerificationStatus === 'Pending' || d.deliveryVerificationStatus === 'Reopened';
+    
+    if (isPendingVerification) {
+      if (deliveryFilter === 'completed') return true;
+      if (deliveryFilter === 'all') return true;
+      return false; // Exclude from other active filters
+    }
+
     if (deliveryFilter === 'pending') return ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status);
     if (deliveryFilter === 'active') return ['Out for Delivery'].includes(d.status);
     if (deliveryFilter === 'completed') return ['Delivered'].includes(d.status);
@@ -190,11 +201,11 @@ const MyDeliveries = () => {
             
             <div className="space-y-3 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-lg font-bold text-slate-900">{pkg.trackingCode}</h4>
+                <TrackingLink code={pkg.trackingCode} className="text-lg" />
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
-                  🏢 {getVendorDisplayName(pkg.vendorId, 'Vendor')}
+                  🏢 {pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name || 'Vendor'}
                 </span>
-                {statusBadge(pkg.status)}
+                {statusBadge(pkg.status, pkg.deliveryVerificationStatus)}
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
@@ -423,11 +434,47 @@ const MyDeliveries = () => {
 // ─── Performance & Wallet ────────────────────────────────────────────────
 const CODWallet = () => {
   const [stats, setStats] = useState({});
+  const [unreconciledPkgs, setUnreconciledPkgs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const { showToast } = useToast();
+
+  const fetchWallet = async () => {
+    try {
+      const [sumRes, delRes] = await Promise.all([
+        api.get('/rider/summary'),
+        api.get('/rider/deliveries?type=delivery')
+      ]);
+      setStats(sumRes.data.data || {});
+      const pkgs = delRes.data.data || [];
+      setUnreconciledPkgs(pkgs.filter(p => p.status === 'Delivered' && !p.cashReconciled));
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to load wallet data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    api.get('/rider/summary').then(r=>setStats(r.data.data||{})).catch(console.error).finally(()=>setLoading(false));
+    fetchWallet();
   }, []);
+
+  const handleHandover = async () => {
+    if (!unreconciledPkgs.length) return;
+    setSubmitting(true);
+    try {
+      await api.post('/rider/cod-handover', {
+        packageIds: unreconciledPkgs.map(p => p._id)
+      });
+      showToast('COD Handover request submitted!', 'success');
+      fetchWallet();
+    } catch (err) {
+      showToast(err.message || 'Failed to submit handover', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div></div>;
 
@@ -463,13 +510,22 @@ const CODWallet = () => {
             </div>
           </div>
           
-          <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10">
-            <p className="text-sm text-brand-50 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0"/> 
-              Total Cash-On-Delivery collected. Must be deposited at the hub.
-            </p>
+            <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+              <p className="text-sm text-brand-50 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0"/> 
+                Total Cash-On-Delivery collected. Must be deposited at the hub.
+              </p>
+              {unreconciledPkgs.length > 0 && (
+                <button 
+                  onClick={handleHandover}
+                  disabled={submitting}
+                  className="whitespace-nowrap px-4 py-2 bg-white text-brand-700 hover:bg-brand-50 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50"
+                >
+                  {submitting ? 'Submitting...' : `Handover Rs. ${stats.totalCOD??0}`}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
         {/* Target Card */}
         <div className="card-premium p-6 flex flex-col justify-center">
@@ -537,7 +593,7 @@ const ExpenseLog = () => {
       showToast('Expense logged!','success');
       setForm({category:'',amount:'',description:''});
       fetchSummary();
-    } catch(err) { showToast(err.response?.data?.message||'Failed to log expense','error'); }
+    } catch(err) { showToast(err.message||'Failed to log expense','error'); }
   };
 
   const dailyRemaining = (summary.allowance?.dailyAllowance||500) - (summary.daily?.total||0);
@@ -716,7 +772,7 @@ const RiderDashboard = () => {
             id: p._id,
             title: p.status === 'Pick Up Requested' ? 'New Pickup Assigned' : 'New Delivery Assigned',
             message: p.status === 'Pick Up Requested' 
-              ? `Collect package from ${getVendorDisplayName(p.vendorId, 'Vendor')}`
+              ? `Collect package from ${p.vendorId?.name || 'Vendor'}`
               : `Deliver ${p.trackingCode} to ${p.customerName}`,
             time: new Date(p.updatedAt || p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             read: false,

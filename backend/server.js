@@ -1,8 +1,15 @@
 import dotenv from 'dotenv';
 dotenv.config();
+import { validateEnv } from './config/validateEnv.js';
+const env = validateEnv();
 
 import express from 'express';
 import http from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { Server } from 'socket.io';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -16,7 +23,7 @@ import mongoose from 'mongoose';
 import { corsOptions } from './config/corsOptions.js';
 import { connectDB } from './config/db.js';
 import { errorHandler } from './middleware/errorHandler.js';
-import { apiLimiter, authLimiter } from './middleware/rateLimiter.js';
+import { publicLimiter, authLimiter, vendorLimiter, riderLimiter, staffLimiter } from './middleware/rateLimiter.js';
 import { logger } from './config/logger.js';
 import jwt from 'jsonwebtoken';
 
@@ -31,6 +38,7 @@ import expenseRoutes from './routes/expenseRoutes.js';
 import publicRoutes from './routes/publicRoutes.js';
 import scanRoutes from './routes/scanRoutes.js';
 import deliveryChargeRoutes from './routes/deliveryChargeRoutes.js';
+import './services/eventBusHandlers.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -65,14 +73,15 @@ io.on('connection', (socket) => {
   });
 });
 
+// Trust proxy (required for Render/Vercel) - Must be before rate limiters/security
+app.set('trust proxy', 1);
+
 // ─── Security Middleware ────────────────────────────────────────────────────────
 app.use(helmet());
+app.disable('x-powered-by');
 app.use(cors(corsOptions));
 app.use(mongoSanitize());
 app.use(hpp());
-
-// Trust proxy (required for Render/Vercel)
-app.set('trust proxy', 1);
 
 // ─── Performance Middleware ───────────────────────────────────────────────────
 app.use(compression());
@@ -87,8 +96,7 @@ app.use(process.env.NODE_ENV === 'production'
 );
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
-app.use('/api', apiLimiter);
-app.use('/api/auth', authLimiter);
+// Handled route-by-route below
 
 // ─── Socket.io Middleware ──────────────────────────────────────────────────────
 app.use((req, res, next) => {
@@ -96,29 +104,55 @@ app.use((req, res, next) => {
   next();
 });
 
+// ─── Static Files ────────────────────────────────────────────────────────────
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get(['/', '/health', '/api/health'], (req, res) => {
+  const dbStateMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting',
+  };
+  const dbStatus = dbStateMap[mongoose.connection.readyState] || 'disconnected';
   const isDbConnected = mongoose.connection.readyState === 1;
   const status = isDbConnected ? 200 : 503;
+  
   res.status(status).json({
-    status: isDbConnected ? 'OK' : 'ERROR',
+    status: isDbConnected ? 'ok' : 'error',
+    database: dbStatus,
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    uptime: process.uptime(),
+    uptime: Math.floor(process.uptime()),
   });
 });
 
-// ─── API Routes ───────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/vendor', vendorRoutes);
-app.use('/api/dispatcher', dispatcherRoutes);
-app.use('/api/rider', riderRoutes);
-app.use('/api/packages', packageRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/public', publicRoutes);
-app.use('/api/scan', scanRoutes);
-app.use('/api/delivery-charges', deliveryChargeRoutes);
+// ─── API Routes with Role-Specific Rate Limiting ────────────────────────────────
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/admin', staffLimiter, adminRoutes);
+app.use('/api/v1/admin', staffLimiter, adminRoutes);
+app.use('/api/vendor', vendorLimiter, vendorRoutes);
+app.use('/api/dispatcher', staffLimiter, dispatcherRoutes);
+app.use('/api/rider', riderLimiter, riderRoutes);
+app.use('/api/packages', staffLimiter, packageRoutes);
+app.use('/api/expenses', staffLimiter, expenseRoutes);
+app.use('/api/public', publicLimiter, publicRoutes);
+app.use('/api/scan', staffLimiter, scanRoutes);
+app.use('/api/delivery-charges', staffLimiter, deliveryChargeRoutes);
+
+// ─── Serve Frontend in Production ─────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+  app.get('*', (req, res, next) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+    } else {
+      next();
+    }
+  });
+}
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
@@ -131,7 +165,30 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV !== 'test') {
-  connectDB().then(() => {
+  connectDB().then(async () => {
+    // Auto-seed admin user if none exists
+    try {
+      const User = (await import('./models/User.js')).default;
+      const adminEmail = 'admin@exdexpress.com';
+      const existingAdmin = await User.findOne({ email: adminEmail });
+      if (!existingAdmin) {
+        logger.info('No admin user found. Seeding default admin user...');
+        const adminUser = new User({
+          name: 'System Admin',
+          email: adminEmail,
+          password: 'admin123',
+          role: 'admin',
+          contact: '9800000000',
+          status: 'Active'
+        });
+        await adminUser.save();
+        logger.info('Default admin user seeded successfully.');
+        logger.info('Email: admin@exdexpress.com | Password: admin123');
+      }
+    } catch (seedErr) {
+      logger.error(`Auto-seeding failed: ${seedErr.message}`);
+    }
+
     server.listen(PORT, '0.0.0.0', () => logger.info(`Server running on port ${PORT} [${process.env.NODE_ENV}]`));
   });
 }

@@ -1,18 +1,13 @@
 import mongoose from 'mongoose';
-
-const timelineEntrySchema = new mongoose.Schema(
-  {
-    time: { type: String, required: true },
-    status: { type: String, required: true },
-    message: { type: String, default: '' },
-    user: { type: String, default: 'System' },
-    role: { type: String, default: '' },
-    location: { type: String, default: '' },
-    scannedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    scanEventId: { type: mongoose.Schema.Types.ObjectId, default: null },
-  },
-  { _id: false }
-);
+import RiderSubmissionSchema from './schemas/RiderSubmissionSchema.js';
+import VerificationDraftSchema from './schemas/VerificationDraftSchema.js';
+import VerificationAuditSchema from './schemas/VerificationAuditSchema.js';
+import FinancialAdjustmentSchema from './schemas/FinancialAdjustmentSchema.js';
+import TimelineEntrySchema from './schemas/TimelineEntrySchema.js';
+import { PACKAGE_STATUSES } from '../constants/packageStatus.js';
+import { VERIFICATION_STATUSES } from '../constants/verificationStatus.js';
+import { SETTLEMENT_STATUSES } from '../constants/settlementStatus.js';
+import { PAYMENT_METHODS } from '../constants/paymentMethod.js';
 
 const lineItemSchema = new mongoose.Schema(
   {
@@ -77,6 +72,113 @@ const packageSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // ─── Settlement Fields ──────────────────────────────────────────────
+    vendorReceivable: {
+      type: Number,
+      default: 0,
+    },
+    codCollected: {
+      type: Boolean,
+      default: false,
+    },
+    codVerified: {
+      type: Boolean,
+      default: false,
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    settlementStatus: {
+      type: String,
+      enum: SETTLEMENT_STATUSES,
+      default: 'Pending',
+    },
+    // ─── Verification & Enterprise Fields ───────────────────────────────
+    deliveryVerificationStatus: {
+      type: String,
+      enum: VERIFICATION_STATUSES,
+      default: 'Pending',
+    },
+    codVerificationStatus: {
+      type: String,
+      enum: ['Pending', 'Verified', 'Short', 'Excess'],
+      default: 'Pending',
+    },
+    holdReason: {
+      type: String,
+      default: '',
+    },
+    rejectReason: {
+      type: String,
+      default: '',
+    },
+    paymentMethod: {
+      type: String,
+      enum: PAYMENT_METHODS,
+      default: 'Cash',
+    },
+    collectionType: {
+      type: String,
+      default: '',
+    },
+    riderSubmission: {
+      type: RiderSubmissionSchema,
+      default: null,
+    },
+    verificationDraft: {
+      type: VerificationDraftSchema,
+      default: null,
+    },
+    financialAdjustments: [FinancialAdjustmentSchema],
+    verificationAudit: [VerificationAuditSchema],
+    verificationStartedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationCompletedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationDuration: {
+      type: Number,
+      default: 0,
+    },
+    branchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Branch',
+      default: null,
+    },
+    hubId: {
+      type: String,
+      default: '',
+    },
+    zoneId: {
+      type: String,
+      default: '',
+    },
+    verificationDeletedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationDeletedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    verificationDeleteReason: {
+      type: String,
+      default: '',
+    },
+    // ─── End Verification Fields ────────────────────────────────────────
     deliveryDate: {
       type: Date,
       default: null,
@@ -93,19 +195,7 @@ const packageSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: [
-        'Pending',
-        'Pick Up Requested',
-        'Picked Up',
-        'In Warehouse',
-        'Sorted',
-        'Out for Delivery',
-        'Delivered',
-        'Postponed',
-        'Cancelled',
-        'Returned',
-        'Returned to Vendor',
-      ],
+      enum: PACKAGE_STATUSES,
       default: 'Pending',
     },
     comments: {
@@ -120,7 +210,7 @@ const packageSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
-    timeline: [timelineEntrySchema],
+    timeline: [TimelineEntrySchema],
     rtvSignoff: {
       riderReturned: { type: Boolean, default: false },
       vendorReceived: { type: Boolean, default: false },
@@ -128,6 +218,15 @@ const packageSchema = new mongoose.Schema(
     cashReconciled: {
       type: Boolean,
       default: false,
+    },
+    vendorPaid: {
+      type: Boolean,
+      default: false,
+    },
+    isSettling: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
     deletedAt: {
       type: Date,
@@ -137,14 +236,26 @@ const packageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for fast lookups
+// ─── Indexes ────────────────────────────────────────────────────────────────
 packageSchema.index({ vendorId: 1, status: 1 });
 packageSchema.index({ riderId: 1, status: 1 });
 packageSchema.index({ status: 1 });
 packageSchema.index({ createdAt: -1 });
 packageSchema.index({ invoiceId: 1 });
 packageSchema.index({ deletedAt: 1 });
-// trackingCode index is created automatically by unique:true above
+packageSchema.index({ status: 1, createdAt: -1 });
+packageSchema.index({ trackingCode: 1, deletedAt: 1 });
+// Analytics indexes
+packageSchema.index({ status: 1, updatedAt: -1 });
+packageSchema.index({ vendorId: 1, createdAt: -1, status: 1 });
+packageSchema.index({ riderId: 1, status: 1, updatedAt: -1 });
+// Settlement indexes
+packageSchema.index({ settlementStatus: 1, vendorId: 1 });
+packageSchema.index({ codVerified: 1, vendorPaid: 1 });
+// Verification indexes
+packageSchema.index({ deliveryVerificationStatus: 1 });
+packageSchema.index({ codVerificationStatus: 1 });
+packageSchema.index({ verifiedAt: -1 });
 
 // Soft delete query middleware
 const excludeSoftDeleted = function(next) {

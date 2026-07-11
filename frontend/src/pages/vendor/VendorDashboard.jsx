@@ -4,6 +4,8 @@ import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import PrintLabel from '../../components/PrintLabel';
 import Pagination from '../../components/Pagination';
+import QrScanner from '../../components/QrScanner';
+import TrackingLink from '../../components/TrackingLink';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import { useDeliveryCharge } from '../../hooks/useDeliveryCharge';
@@ -12,7 +14,7 @@ import {
   Wallet, History, Map, Plus, Search, CheckCircle2,
   XCircle, ArrowLeftRight, Clock, MapPin, Printer, 
   FileText, Eye, Edit2, AlertCircle, X, ChevronRight,
-  Download, Phone, Trash2, Calendar
+  Download, Phone, Trash2, Calendar, DollarSign, Receipt, AlertTriangle, ArrowUpRight, Camera
 } from 'lucide-react';
 
 const navLinks = [
@@ -82,21 +84,37 @@ const VendorHome = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+      {/* ─── Standard KPIs ─────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div onClick={() => navigate('/vendor/packages')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Today's Packages" value={stats.todayPkgs??0} color="primary" icon={<Package className="w-6 h-6 text-brand-600" />} />
+          <MetricCard title="Today's Packages" value={stats.todayPkgs??0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/packages')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Pending" value={stats.pending??0} color="warning" icon={<Clock className="w-6 h-6 text-amber-600" />} />
+          <MetricCard title="Pending" value={stats.pending??0} color="warning" icon={<Clock className="w-5 h-5 text-amber-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/history')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Delivered" value={stats.delivered??0} color="success" icon={<CheckCircle2 className="w-6 h-6 text-emerald-600" />} />
+          <MetricCard title="Delivered" value={stats.delivered??0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/history')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Returned" value={stats.returned??0} color="danger" icon={<ArrowLeftRight className="w-6 h-6 text-red-600" />} />
+          <MetricCard title="Returned" value={stats.returned??0} color="danger" icon={<ArrowLeftRight className="w-5 h-5 text-red-600" />} />
         </div>
         <div onClick={() => navigate('/vendor/packages')} className="cursor-pointer transition-transform hover:-translate-y-1">
-          <MetricCard title="Pickup Requests" value={stats.pickupRequests??0} color="info" icon={<MapPin className="w-6 h-6 text-sky-600" />} />
+          <MetricCard title="Pickup Requests" value={stats.pickupRequests??0} color="info" icon={<MapPin className="w-5 h-5 text-sky-600" />} />
+        </div>
+      </div>
+
+      {/* ─── Settlement KPIs ───────────────────────────────────── */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 mt-8 flex items-center gap-2">
+          <Wallet className="w-4 h-4" /> Settlement Overview
+        </h3>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <MetricCard title="Today's Sales" value={`Rs. ${(stats.todaySales??0).toLocaleString()}`} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
+          <MetricCard title="Today's COD" value={`Rs. ${(stats.todayCOD??0).toLocaleString()}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
+          <MetricCard title="Delivery Charges" value={`Rs. ${(stats.deliveryCharges??0).toLocaleString()}`} color="danger" icon={<Receipt className="w-5 h-5 text-red-600" />} />
+          <MetricCard title="Total Receivable" value={`Rs. ${(stats.amountReceivable??0).toLocaleString()}`} color="success" icon={<ArrowUpRight className="w-5 h-5 text-emerald-600" />} />
+          <MetricCard title="Total Paid" value={`Rs. ${(stats.paid??0).toLocaleString()}`} color="purple" icon={<CheckCircle2 className="w-5 h-5 text-purple-600" />} />
+          <MetricCard title="Pending Settlement" value={`Rs. ${(stats.pendingSettlement??0).toLocaleString()}`} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
         </div>
       </div>
 
@@ -218,6 +236,7 @@ const PackageList = () => {
   const [successModal, setSuccessModal] = useState(null);
   const [viewPackageDetails, setViewPackageDetails] = useState(null);
   const [printPackages, setPrintPackages] = useState([]);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const printRef = useRef();
   const { showToast } = useToast();
 
@@ -240,8 +259,8 @@ const PackageList = () => {
     }
   }, [fetchedCharge]);
 
-  const fetchPackages = async () => {
-    setLoading(true);
+  const fetchPackages = async (silent = false) => {
+    if (!silent) setLoading(true);
     try { 
       let url = `/vendor/packages?status=${statusFilter}&search=${search}&page=${page}&limit=${limit}`;
       if (startDate) url += `&startDate=${startDate}`;
@@ -266,24 +285,61 @@ const PackageList = () => {
     setPage(1);
   }, [search, statusFilter, startDate, endDate]);
 
+  const handleScanSuccess = async (trackingCode) => {
+    try {
+      const r = await api.get(`/packages/track/${trackingCode}`);
+      setViewPackageDetails(r.data.data);
+      setScannerOpen(false);
+      showToast('Package found', 'success');
+    } catch (e) {
+      showToast(e.message || 'Package not found', 'error');
+    }
+  };
+
   const handleSelectAll = e => setSelected(e.target.checked ? packages.filter(p=>p.status==='Pending').map(p=>p._id) : []);
   const handleSelect = id => setSelected(s => s.includes(id) ? s.filter(x=>x!==id) : [...s,id]);
 
   const requestPickup = async () => {
     if (!selected.length) return;
-    try { await api.post('/vendor/pickup-request',{packageIds:selected}); showToast('Pickup requested!','success'); setSelected([]); fetchPackages(); }
-    catch(e) { showToast(e.response?.data?.message||'Failed to request pickup','error'); }
+    
+    // Optimistic Update
+    setPackages(prev => prev.map(p => selected.includes(p._id) ? { ...p, status: 'Pick Up Requested' } : p));
+    
+    try { 
+      await api.post('/vendor/pickup-request',{packageIds:selected}); 
+      showToast('Pickup requested!','success'); 
+      setSelected([]); 
+      fetchPackages(true); 
+    }
+    catch(e) { 
+      showToast(e.message||'Failed to request pickup','error'); 
+      fetchPackages(true);
+    }
   };
 
   const addComment = async e => {
     e.preventDefault();
-    try { await api.post(`/vendor/packages/${commentModal.packageId}/comments`,{text:commentModal.text}); showToast('Comment saved','success'); setCommentModal({open:false,packageId:null,text:''}); fetchPackages(); }
+    try { 
+      await api.post(`/vendor/packages/${commentModal.packageId}/comments`,{text:commentModal.text}); 
+      showToast('Comment saved','success'); 
+      setCommentModal({open:false,packageId:null,text:''}); 
+      fetchPackages(true); 
+    }
     catch { showToast('Failed to add comment','error'); }
   };
 
   const handleFormChange = e => {
     const { name, value, type, checked } = e.target;
-    setCreateForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
+    const finalValue = type === 'checkbox' ? checked : value;
+    
+    setCreateForm(f => {
+      const next = { ...f, [name]: finalValue };
+      // IF package_amount = 0 THEN vendor_delivery_charge = applicable_delivery_fee
+      if (name === 'amount' && Number(finalValue) === 0 && fetchedCharge !== null) {
+        next.deliveryCharge = fetchedCharge;
+      }
+      return next;
+    });
     if (formErrors[name]) setFormErrors(err => ({ ...err, [name]: null }));
   };
 
@@ -341,11 +397,11 @@ const PackageList = () => {
       }
       
       if (!editMode) setCreateForm(EMPTY_FORM);
-      fetchPackages();
+      fetchPackages(true);
     } catch (err) {
-      const msg = err.response?.data?.message || (editMode ? 'Failed to update order' : 'Failed to create order');
+      const msg = err.message || (editMode ? 'Failed to update order' : 'Failed to create order');
       showToast(msg, 'error');
-      console.error('Submit order error:', err.response?.data);
+      console.error('Submit order error:', err.errors || err.message);
     } finally { setCreateLoading(false); }
   };
 
@@ -381,6 +437,9 @@ const PackageList = () => {
               </button>
             </>
           )}
+          <button className="btn-secondary py-2 px-4 flex items-center gap-2" onClick={() => setScannerOpen(true)}>
+            <Camera className="w-5 h-5" /> Scan to Track
+          </button>
           <button className="btn-primary py-2 px-4 flex items-center gap-2" onClick={() => { setEditMode(false); setEditPackageId(null); setCreateForm(EMPTY_FORM); setDrawerOpen(true); }}>
             <Plus className="w-5 h-5" /> New Order
           </button>
@@ -430,7 +489,7 @@ const PackageList = () => {
                     <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked={selected.includes(pkg._id)} onChange={()=>handleSelect(pkg._id)} disabled={pkg.status!=='Pending'}/>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="font-bold text-slate-900 tracking-wide">{pkg.trackingCode}</div>
+                    <TrackingLink code={pkg.trackingCode} className="text-base" />
                     <div className="text-xs text-slate-500 font-medium mt-0.5">{pkg.invoiceId || 'No Invoice'}</div>
                   </td>
                   <td className="px-6 py-4">
@@ -516,6 +575,15 @@ const PackageList = () => {
         </div>
       )}
       
+      {/* Scanner Modal */}
+      {scannerOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setScannerOpen(false)}>
+          <div className="w-full max-w-md h-[90vh] sm:h-auto max-h-[800px]" onClick={e => e.stopPropagation()}>
+            <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} />
+          </div>
+        </div>
+      )}
+
       {/* View Details Modal */}
       {viewPackageDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setViewPackageDetails(null)}>
@@ -523,7 +591,7 @@ const PackageList = () => {
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-start bg-slate-50/50 shrink-0">
               <div>
                 <h3 className="font-bold text-slate-900 text-lg">Package Details</h3>
-                <p className="text-sm text-slate-500 mt-1">Tracking Code: <span className="font-bold text-slate-900 tracking-wider">{viewPackageDetails.trackingCode}</span></p>
+                <p className="text-sm text-slate-500 mt-1">Tracking Code: <TrackingLink code={viewPackageDetails.trackingCode} /></p>
               </div>
               <button onClick={() => setViewPackageDetails(null)} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
                 <X className="w-5 h-5" />
@@ -794,7 +862,8 @@ const PackageList = () => {
                             name="deliveryCharge" 
                             value={f.deliveryCharge} 
                             onChange={handleFormChange} 
-                            className={`input-field pl-9 ${chargeError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}`} 
+                            disabled={Number(f.amount) === 0}
+                            className={`input-field pl-9 ${chargeError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''} ${Number(f.amount) === 0 ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : ''}`} 
                           />
                         </div>
                         {chargeError && <span className="text-xs text-amber-600 mt-1.5 block font-medium">{chargeError}</span>}
@@ -856,7 +925,7 @@ const PackageList = () => {
               <div className="absolute bottom-0 left-0 -mb-4 -ml-4 w-24 h-24 bg-black opacity-10 rounded-full blur-xl"></div>
               
               <p className="text-brand-100 text-xs font-bold uppercase tracking-widest mb-2 relative z-10">Tracking Code</p>
-              <div className="text-4xl font-black text-white tracking-[0.2em] font-mono relative z-10">{successModal.trackingCode}</div>
+              <div className="text-4xl font-black text-white tracking-[0.2em] font-mono relative z-10"><TrackingLink code={successModal.trackingCode} className="bg-transparent border-none text-white hover:bg-white/10" /></div>
               <p className="text-brand-200 text-xs mt-3 relative z-10">Share with recipient to track delivery</p>
             </div>
             
@@ -890,11 +959,33 @@ const PackageBulkUpload = () => {
       const r = await api.post('/vendor/packages/upload-csv', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setResult({success:true, message: r.data.message || `Successfully uploaded ${r.data.data.length} packages.`});
+      const data = r.data;
+      if (data.failedCount > 0) {
+        setResult({
+          success: data.importedCount > 0,
+          partial: true,
+          message: data.message,
+          importedCount: data.importedCount,
+          failedCount: data.failedCount,
+          failedRows: data.failedRows
+        });
+        if (data.importedCount > 0) {
+          showToast(`Imported ${data.importedCount} packages successfully. ${data.failedCount} failed.`,'warning');
+        } else {
+          showToast(`Upload failed. All ${data.failedCount} rows had errors.`,'error');
+        }
+      } else {
+        setResult({
+          success: true,
+          message: data.message || `Successfully uploaded ${data.importedCount} packages.`
+        });
+        showToast(`${data.importedCount} packages created!`,'success');
+      }
       setFile(null);
-      showToast(`${r.data.data.length} packages created!`,'success');
-    } catch(e) { setResult({success:false, message:e.response?.data?.message||'Upload failed'}); showToast('Upload failed','error'); }
-    finally { setLoading(false); }
+    } catch(e) {
+      setResult({success:false, message:e.message||'Upload failed'});
+      showToast('Upload failed','error');
+    } finally { setLoading(false); }
   };
 
   return (
@@ -902,7 +993,7 @@ const PackageBulkUpload = () => {
       <div className="card-premium">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
           <h3 className="font-bold text-slate-900 text-lg">Bulk Order Upload</h3>
-          <p className="text-sm text-slate-500 mt-1">Upload a CSV file to create multiple orders at once</p>
+          <p className="text-sm text-slate-500 mt-1">Upload a CSV file to create multiple orders at once. Max 500 rows.</p>
         </div>
         <div className="p-8">
           <div className={`border-2 border-dashed rounded-2xl p-12 text-center transition-colors ${file ? 'border-brand-300 bg-brand-50/50' : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
@@ -931,14 +1022,32 @@ const PackageBulkUpload = () => {
           )}
 
           {result && (
-            <div className={`mt-8 p-5 rounded-xl border flex items-start gap-4 ${result.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-              <div className="mt-0.5">
-                {result.success ? <CheckCircle2 className="w-6 h-6 text-emerald-600" /> : <XCircle className="w-6 h-6 text-red-600" />}
+            <div className="mt-8 space-y-4 animate-fadeIn">
+              <div className={`p-5 rounded-xl border flex items-start gap-4 ${result.success ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                <div className="mt-0.5">
+                  {result.success && !result.partial ? <CheckCircle2 className="w-6 h-6 text-emerald-600" /> : <XCircle className="w-6 h-6 text-red-600" />}
+                </div>
+                <div>
+                  <p className={`font-bold ${result.success && !result.partial ? 'text-emerald-800' : 'text-red-800'}`}>
+                    {result.success && !result.partial ? 'Upload Successful' : result.success ? 'Upload Partially Successful' : 'Upload Failed'}
+                  </p>
+                  <p className={`text-sm mt-1 ${result.success && !result.partial ? 'text-emerald-600' : 'text-red-600'}`}>{result.message}</p>
+                </div>
               </div>
-              <div>
-                <p className={`font-bold ${result.success ? 'text-emerald-800' : 'text-red-800'}`}>{result.success ? 'Upload Successful' : 'Upload Failed'}</p>
-                <p className={`text-sm mt-1 ${result.success ? 'text-emerald-600' : 'text-red-600'}`}>{result.message}</p>
-              </div>
+
+              {result.failedRows && result.failedRows.length > 0 && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                  <h4 className="font-bold text-slate-800 text-sm mb-3">Failed Rows Details ({result.failedCount})</h4>
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-2">
+                    {result.failedRows.map((f, i) => (
+                      <div key={i} className="text-xs flex items-start justify-between border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+                        <span className="font-bold text-slate-600">Row {f.row}</span>
+                        <span className="text-red-600 text-right max-w-[80%] font-medium">{f.errors.join(', ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -981,7 +1090,7 @@ const Finance = () => {
       // Refresh finance data
       fetchFinanceData();
     } catch (err) {
-      showToast(err.response?.data?.message || 'Failed to request settlement', 'error');
+      showToast(err.message || 'Failed to request settlement', 'error');
     }
   };
 
@@ -1125,7 +1234,7 @@ const DeliveryHistory = () => {
             : packages.map(p=>(
               <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4 text-slate-500 font-medium">{new Date(p.createdAt).toLocaleDateString()}</td>
-                <td className="px-6 py-4 font-bold text-slate-900">{p.trackingCode}</td>
+                <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
                 <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                 <td className="px-6 py-4">{statusBadge(p.status)}</td>
                 <td className="px-6 py-4 text-slate-500">{p.riderId?.name||'N/A'}</td>
@@ -1185,7 +1294,7 @@ const VendorProducts = () => {
       setDrawerOpen(false);
       fetchProducts();
     } catch(err) {
-      showToast(err.response?.data?.message || 'Failed to save product', 'error');
+      showToast(err.message || 'Failed to save product', 'error');
     }
   };
 

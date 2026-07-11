@@ -7,7 +7,8 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './store/AuthContext';
 import { ToastProvider } from './store/ToastContext';
 import { TrackingDrawerProvider } from './store/TrackingDrawerContext';
-import { RiderHistoryProvider } from './store/RiderHistoryContext';
+import { SettingsProvider } from './store/SettingsContext';
+import TrackingDrawer from './components/TrackingDrawer';
 
 // Public pages
 const Login = lazy(() => import('./pages/auth/Login'));
@@ -16,6 +17,7 @@ const Home = lazy(() => import('./pages/public/Home'));
 const Pricing = lazy(() => import('./pages/public/Pricing'));
 const Branches = lazy(() => import('./pages/public/Branches'));
 const Contact = lazy(() => import('./pages/public/Contact'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Role-based dashboards
 const VendorDashboard = lazy(() => import('./pages/vendor/VendorDashboard'));
@@ -33,35 +35,43 @@ function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary>
-        <AuthProvider>
-          <ToastProvider>
-            <TrackingDrawerProvider>
-              <RiderHistoryProvider>
+        <SettingsProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <TrackingDrawerProvider>
                 <Suspense fallback={<Loader />}>
+                  <TrackingDrawer />
                   <Routes>
-                {/* Public */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/tracking" element={<TrackPackage />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/branches" element={<Branches />} />
-                <Route path="/contact" element={<Contact />} />
+              {/* Public */}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/tracking" element={<TrackPackage />} />
+              <Route path="/tracking/:trackingCode" element={<TrackPackage />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route path="/branches" element={<Branches />} />
+              <Route path="/contact" element={<Contact />} />
 
-                {/* Protected */}
-                <Route element={<PrivateRoute />}>
-                  <Route path="/vendor/*" element={<VendorDashboard />} />
-                  <Route path="/admin/*" element={<AdminDashboard />} />
-                  <Route path="/dispatcher/*" element={<DispatcherDashboard />} />
-                  <Route path="/rider/*" element={<RiderDashboard />} />
-                </Route>
+              {/* Protected */}
+              <Route element={<PrivateRoute allowedRoles={['vendor']} />}>
+                <Route path="/vendor/*" element={<VendorDashboard />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin']} />}>
+                <Route path="/admin/*" element={<AdminDashboard />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['dispatcher']} />}>
+                <Route path="/dispatcher/*" element={<DispatcherDashboard />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['rider']} />}>
+                <Route path="/rider/*" element={<RiderDashboard />} />
+              </Route>
 
-                <Route path="*" element={<div>404 - Page Not Found</div>} />
-                  </Routes>
-                </Suspense>
-              </RiderHistoryProvider>
-            </TrackingDrawerProvider>
-          </ToastProvider>
-        </AuthProvider>
+              <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              </TrackingDrawerProvider>
+            </ToastProvider>
+          </AuthProvider>
+        </SettingsProvider>
       </ErrorBoundary>
     </BrowserRouter>
   );

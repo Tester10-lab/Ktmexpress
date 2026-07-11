@@ -7,6 +7,7 @@ import {
   updateDeliveryStatus,
   bulkPickup,
   getRiderSummary,
+  submitCodHandover,
  } from '../controllers/riderController.js';
 
 // All routes require auth + rider role
@@ -16,5 +17,6 @@ router.get('/deliveries', getMyDeliveries);
 router.put('/update-status', updateDeliveryStatus);
 router.put('/bulk-pickup', bulkPickup);
 router.get('/summary', getRiderSummary);
+router.post('/cod-handover', submitCodHandover);
 
 export default router;

@@ -23,8 +23,20 @@ import {
  } from '../controllers/vendorController.js';
 import multer from 'multer';
 
-// Multer config for CSV uploads
-const upload = multer({ dest: 'uploads/' });
+// Multer config for CSV uploads - hardened with fileFilter and limits
+const upload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
+  fileFilter: (req, file, cb) => {
+    const isCsv = file.mimetype === 'text/csv' || 
+                  file.mimetype === 'application/vnd.ms-excel' ||
+                  file.originalname.toLowerCase().endsWith('.csv');
+    if (!isCsv) {
+      return cb(new Error('Only CSV files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // All routes require auth + vendor role
 router.use(auth, roleGuard('vendor'));

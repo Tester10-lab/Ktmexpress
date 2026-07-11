@@ -1,4 +1,7 @@
 import Package from '../models/Package.js';
+import CodHandover from '../models/CodHandover.js';
+import mongoose from 'mongoose';
+import eventBus from '../services/eventBus.js';
 
 // Helper: get timestamp string
 function nowStr() {
@@ -8,7 +11,7 @@ function nowStr() {
 // GET /api/rider/deliveries
 export const getMyDeliveries = async (req, res) => {
   try {
-    const riderId = req.user._id;
+    const riderId = new mongoose.Types.ObjectId(req.user._id);
     const { type, status } = req.query; // 'pickup' or 'delivery' or 'all'
 
     let filter = { riderId };
@@ -24,7 +27,7 @@ export const getMyDeliveries = async (req, res) => {
     }
 
     const packages = await Package.find(filter)
-      .populate('vendorId', 'name email phone vendorMeta')
+      .populate('vendorId', 'name vendorMeta')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: packages });
@@ -37,7 +40,7 @@ export const getMyDeliveries = async (req, res) => {
 export const updateDeliveryStatus = async (req, res) => {
   try {
     const { packageId, action, comment, cashCollected, newDate } = req.body;
-    const riderId = req.user._id;
+    const riderId = new mongoose.Types.ObjectId(req.user._id);
 
     const pkg = await Package.findOne({ _id: packageId, riderId });
     if (!pkg) {
@@ -52,24 +55,53 @@ export const updateDeliveryStatus = async (req, res) => {
     switch (action) {
       case 'deliver':
         pkg.status = 'Delivered';
+        pkg.deliveryVerificationStatus = 'Pending';
+        pkg.codVerificationStatus = 'Pending';
+        pkg.verificationStartedAt = new Date();
         pkg.cashReconciled = false;
         pkg.comments = comment || '';
+        pkg.riderSubmission = {
+          status: 'Delivered',
+          amount: cashCollected !== undefined ? Number(cashCollected) : pkg.amount,
+          comments: comment || '',
+          submittedAt: new Date()
+        };
         pkg.timeline.push({
           time: ts,
           status: 'Delivered',
-          message: `Delivery completed. Collected Rs. ${cashCollected || pkg.amount} COD.`,
+          message: `Delivery completed. Collected Rs. ${cashCollected || pkg.amount} COD. Pending verification.`,
           user: req.user.name,
+          type: 'RIDER_SUBMITTED',
+          changes: [
+            { field: 'deliveryVerificationStatus', before: 'Pending', after: 'Pending' },
+            { field: 'status', before: pkg.status, after: 'Delivered' }
+          ]
         });
         break;
 
       case 'postpone':
         pkg.status = 'Postponed';
+        pkg.deliveryVerificationStatus = 'Pending';
+        pkg.codVerificationStatus = 'Pending';
+        pkg.verificationStartedAt = new Date();
         pkg.comments = comment || '';
+        pkg.riderSubmission = {
+          status: 'Postponed',
+          amount: pkg.amount,
+          comments: comment || '',
+          newDate: newDate ? new Date(newDate) : null,
+          submittedAt: new Date()
+        };
         pkg.timeline.push({
           time: ts,
           status: 'Postponed',
-          message: `Delivery postponed. Reason: ${comment}. New date: ${newDate || 'TBD'}`,
+          message: `Delivery postponed. Reason: ${comment}. New date: ${newDate || 'TBD'}. Pending verification.`,
           user: req.user.name,
+          type: 'RIDER_SUBMITTED',
+          changes: [
+            { field: 'deliveryVerificationStatus', before: 'Pending', after: 'Pending' },
+            { field: 'status', before: pkg.status, after: 'Postponed' }
+          ]
         });
         break;
 
@@ -111,7 +143,10 @@ export const updateDeliveryStatus = async (req, res) => {
 
     await pkg.save();
 
-    if (action === 'deliver' && req.io) {
+    // Emit event on Event Bus
+    if (action === 'deliver' || action === 'postpone') {
+      eventBus.emit('package.rider_submitted', { pkg, reqUser: req.user, io: req.io });
+    } else if (action === 'deliver' && req.io) {
       req.io.to(`user_${pkg.vendorId}`).emit('notification', {
         title: 'Package Delivered!',
         message: `Your package ${pkg.trackingCode} has been successfully delivered.`,
@@ -129,7 +164,7 @@ export const updateDeliveryStatus = async (req, res) => {
 export const bulkMarkPickedUp = async (req, res) => {
   try {
     const { packageIds } = req.body;
-    const riderId = req.user._id;
+    const riderId = new mongoose.Types.ObjectId(req.user._id);
     const ts = nowStr();
 
     if (!packageIds?.length) {
@@ -161,7 +196,7 @@ export const bulkMarkPickedUp = async (req, res) => {
 // GET /api/rider/summary
 export const getRiderSummary = async (req, res) => {
   try {
-    const riderId = req.user._id;
+    const riderId = new mongoose.Types.ObjectId(req.user._id);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -174,9 +209,8 @@ export const getRiderSummary = async (req, res) => {
       Package.countDocuments({ riderId, status: 'Delivered', updatedAt: { $gte: startOfMonth } }),
     ]);
 
-    // COD wallet
     const codAgg = await Package.aggregate([
-      { $match: { riderId: req.user._id, status: 'Delivered', cashReconciled: false } },
+      { $match: { riderId: new mongoose.Types.ObjectId(riderId), status: 'Delivered', cashReconciled: false, deletedAt: null } },
       { $group: { _id: null, totalCOD: { $sum: '$amount' } } },
     ]);
 
@@ -196,7 +230,7 @@ export const getRiderSummary = async (req, res) => {
 export const bulkPickup = async (req, res) => {
   try {
     const { packageIds } = req.body;
-    const riderId = req.user._id;
+    const riderId = new mongoose.Types.ObjectId(req.user._id);
 
     if (!Array.isArray(packageIds) || packageIds.length === 0) {
       return res.status(400).json({ success: false, message: 'Invalid package list' });
@@ -222,6 +256,50 @@ export const bulkPickup = async (req, res) => {
     }
 
     res.json({ success: true, data: updated, message: `Picked up ${updated.length} packages.` });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/rider/cod-handover
+export const submitCodHandover = async (req, res) => {
+  try {
+    const riderId = new mongoose.Types.ObjectId(req.user._id);
+    const { packageIds } = req.body;
+
+    if (!packageIds || !packageIds.length) {
+      return res.status(400).json({ success: false, message: 'No packages selected for handover.' });
+    }
+
+    const existing = await CodHandover.findOne({
+      status: 'Pending Verification',
+      packageIds: { $in: packageIds },
+    });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'One or more packages are already pending verification.' });
+    }
+
+    const packages = await Package.find({
+      _id: { $in: packageIds },
+      riderId,
+      status: 'Delivered',
+      cashReconciled: false
+    });
+
+    if (packages.length !== packageIds.length) {
+      return res.status(400).json({ success: false, message: 'Invalid packages selected or already reconciled.' });
+    }
+
+    const amount = packages.reduce((sum, pkg) => sum + pkg.amount, 0);
+
+    const handover = await CodHandover.create({
+      riderId,
+      amount,
+      packageIds,
+      status: 'Pending Verification',
+    });
+
+    res.status(201).json({ success: true, data: handover, message: 'Handover request submitted successfully.' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

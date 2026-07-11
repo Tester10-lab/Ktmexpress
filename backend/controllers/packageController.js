@@ -1,4 +1,5 @@
 import Package from '../models/Package.js';
+import ScanEvent from '../models/ScanEvent.js';
 import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 
@@ -24,7 +25,7 @@ export const getAllPackages = async (req, res) => {
 
     const [packages, total] = await Promise.all([
       Package.find(filter)
-        .populate('vendorId', 'name email phone vendorMeta')
+        .populate('vendorId', 'name vendorMeta')
         .populate('riderId', 'name contact')
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -58,7 +59,7 @@ export const getPackageByCode = async (req, res) => {
         { invoiceId: code.toUpperCase() },
       ],
     })
-      .populate('vendorId', 'name email phone vendorMeta')
+      .populate('vendorId', 'name vendorMeta')
       .populate('riderId', 'name contact')
       .lean();
 
@@ -158,6 +159,123 @@ export const createPackage = async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/packages/track/:trackingCode
+export const trackPackage = async (req, res) => {
+  try {
+    const { trackingCode } = req.params;
+    
+    // Validate tracking code format (basic check to ensure it's not arbitrary garbage)
+    if (!trackingCode || trackingCode.length < 5) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code format.' });
+    }
+
+    const pkg = await Package.findOne({ trackingCode: trackingCode.toUpperCase() })
+      .populate('vendorId', 'name')
+      .populate('riderId', 'name')
+      .lean();
+
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+    }
+
+    // Role-based visibility isolation for vendors
+    if (req.user.role === 'vendor' && pkg.vendorId._id.toString() !== req.user.id) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+    }
+
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/packages/:trackingCode/warehouse-arrival
+export const confirmWarehouseArrival = async (req, res) => {
+  try {
+    const { trackingCode } = req.params;
+
+    if (!trackingCode || trackingCode.length < 5) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code format.' });
+    }
+
+    const upperTrackingCode = trackingCode.toUpperCase();
+    
+    // Check if already in warehouse first (for idempotent success)
+    const existing = await Package.findOne({ trackingCode: upperTrackingCode });
+    
+    if (!existing) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+    }
+
+    if (existing.status === 'In Warehouse') {
+      const lastEntry = existing.timeline.slice().reverse().find(entry => entry.status === 'In Warehouse');
+      const scannerName = lastEntry ? lastEntry.user : 'staff';
+      const scanTime = lastEntry ? new Date(lastEntry.time).toLocaleString() : 'recently';
+      return res.json({ 
+        success: true, 
+        message: `Already confirmed by ${scannerName} at ${scanTime}.`,
+        data: existing 
+      });
+    }
+
+    // Atomic update, conditioning on valid predecessor statuses
+    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const validPredecessors = ['Pending', 'Pick Up Requested', 'Picked Up'];
+
+    const updatedPkg = await Package.findOneAndUpdate(
+      { 
+        trackingCode: upperTrackingCode,
+        status: { $in: validPredecessors }
+      },
+      {
+        $set: { status: 'In Warehouse' },
+        $push: {
+          timeline: {
+            time: ts,
+            status: 'In Warehouse',
+            message: `Package arrived at warehouse. Confirmed by ${req.user.role}.`,
+            user: req.user.name,
+            role: req.user.role,
+            scannedBy: req.user.id
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updatedPkg) {
+      // It exists but wasn't updated because status wasn't in validPredecessors
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot transition package to 'In Warehouse'. Current status is '${existing.status}'.` 
+      });
+    }
+
+    // Create a global ScanEvent audit record
+    await ScanEvent.create({
+      packageId: updatedPkg._id,
+      trackingCode: upperTrackingCode,
+      scannedBy: req.user.id,
+      scannerName: req.user.name,
+      scannerRole: req.user.role,
+      action: 'Confirm Warehouse Arrival',
+      fromStatus: existing.status,
+      toStatus: 'In Warehouse',
+      notes: 'Scanned via QR Scanner module at warehouse arrival',
+      isAdminOverride: req.user.role === 'admin'
+    });
+
+    // Emit live event to dispatchers and admins
+    if (req.io) {
+      req.io.to('role_dispatcher').to('role_admin').emit('package:warehouseArrived', updatedPkg);
+    }
+
+    res.json({ success: true, data: updatedPkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -61,7 +61,7 @@ export const scanPackage = async (req, res) => {
     }
 
     const pkg = await Package.findOne({ trackingCode: trackingCode.trim().toUpperCase() })
-      .populate('vendorId', 'name email phone vendorMeta')
+      .populate('vendorId', 'name')
       .populate('riderId', 'name');
 
     if (!pkg) {
@@ -308,7 +308,7 @@ export const lookupPackage = async (req, res) => {
   try {
     const code = req.params.code?.trim().toUpperCase();
     const pkg = await Package.findOne({ trackingCode: code })
-      .populate('vendorId', 'name email phone vendorMeta')
+      .populate('vendorId', 'name')
       .populate('riderId', 'name contact');
     if (!pkg) {
       return res.status(404).json({ success: false, message: `Package "${code}" not found.` });

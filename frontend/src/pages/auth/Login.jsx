@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../store/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Package, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { useSettings } from '../../store/SettingsContext';
+import brandLogo from '../../assets/logo.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -11,6 +13,7 @@ const Login = () => {
   const [showPass, setShowPass] = useState(false);
 
   const { login } = useAuth();
+  const { logoUrl } = useSettings();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -24,26 +27,23 @@ const Login = () => {
       else if (data.user.role === 'dispatcher') navigate('/dispatcher');
       else if (data.user.role === 'rider') navigate('/rider');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+      setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F3F4F6] relative overflow-hidden">
       
-      {/* Background Orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-gradient-radial from-brand-400/20 to-transparent blur-[80px] rounded-full animate-[pulse_10s_ease-in-out_infinite_alternate]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-gradient-radial from-indigo-400/20 to-transparent blur-[80px] rounded-full animate-[pulse_12s_ease-in-out_infinite_alternate-reverse]" />
-
-      <div className="w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/40 rounded-3xl p-10 sm:p-12 shadow-2xl shadow-brand-900/5 relative z-10 animate-fadeInUp">
+      <div className="w-full max-w-md neumorphic-panel p-10 sm:p-12 relative z-10 animate-fadeInUp">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-lg shadow-brand-500/30">
-              <Package className="w-6 h-6" />
-            </div>
-            <span className="font-bold text-2xl tracking-tight text-slate-900">ktmexpress</span>
+          <div className="flex justify-center mb-6">
+            {logoUrl ? (
+              <img src={logoUrl} alt="Company Logo" className="h-16 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
+            ) : (
+              <img src={brandLogo} alt="ktmexpress Logo" className="h-16 object-contain" />
+            )}
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Welcome Back</h1>
           <p className="text-slate-500 text-sm font-medium">Sign in to your logistics workspace</p>
@@ -65,7 +65,7 @@ const Login = () => {
               onChange={e => setEmail(e.target.value)}
               required
               autoComplete="email"
-              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all shadow-sm"
+              className="input-field"
             />
           </div>
 
@@ -79,7 +79,7 @@ const Login = () => {
                 onChange={e => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
-                className="w-full pl-4 pr-12 py-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 transition-all shadow-sm"
+                className="input-field pr-12"
               />
               <button
                 type="button"
@@ -94,7 +94,7 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-brand-500/20 transition-all flex items-center justify-center gap-2 mt-4 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+            className="btn-primary w-full mt-4"
           >
             {loading ? (
               <>

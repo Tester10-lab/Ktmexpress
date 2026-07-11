@@ -71,6 +71,8 @@ const scanEventSchema = new mongoose.Schema(
 // Indexes for fast querying
 scanEventSchema.index({ packageId: 1, createdAt: -1 });
 scanEventSchema.index({ scannedBy: 1, createdAt: -1 });
-scanEventSchema.index({ createdAt: -1 });
+scanEventSchema.index({ action: 1, createdAt: -1 });
+scanEventSchema.index({ scannerRole: 1, createdAt: -1 });
+scanEventSchema.index({ createdAt: -1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 
 export default mongoose.model('ScanEvent', scanEventSchema);

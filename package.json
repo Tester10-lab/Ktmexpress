@@ -1,0 +1,15 @@
+{
+  "name": "ktmexpress-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "docker:up": "docker-compose up -d --build",
+    "docker:down": "docker-compose down",
+    "dev": "concurrently \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "start": "npm --prefix backend start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.1"
+  }
+}

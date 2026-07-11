@@ -5,7 +5,7 @@ import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee } from '../services/pricingService.js';
 import { uniqueTrackingCode, generateInvoiceId } from './helpers.js';
 
-export const processCsvImport = async (filePath, vendorId, creatorName, creatorRole = 'vendor') => {
+export const processCsvImport = async (filePath, vendorId, creatorName) => {
   const MAX_ROWS = 500;
   const results = [];
   
@@ -114,11 +114,11 @@ export const processCsvImport = async (filePath, vendorId, creatorName, creatorR
               vendorReceivable: Math.max(0, amount - finalDeliveryCharge),
               vendorId,
               ...labelUrls,
-              status: (creatorRole === 'admin' || creatorRole === 'dispatcher') ? 'In Warehouse' : 'Pending',
+              status: 'Pending',
               timeline: [{
                 time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-                status: (creatorRole === 'admin' || creatorRole === 'dispatcher') ? 'In Warehouse' : 'Invoice Created',
-                message: (creatorRole === 'admin' || creatorRole === 'dispatcher') ? 'Package created directly in warehouse by Admin' : `Created via CSV upload by ${creatorName}`,
+                status: 'Invoice Created',
+                message: `Created via CSV upload by ${creatorName}`,
                 user: creatorName,
               }],
               // store original row index for mapping DB errors back

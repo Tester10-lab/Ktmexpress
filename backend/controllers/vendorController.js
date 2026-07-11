@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
 import Settlement from '../models/Settlement.js';
@@ -5,18 +6,21 @@ import Product from '../models/Product.js';
 import fs from 'fs';
 import csv from 'csv-parser';
 import { generateLabelUrls } from '../services/labelService.js';
+import { calculateDeliveryFee } from '../services/pricingService.js';
+import { logger } from '../config/logger.js';
 
 import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
+import { processCsvImport } from '../utils/csvHelper.js';
 
 // GET /api/vendor/dashboard
 export const getVendorDashboard = async (req, res) => {
   try {
-    const vendorId = req.user._id;
+    const vendorId = new mongoose.Types.ObjectId(req.user._id);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const [aggResult] = await Package.aggregate([
-      { $match: { vendorId } },
+      { $match: { vendorId, deletedAt: null } },
       {
         $facet: {
           total: [{ $count: "count" }],
@@ -24,16 +28,51 @@ export const getVendorDashboard = async (req, res) => {
           pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery'] } } }, { $count: "count" }],
           returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: "count" }],
           todayPkgs: [{ $match: { createdAt: { $gte: today } } }, { $count: "count" }],
+          // Settlement KPIs
+          todaySales: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: today } } },
+            { $group: { _id: null, amount: { $sum: '$amount' } } }
+          ],
+          todayCOD: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: today } } },
+            { $group: { _id: null, amount: { $sum: '$amount' } } }
+          ],
+          totalDeliveryCharges: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: null, amount: { $sum: '$deliveryCharge' } } }
+          ],
+          totalReceivable: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
+          totalPaid: [
+            { $match: { status: 'Delivered', vendorPaid: true } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
+          totalPending: [
+            { $match: { status: 'Delivered', vendorPaid: { $ne: true } } },
+            { $group: { _id: null, amount: { $sum: '$vendorReceivable' } } }
+          ],
         }
       }
     ]);
 
+    const c = (arr) => arr[0]?.count || 0;
+    const g = (arr) => arr[0]?.amount || 0;
+
     const stats = {
-      total: aggResult.total[0]?.count || 0,
-      delivered: aggResult.delivered[0]?.count || 0,
-      pending: aggResult.pending[0]?.count || 0,
-      returned: aggResult.returned[0]?.count || 0,
-      todayPkgs: aggResult.todayPkgs[0]?.count || 0,
+      total: c(aggResult.total),
+      delivered: c(aggResult.delivered),
+      pending: c(aggResult.pending),
+      returned: c(aggResult.returned),
+      todayPkgs: c(aggResult.todayPkgs),
+      // Settlement KPIs
+      todaySales: g(aggResult.todaySales),
+      todayCOD: g(aggResult.todayCOD),
+      deliveryCharges: g(aggResult.totalDeliveryCharges),
+      amountReceivable: g(aggResult.totalReceivable),
+      paid: g(aggResult.totalPaid),
+      pendingSettlement: g(aggResult.totalPending),
     };
 
     const pickupRequests = await PickupRequest.countDocuments({ vendorId, status: 'pending' });
@@ -171,6 +210,21 @@ export const createPackage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Customer name, phone, address, and amount are required.' });
     }
 
+    let finalDeliveryCharge = Number(deliveryCharge);
+    if (!finalDeliveryCharge) {
+      try {
+        finalDeliveryCharge = await calculateDeliveryFee({
+          vendorId,
+          outOfValley: !!outOfValley,
+          city: city || '',
+          weight: weight || 0.5
+        });
+      } catch (e) {
+        logger.error('Pricing calculation failed', e);
+        finalDeliveryCharge = 0;
+      }
+    }
+
     const trackingCode = await uniqueTrackingCode();
     const labelUrls = generateLabelUrls(trackingCode);
 
@@ -186,7 +240,8 @@ export const createPackage = async (req, res) => {
       packageAccess: packageAccess || 'sealed',
       items: items || [],
       amount: Number(amount),
-      deliveryCharge: deliveryCharge || 0,
+      deliveryCharge: finalDeliveryCharge,
+      vendorReceivable: Math.max(0, Number(amount) - finalDeliveryCharge),
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
@@ -251,6 +306,21 @@ export const bulkCreatePackages = async (req, res) => {
     for (const p of packages) {
       const trackingCode = await uniqueTrackingCode();
       const labelUrls = generateLabelUrls(trackingCode);
+      
+      let finalDeliveryCharge = Number(p.deliveryCharge);
+      if (!finalDeliveryCharge) {
+        try {
+          finalDeliveryCharge = await calculateDeliveryFee({
+            vendorId,
+            outOfValley: !!p.outOfValley,
+            city: p.city || '',
+            weight: Number(p.weight) || 0.5
+          });
+        } catch (e) {
+          finalDeliveryCharge = 0;
+        }
+      }
+
       const pkg = await Package.create({
         trackingCode,
         invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
@@ -262,7 +332,7 @@ export const bulkCreatePackages = async (req, res) => {
         weight: Number(p.weight) || 0.5,
         items: p.items || [],
         amount: Number(p.amount) || 0,
-        deliveryCharge: Number(p.deliveryCharge) || 0,
+        deliveryCharge: finalDeliveryCharge,
         deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
@@ -332,10 +402,12 @@ export const addComment = async (req, res) => {
 export const getFinance = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: false }).lean();
+    // We only pay vendors for COD that has been collected by Admin (cashReconciled: true)
+    // and hasn't been paid to the vendor yet (vendorPaid: false) and is not currently settling
+    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: true, vendorPaid: false, isSettling: false }).lean();
     
-    const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + pkg.amount, 0);
-    const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + pkg.deliveryCharge, 0);
+    const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + (pkg.amount || 0), 0);
+    const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + (pkg.deliveryCharge || 0), 0);
     const totalPayable = pendingCOD - pendingDeliveryCharges;
 
     res.json({
@@ -356,20 +428,37 @@ export const getFinance = async (req, res) => {
 export const requestSettlement = async (req, res) => {
   try {
     const vendorId = req.user._id;
-    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: false });
+    const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: true, vendorPaid: false, isSettling: false });
     
     if (deliveredPkgs.length === 0) {
       return res.status(400).json({ success: false, message: 'No unreconciled delivered packages found.' });
     }
 
-    const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + pkg.amount, 0);
-    const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + pkg.deliveryCharge, 0);
+    const packageIds = deliveredPkgs.map(p => p._id);
+    
+    // Acquire atomic lock on packages
+    const lockResult = await Package.updateMany(
+      { _id: { $in: packageIds }, isSettling: false },
+      { $set: { isSettling: true } }
+    );
+
+    if (lockResult.modifiedCount !== packageIds.length) {
+      // Rollback lock
+      await Package.updateMany(
+        { _id: { $in: packageIds } },
+        { $set: { isSettling: false } }
+      );
+      return res.status(409).json({ success: false, message: 'A settlement request containing some of these packages is already in progress.' });
+    }
+
+    const pendingCOD = deliveredPkgs.reduce((sum, pkg) => sum + (pkg.amount || 0), 0);
+    const pendingDeliveryCharges = deliveredPkgs.reduce((sum, pkg) => sum + (pkg.deliveryCharge || 0), 0);
     const totalPayable = pendingCOD - pendingDeliveryCharges;
 
     const settlement = await Settlement.create({
       vendorId,
       requestedAmount: totalPayable,
-      packageIds: deliveredPkgs.map(p => p._id)
+      packageIds
     });
 
     res.status(201).json({ success: true, data: settlement });
@@ -383,7 +472,38 @@ export const getSettlements = async (req, res) => {
   try {
     const vendorId = req.user._id;
     const settlements = await Settlement.find({ vendorId }).sort({ createdAt: -1 }).lean();
-    res.json({ success: true, data: settlements });
+    
+    // Populate package details and add summary for each settlement
+    const enhancedSettlements = await Promise.all(
+      settlements.map(async (settlement) => {
+        const packages = await Package.find({ _id: { $in: settlement.packageIds } }).lean();
+        
+        const summary = {
+          totalPackages: packages.length,
+          totalCOD: packages.reduce((sum, pkg) => sum + (pkg.amount || 0), 0),
+          totalDeliveryCharges: packages.reduce((sum, pkg) => sum + (pkg.deliveryCharge || 0), 0),
+          netPayable: settlement.requestedAmount
+        };
+        
+        return {
+          ...settlement,
+          packages: packages.map(pkg => ({
+            _id: pkg._id,
+            trackingCode: pkg.trackingCode,
+            customerName: pkg.customerName,
+            address: pkg.address,
+            amount: pkg.amount,
+            deliveryCharge: pkg.deliveryCharge,
+            status: pkg.status,
+            settlementStatus: pkg.settlementStatus,
+            deliveredAt: pkg.updatedAt
+          })),
+          summary
+        };
+      })
+    );
+    
+    res.json({ success: true, data: enhancedSettlements });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -394,77 +514,23 @@ export const getSettlements = async (req, res) => {
 export const uploadCsv = async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-  const results = [];
   const vendorId = req.user._id;
+  const creatorName = req.user.name || 'Vendor';
 
-  // Helper to safely get value from object with various possible header names (case-insensitive)
-  const getVal = (row, keys) => {
-    for (const k of keys) {
-      if (row[k] !== undefined && row[k] !== '') return row[k];
-      const lowerRow = Object.keys(row).reduce((acc, key) => {
-        acc[key.toLowerCase().replace(/[^a-z0-9]/g, '')] = row[key];
-        return acc;
-      }, {});
-      const lowerK = k.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (lowerRow[lowerK] !== undefined && lowerRow[lowerK] !== '') return lowerRow[lowerK];
-    }
-    return undefined;
-  };
-
-  fs.createReadStream(req.file.path)
-    .pipe(csv())
-    .on('data', (data) => results.push(data))
-    .on('end', async () => {
-      try {
-        const packageDocs = [];
-        for (const raw of results) {
-          const trackingCode = await uniqueTrackingCode();
-          const labelUrls = generateLabelUrls(trackingCode);
-          
-          const p = {
-            invoiceId: getVal(raw, ['invoiceId', 'invoice', 'reference']),
-            customerName: getVal(raw, ['customerName', 'customer name', 'name']),
-            customerPhone: getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact']),
-            address: getVal(raw, ['address', 'delivery address', 'location']),
-            outOfValley: getVal(raw, ['outOfValley', 'out of valley', 'outside valley']),
-            city: getVal(raw, ['city', 'area', 'district']),
-            weight: getVal(raw, ['weight', 'kg']),
-            amount: getVal(raw, ['amount', 'cod', 'price']),
-            deliveryCharge: getVal(raw, ['deliveryCharge', 'delivery charge', 'shipping'])
-          };
-
-          packageDocs.push({
-            trackingCode,
-            invoiceId: p.invoiceId || generateInvoiceId(),
-            customerName: p.customerName || 'Unknown Customer',
-            customerPhone: p.customerPhone || '0000000000',
-            address: p.address || 'Unknown Address',
-            outOfValley: String(p.outOfValley).toLowerCase() === 'true' || p.outOfValley === '1' || String(p.outOfValley).toLowerCase() === 'yes',
-            city: p.city || '',
-            weight: Number(p.weight) || 0.5,
-            items: [], // Simplified for bulk upload CSV
-            amount: Number(p.amount) || 0,
-            deliveryCharge: Number(p.deliveryCharge) || 0,
-            vendorId,
-            ...labelUrls,
-            status: 'Pending',
-            timeline: [{
-              time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-              status: 'Invoice Created',
-              message: 'Vendor created package via CSV upload',
-              user: req.user.name || 'Vendor',
-            }]
-          });
-        }
-        const createdPackages = await Package.insertMany(packageDocs);
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
-        res.status(201).json({ success: true, data: createdPackages, message: `Successfully imported ${createdPackages.length} packages` });
-      } catch (err) {
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path); // Cleanup
-        const isValidation = err.name === 'ValidationError';
-        res.status(isValidation ? 400 : 500).json({ success: false, message: isValidation ? err.message : 'Server error during upload' });
-      }
+  try {
+    const result = await processCsvImport(req.file.path, vendorId, creatorName);
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    
+    // Return the detailed partial success response
+    res.status(201).json(result);
+  } catch (err) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    const isValidation = err.name === 'ValidationError' || err.message.includes('Exceeded maximum');
+    res.status(isValidation ? 400 : 500).json({ 
+      success: false, 
+      message: isValidation ? err.message : 'Server error during upload' 
     });
+  }
 };
 
 // --- PRODUCT MANAGEMENT ---

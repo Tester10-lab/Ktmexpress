@@ -20,7 +20,8 @@
   }
   
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased min-h-screen selection:bg-brand-200 selection:text-brand-900;
+    @apply text-slate-700 font-sans antialiased min-h-screen selection:bg-brand-200 selection:text-brand-900 relative;
+    background-color: #F3F4F6;
   }
   
   a {
@@ -42,24 +43,36 @@
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-brand-600 text-white text-sm font-medium rounded-xl shadow-[4px_4px_10px_rgba(79,70,229,0.3),-4px_-4px_10px_rgba(255,255,255,0.8)] hover:shadow-[6px_6px_15px_rgba(79,70,229,0.4),-6px_-6px_15px_rgba(255,255,255,0.9)] focus:outline-none transition-all active:shadow-[inset_4px_4px_10px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-white text-slate-700 text-sm font-medium rounded-lg shadow-sm border border-slate-200 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#F3F4F6] text-slate-700 text-sm font-medium rounded-xl shadow-[6px_6px_12px_rgba(0,0,0,0.06),-6px_-6px_12px_rgba(255,255,255,0.8)] hover:shadow-[8px_8px_16px_rgba(0,0,0,0.08),-8px_-8px_16px_rgba(255,255,255,0.9)] focus:outline-none transition-all active:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.06),inset_-4px_-4px_8px_rgba(255,255,255,0.8)] hover:-translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none border border-white/40;
   }
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 bg-red-500 text-white text-sm font-medium rounded-xl shadow-[4px_4px_10px_rgba(239,68,68,0.3),-4px_-4px_10px_rgba(255,255,255,0.8)] hover:shadow-[6px_6px_15px_rgba(239,68,68,0.4),-6px_-6px_15px_rgba(255,255,255,0.9)] focus:outline-none transition-all active:shadow-[inset_4px_4px_10px_rgba(0,0,0,0.2)] hover:-translate-y-0.5 disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-transparent text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-transparent text-slate-600 text-sm font-medium rounded-xl hover:shadow-[inset_4px_4px_8px_rgba(0,0,0,0.06),inset_-4px_-4px_8px_rgba(255,255,255,0.8)] focus:outline-none transition-all disabled:opacity-50 disabled:pointer-events-none;
   }
   
   .input-field {
-    @apply w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm;
+    @apply w-full px-4 py-3 bg-[#F3F4F6] border-none shadow-[inset_6px_6px_10px_rgba(0,0,0,0.05),inset_-6px_-6px_10px_rgba(255,255,255,0.9)] rounded-xl text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all;
   }
 
   .card-premium {
-    @apply bg-white rounded-xl border border-slate-200/60 shadow-sm overflow-hidden;
+    @apply bg-[#F3F4F6] rounded-[20px] shadow-[8px_8px_16px_rgba(0,0,0,0.08),-8px_-8px_16px_rgba(255,255,255,0.9)] overflow-hidden transition-all duration-300 hover:shadow-[12px_12px_24px_rgba(0,0,0,0.1),-12px_-12px_24px_rgba(255,255,255,1)] hover:-translate-y-1;
+  }
+  
+  .neumorphic-panel {
+    @apply bg-[#F3F4F6] rounded-[20px] shadow-[8px_8px_16px_rgba(0,0,0,0.08),-8px_-8px_16px_rgba(255,255,255,0.9)];
+  }
+  
+  .neumorphic-inset {
+    @apply bg-[#F3F4F6] rounded-[20px] shadow-[inset_8px_8px_16px_rgba(0,0,0,0.08),inset_-8px_-8px_16px_rgba(255,255,255,0.9)];
+  }
+  
+  .neumorphic-circle {
+    @apply bg-[#F3F4F6] rounded-full shadow-[6px_6px_12px_rgba(0,0,0,0.08),-6px_-6px_12px_rgba(255,255,255,0.9)] flex items-center justify-center;
   }
   
   .badge {
@@ -75,4 +88,162 @@
 
 .toast {
   animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Print Label Styles */
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-only, .print-only * {
+    visibility: visible;
+  }
+  .print-only {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+
+  @page {
+    size: A6;
+    margin: 0;
+  }
+  
+  .label-card {
+    page-break-after: always;
+    width: 105mm;
+    height: 148mm;
+    padding: 10mm;
+    box-sizing: border-box;
+    font-family: sans-serif;
+  }
+}
+
+/* Base Label Styling (for when it is printed) */
+.label-card {
+  width: 105mm;
+  height: 148mm;
+  padding: 10mm;
+  background: white;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-family: sans-serif;
+  color: black;
+}
+.label-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid black;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+.label-logo {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: bold;
+  font-size: 16px;
+}
+.label-tagline {
+  font-size: 10px;
+  color: #555;
+}
+.label-status-bar {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 10px;
+  color: white;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.label-barcode-section {
+  text-align: center;
+  margin-bottom: 10px;
+}
+.label-barcode-img {
+  width: 100%;
+  height: 60px;
+  object-fit: contain;
+}
+.label-body {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.label-address-section {
+  flex: 1;
+}
+.label-section-title {
+  font-size: 10px;
+  font-weight: bold;
+  color: #666;
+  margin-bottom: 2px;
+}
+.label-customer-name {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 2px;
+}
+.label-customer-phone {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.label-customer-address {
+  font-size: 12px;
+  margin-bottom: 5px;
+}
+.label-ov-badge {
+  background: black;
+  color: white;
+  padding: 1px 4px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+.label-meta-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+.label-meta-item {
+  display: flex;
+  flex-direction: column;
+}
+.label-meta-label {
+  font-size: 9px;
+  color: #666;
+}
+.label-meta-value {
+  font-size: 12px;
+  font-weight: bold;
+}
+.label-cod {
+  font-size: 14px;
+}
+.label-qr-section {
+  width: 80px;
+  text-align: center;
+}
+.label-qr-img {
+  width: 80px;
+  height: 80px;
+}
+.label-qr-caption {
+  font-size: 9px;
+  margin-top: 2px;
+}
+.label-footer {
+  border-top: 1px dashed #ccc;
+  padding-top: 5px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: #555;
 }

@@ -1,43 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../../api/axios';
-import { Package, Search, Phone, MapPin, Loader2, Info } from 'lucide-react';
-
-const PublicNav = ({ active }) => (
-  <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200 shadow-sm">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <Link to="/" className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center">
-          <Package className="w-5 h-5" />
-        </div>
-        <span className="font-bold text-xl tracking-tight text-slate-900">ktmexpress</span>
-      </Link>
-      <nav className="hidden md:flex items-center gap-1">
-        {[
-          { label: 'Branches', path: '/branches' },
-          { label: 'Pricing', path: '/pricing' },
-          { label: 'Contact', path: '/contact' },
-        ].map(({ label, path }) => (
-          <Link 
-            key={path} 
-            to={path} 
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              active === path ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            {label}
-          </Link>
-        ))}
-        <div className="w-px h-6 bg-slate-200 mx-2" />
-        <Link to="/login" className="btn-primary ml-2">Login</Link>
-      </nav>
-      {/* Mobile Nav Button */}
-      <div className="md:hidden">
-        <Link to="/login" className="btn-primary btn-sm">Login</Link>
-      </div>
-    </div>
-  </header>
-);
+import { Search, Phone, MapPin, Loader2, Info } from 'lucide-react';
+import PublicNav from '../../components/PublicNav';
+import PublicFooter from '../../components/PublicFooter';
 
 const statusColors = {
   Delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -67,7 +33,7 @@ const Tracking = () => {
       const { data } = await api.get(`/public/track/${q}`);
       setPkg(data.data);
     } catch (e) {
-      setError(e.response?.data?.message || 'Tracking code not found. Please check and try again.');
+      setError(e.message || 'Tracking code not found. Please check and try again.');
     } finally { setLoading(false); }
   };
 
@@ -240,9 +206,7 @@ const Tracking = () => {
         </div>
       </main>
 
-      <footer className="bg-slate-900 text-slate-400 py-6 text-center text-sm border-t border-slate-800">
-        <p>© {new Date().getFullYear()} ktmexpress Logistics. All rights reserved.</p>
-      </footer>
+      <PublicFooter />
     </div>
   );
 };

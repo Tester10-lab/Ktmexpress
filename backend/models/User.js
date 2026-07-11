@@ -26,6 +26,17 @@ const userSchema = new mongoose.Schema(
       enum: ['admin', 'vendor', 'dispatcher', 'rider'],
       required: [true, 'Role is required'],
     },
+    isSuperAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    permissions: {
+      canVerifyPackages: { type: Boolean, default: true },
+      canEditVerification: { type: Boolean, default: true },
+      canReopenVerification: { type: Boolean, default: false },
+      canDeleteVerification: { type: Boolean, default: false },
+      canEditLockedPackage: { type: Boolean, default: false },
+    },
     contact: {
       type: String,
       default: '',
@@ -63,6 +74,19 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    suspendedAt: {
+      type: Date,
+      default: null,
+    },
+    suspendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    suspensionReason: {
+      type: String,
+      default: null,
+    },
   },
   { timestamps: true }
 );
@@ -78,6 +102,12 @@ userSchema.pre('save', async function (next) {
 // Compare password method
 userSchema.methods.comparePassword = async function (candidate) {
   return bcrypt.compare(candidate, this.password);
+};
+
+// Check if user has permission
+userSchema.methods.hasPermission = function (permissionName) {
+  if (this.isSuperAdmin) return true;
+  return !!(this.permissions && this.permissions[permissionName]);
 };
 
 // Virtual to check if account is locked

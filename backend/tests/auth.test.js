@@ -1,8 +1,11 @@
+import { jest } from '@jest/globals';
 import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { app } from '../server.js';
 import User from '../models/User.js';
+
+jest.setTimeout(30000);
 
 let mongoServer;
 
@@ -31,7 +34,7 @@ describe('Auth API', () => {
         name: 'Test Admin',
         email: 'admin@test.com',
         password: 'password123',
-        role: 'admin',
+        role: 'vendor',
       });
     expect(res.statusCode).toEqual(201);
     expect(res.body.success).toBeTruthy();

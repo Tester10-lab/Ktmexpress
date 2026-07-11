@@ -128,12 +128,7 @@ const CameraScanner = ({ onDetected, active }) => {
         } catch (_) {}
       }, 300);
     } catch (e) {
-      console.error('Camera initialization error:', e);
-      const isHttps = window.isSecureContext ? 'Yes' : 'No';
-      const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-      setError(`Camera Error [${e.name}]: ${e.message}. 
-        Debug Info -> HTTPS: ${isHttps} | API Supported: ${hasMedia} | UserAgent: ${navigator.userAgent.substring(0, 50)}...
-        Please ensure you are on HTTPS and have granted camera permissions.`);
+      setError('Camera access denied. Please allow camera permission or use manual input.');
     }
   }, [onDetected, active]);
 
@@ -236,7 +231,7 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
       beep(true);
     } catch (e) {
       beep(false);
-      showToast(e.response?.data?.message || 'Package not found', 'error');
+      showToast(e.message || 'Package not found', 'error');
     } finally { setLookupLoading(false); }
   }, [code, action, showToast]);
 
@@ -268,7 +263,7 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
       if (inputRef.current) inputRef.current.focus();
     } catch (e) {
       beep(false);
-      showToast(e.response?.data?.message || 'Scan failed', 'error');
+      showToast(e.message || 'Scan failed', 'error');
     } finally { setScanning(false); }
   };
 
@@ -294,7 +289,7 @@ const ScanStation = ({ role = 'dispatcher', defaultAction = '' }) => {
       setBulkInput('');
     } catch (e) {
       beep(false);
-      showToast(e.response?.data?.message || 'Bulk scan failed', 'error');
+      showToast(e.message || 'Bulk scan failed', 'error');
     } finally { setBulkLoading(false); }
   };
 
