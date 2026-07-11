@@ -40,7 +40,7 @@ export const getDashboardStats = async (req, res) => {
         $facet: {
           total: [{ $count: 'count' }],
           delivered: [{ $match: { status: 'Delivered' } }, { $count: 'count' }],
-          pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse'] } } }, { $count: 'count' }],
+          pending: [{ $match: { status: { $in: ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Sorted', 'Postponed'] } } }, { $count: 'count' }],
           outForDelivery: [{ $match: { status: 'Out for Delivery' } }, { $count: 'count' }],
           cancelled: [{ $match: { status: 'Cancelled' } }, { $count: 'count' }],
           returned: [{ $match: { status: { $in: ['Returned', 'Returned to Vendor'] } } }, { $count: 'count' }],
@@ -115,10 +115,10 @@ export const getDashboardStats = async (req, res) => {
             { $group: {
               _id: '$vendorId',
               orders: { $sum: 1 },
-              codAmount: { $sum: '$amount' },
-              deliveryCharges: { $sum: '$deliveryCharge' },
-              vendorReceivable: { $sum: '$vendorReceivable' },
-              paid: { $sum: { $cond: [{ $eq: ['$vendorPaid', true] }, '$vendorReceivable', 0] } },
+              codAmount: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, '$amount', 0] } },
+              deliveryCharges: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, '$deliveryCharge', 0] } },
+              vendorReceivable: { $sum: { $cond: [{ $eq: ['$status', 'Delivered'] }, '$vendorReceivable', 0] } },
+              paid: { $sum: { $cond: [{ $and: [{ $eq: ['$status', 'Delivered'] }, { $eq: ['$vendorPaid', true] }] }, '$vendorReceivable', 0] } },
               pending: { $sum: { $cond: [{ $and: [{ $eq: ['$status', 'Delivered'] }, { $ne: ['$vendorPaid', true] }] }, '$vendorReceivable', 0] } },
             }},
             { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'vendor' } },
@@ -131,8 +131,8 @@ export const getDashboardStats = async (req, res) => {
       }
     ]);
 
-    const c = (arr) => arr[0]?.count || 0;
-    const g = (arr, field) => arr[0]?.[field] || 0;
+    const c = (arr) => (Array.isArray(arr) && arr[0]?.count) || 0;
+    const g = (arr, field) => (Array.isArray(arr) && arr[0]?.[field]) || 0;
 
     // User counts
     const [activeVendors, activeRiders] = await Promise.all([
@@ -144,34 +144,34 @@ export const getDashboardStats = async (req, res) => {
 
     const data = {
       // KPIs
-      totalPackages: c(pkgStats.total),
-      todayPackages: c(pkgStats.todayPackages),
-      monthPackages: c(pkgStats.monthPackages),
-      delivered: c(pkgStats.delivered),
-      pending: c(pkgStats.pending),
-      outForDelivery: c(pkgStats.outForDelivery),
-      cancelled: c(pkgStats.cancelled),
-      returned: c(pkgStats.returned),
-      todayDeliveries: c(pkgStats.todayDeliveries),
+      totalPackages: c(pkgStats?.total),
+      todayPackages: c(pkgStats?.todayPackages),
+      monthPackages: c(pkgStats?.monthPackages),
+      delivered: c(pkgStats?.delivered),
+      pending: c(pkgStats?.pending),
+      outForDelivery: c(pkgStats?.outForDelivery),
+      cancelled: c(pkgStats?.cancelled),
+      returned: c(pkgStats?.returned),
+      todayDeliveries: c(pkgStats?.todayDeliveries),
       todayExpenses,
       activeVendors,
       activeRiders,
       // Financial KPIs
-      totalRevenue: g(pkgStats.deliveredRevenue, 'totalCOD'),
-      totalDeliveryCharges: g(pkgStats.deliveredRevenue, 'totalCharges'),
-      profit: g(pkgStats.deliveredRevenue, 'totalCharges'),
-      vendorPayable: g(pkgStats.vendorPayable, 'amount'),
-      todayCOD: g(pkgStats.todayCOD, 'collected'),
-      codPending: g(pkgStats.codPending, 'amount'),
+      totalRevenue: g(pkgStats?.deliveredRevenue, 'totalCOD'),
+      totalDeliveryCharges: g(pkgStats?.deliveredRevenue, 'totalCharges'),
+      profit: g(pkgStats?.deliveredRevenue, 'totalCharges'),
+      vendorPayable: g(pkgStats?.vendorPayable, 'amount'),
+      todayCOD: g(pkgStats?.todayCOD, 'collected'),
+      codPending: g(pkgStats?.codPending, 'amount'),
       // Chart data
-      dailyRevenue: pkgStats.dailyRevenue || [],
-      monthlyRevenue: (pkgStats.monthlyRevenue || []).reverse(),
-      statusDistribution: pkgStats.statusDistribution || [],
-      ordersPerDay: pkgStats.ordersPerDay || [],
-      ordersPerHour: pkgStats.ordersPerHour || [],
+      dailyRevenue: pkgStats?.dailyRevenue || [],
+      monthlyRevenue: (pkgStats?.monthlyRevenue || []).reverse(),
+      statusDistribution: pkgStats?.statusDistribution || [],
+      ordersPerDay: pkgStats?.ordersPerDay || [],
+      ordersPerHour: pkgStats?.ordersPerHour || [],
       // Leaderboards
-      riderLeaderboard: pkgStats.riderLeaderboard || [],
-      vendorAnalytics: pkgStats.vendorAnalytics || [],
+      riderLeaderboard: pkgStats?.riderLeaderboard || [],
+      vendorAnalytics: pkgStats?.vendorAnalytics || [],
     };
 
     // Cache the result
@@ -574,6 +574,7 @@ export const updatePackageAdmin = async (req, res) => {
         user: req.user.name,
       });
       await pkg.save();
+      dashboardCache.timestamp = 0;
     }
 
     res.json({ success: true, data: pkg, message: 'Package updated successfully.' });
@@ -598,6 +599,7 @@ export const deletePackageAdmin = async (req, res) => {
       user: req.user.name,
     });
     await pkg.save();
+    dashboardCache.timestamp = 0;
 
     res.json({ success: true, message: 'Package deleted successfully.' });
   } catch (error) {
@@ -665,6 +667,7 @@ export const createPackageForVendor = async (req, res) => {
       }]
     });
 
+    dashboardCache.timestamp = 0;
     res.status(201).json({ success: true, data: pkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -734,6 +737,7 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
       createdPackages.push(pkg);
     }
 
+    dashboardCache.timestamp = 0;
     res.status(201).json({ success: true, data: createdPackages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -778,12 +782,15 @@ export const requestPickupAdmin = async (req, res) => {
       results.push({ packageId: pkg._id, trackingCode: pkg.trackingCode, pickupId: pickup._id, vendorId: pkg.vendorId });
     }
 
-    if (results.length > 0 && req.io) {
-      req.io.to('role_dispatcher').emit('notification', {
-        title: 'New Pickup Request',
-        message: `Admin requested pickup for ${results.length} package(s).`,
-        type: 'pickup_request'
-      });
+    if (results.length > 0) {
+      dashboardCache.timestamp = 0;
+      if (req.io) {
+        req.io.to('role_dispatcher').emit('notification', {
+          title: 'New Pickup Request',
+          message: `Admin requested pickup for ${results.length} package(s).`,
+          type: 'pickup_request'
+        });
+      }
     }
 
     res.status(201).json({ success: true, data: results });
@@ -1226,6 +1233,7 @@ export const verifyPackageAdmin = async (req, res) => {
     });
 
     await pkg.save(session ? { session } : {});
+    dashboardCache.timestamp = 0;
 
     if (session) {
       await session.commitTransaction();
@@ -1317,6 +1325,7 @@ export const reopenPackageAdmin = async (req, res) => {
     });
 
     await pkg.save(session ? { session } : {});
+    dashboardCache.timestamp = 0;
 
     if (session) {
       await session.commitTransaction();
@@ -1479,6 +1488,8 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
         reason: 'Bulk Verification',
       });
     }
+
+    dashboardCache.timestamp = 0;
 
     res.json({
       success: true,

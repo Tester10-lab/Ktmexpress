@@ -29,10 +29,12 @@ const STATUS_COLORS = {
 };
 
 const fmt = (n) => {
-  if (n >= 10000000) return `${(n / 10000000).toFixed(1)}Cr`;
-  if (n >= 100000) return `${(n / 100000).toFixed(1)}L`;
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return n?.toLocaleString?.() ?? n;
+  const num = Number(n);
+  if (isNaN(num)) return '0';
+  if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `${(num / 100000).toFixed(1)}L`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toLocaleString();
 };
 
 const AnalyticsDashboard = () => {
@@ -74,22 +76,28 @@ const AnalyticsDashboard = () => {
 
   const dailyChartData = useMemo(() => {
     if (!data?.dailyRevenue) return [];
-    return data.dailyRevenue.map(d => ({
-      date: new Date(d._id).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
-      revenue: d.revenue,
-      charges: d.charges,
-      orders: d.count,
-    }));
+    return data.dailyRevenue.map(d => {
+      const dDate = d._id ? new Date(d._id) : new Date(0);
+      return {
+        date: dDate.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+        revenue: d.revenue || 0,
+        charges: d.charges || 0,
+        orders: d.count || 0,
+      };
+    });
   }, [data?.dailyRevenue]);
 
   const monthlyChartData = useMemo(() => {
     if (!data?.monthlyRevenue) return [];
-    return data.monthlyRevenue.map(d => ({
-      month: new Date(d._id + '-01').toLocaleDateString('en', { month: 'short', year: '2-digit' }),
-      revenue: d.revenue,
-      charges: d.charges,
-      orders: d.count,
-    }));
+    return data.monthlyRevenue.map(d => {
+      const dateStr = d._id ? `${d._id}-01` : '1970-01-01';
+      return {
+        month: new Date(dateStr).toLocaleDateString('en', { month: 'short', year: '2-digit' }),
+        revenue: d.revenue || 0,
+        charges: d.charges || 0,
+        orders: d.count || 0,
+      };
+    });
   }, [data?.monthlyRevenue]);
 
   const statusChartData = useMemo(() => {
@@ -161,33 +169,36 @@ const AnalyticsDashboard = () => {
           <span className="text-lg">📅</span> Today's Activity
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <MetricCard title="Orders Today" value={data.todayPackages} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
-          <MetricCard title="Deliveries Today" value={data.todayDeliveries} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
-          <MetricCard title="COD Today" value={`Rs. ${fmt(data.todayCOD)}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
-          <MetricCard title="Orders This Month" value={data.monthPackages} color="purple" icon={<TrendingUp className="w-5 h-5 text-purple-600" />} />
-          <MetricCard title="Pending Expenses" value={data.todayExpenses} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
-          <MetricCard title="COD Pending" value={`Rs. ${fmt(data.codPending)}`} color="danger" icon={<Clock className="w-5 h-5 text-red-600" />} />
+          <MetricCard title="Orders Today" value={data.todayPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
+          <MetricCard title="Deliveries Today" value={data.todayDeliveries ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
+          <MetricCard title="COD Today" value={`Rs. ${fmt(data.todayCOD ?? 0)}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
+          <MetricCard title="Orders This Month" value={data.monthPackages ?? 0} color="purple" icon={<TrendingUp className="w-5 h-5 text-purple-600" />} />
+          <MetricCard title="Pending Expenses" value={data.todayExpenses ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
+          <MetricCard title="COD Pending" value={`Rs. ${fmt(data.codPending ?? 0)}`} color="danger" icon={<Clock className="w-5 h-5 text-red-600" />} />
         </div>
       </div>
 
       {/* ─── KPI Section: Delivery Status ──────────────────────────── */}
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Delivery Overview</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Total Packages" value={data.totalPackages} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
+            <MetricCard title="Total Packages" value={data.totalPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
           </div>
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Delivered" value={data.delivered} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
+            <MetricCard title="Delivered" value={data.delivered ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
           </div>
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Pending" value={data.pending} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
+            <MetricCard title="Pending" value={data.pending ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
           </div>
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Out for Delivery" value={data.outForDelivery} color="info" icon={<Truck className="w-5 h-5 text-sky-600" />} />
+            <MetricCard title="Out for Delivery" value={data.outForDelivery ?? 0} color="info" icon={<Truck className="w-5 h-5 text-sky-600" />} />
           </div>
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Cancelled" value={data.cancelled} color="danger" icon={<XCircle className="w-5 h-5 text-red-600" />} />
+            <MetricCard title="Cancelled" value={data.cancelled ?? 0} color="danger" icon={<XCircle className="w-5 h-5 text-red-600" />} />
+          </div>
+          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
+            <MetricCard title="Returned" value={data.returned ?? 0} color="purple" icon={<XCircle className="w-5 h-5 text-purple-600" />} />
           </div>
         </div>
       </div>
@@ -196,14 +207,14 @@ const AnalyticsDashboard = () => {
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Revenue & Settlement</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <MetricCard title="Total Revenue" value={`Rs. ${fmt(data.totalRevenue)}`} color="primary" icon={<Wallet className="w-5 h-5 text-brand-600" />} />
-          <MetricCard title="Delivery Revenue" value={`Rs. ${fmt(data.totalDeliveryCharges)}`} color="success" icon={<ArrowUpRight className="w-5 h-5 text-emerald-600" />} />
-          <MetricCard title="Vendor Payable" value={`Rs. ${fmt(data.vendorPayable)}`} color="warning" icon={<DollarSign className="w-5 h-5 text-amber-600" />} />
+          <MetricCard title="Total Revenue" value={`Rs. ${fmt(data.totalRevenue ?? 0)}`} color="primary" icon={<Wallet className="w-5 h-5 text-brand-600" />} />
+          <MetricCard title="Delivery Revenue" value={`Rs. ${fmt(data.totalDeliveryCharges ?? 0)}`} color="success" icon={<ArrowUpRight className="w-5 h-5 text-emerald-600" />} />
+          <MetricCard title="Vendor Payable" value={`Rs. ${fmt(data.vendorPayable ?? 0)}`} color="warning" icon={<DollarSign className="w-5 h-5 text-amber-600" />} />
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/users')}>
-            <MetricCard title="Active Vendors" value={data.activeVendors} color="purple" icon={<Users className="w-5 h-5 text-purple-600" />} />
+            <MetricCard title="Active Vendors" value={data.activeVendors ?? 0} color="purple" icon={<Users className="w-5 h-5 text-purple-600" />} />
           </div>
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/users')}>
-            <MetricCard title="Active Riders" value={data.activeRiders} color="success" icon={<Truck className="w-5 h-5 text-emerald-600" />} />
+            <MetricCard title="Active Riders" value={data.activeRiders ?? 0} color="success" icon={<Truck className="w-5 h-5 text-emerald-600" />} />
           </div>
         </div>
       </div>
