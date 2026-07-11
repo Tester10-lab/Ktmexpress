@@ -134,4 +134,30 @@ describe('QR Scanner API', () => {
     });
 
   });
+
+  describe('PUT /api/dispatcher/confirm-warehouse', () => {
+    it('rejects exploit attempt to move Delivered package back to In Warehouse', async () => {
+      const pkg = await createPkg(vendor1Id, 'EXPLOIT', 'Delivered');
+      
+      const res = await request(app)
+        .put('/api/dispatcher/confirm-warehouse')
+        .set('Authorization', `Bearer ${dispatcherToken}`)
+        .send({ packageId: pkg._id.toString() });
+        
+      expect(res.statusCode).toEqual(400);
+      expect(res.body.message).toMatch(/Cannot transition to In Warehouse from "Delivered"/);
+    });
+
+    it('allows valid predecessor transition (e.g. Picked Up) to In Warehouse', async () => {
+      const pkg = await createPkg(vendor1Id, 'VALID', 'Picked Up');
+      
+      const res = await request(app)
+        .put('/api/dispatcher/confirm-warehouse')
+        .set('Authorization', `Bearer ${dispatcherToken}`)
+        .send({ packageId: pkg._id.toString() });
+        
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.data.status).toEqual('In Warehouse');
+    });
+  });
 });

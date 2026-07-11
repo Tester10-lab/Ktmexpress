@@ -1,6 +1,8 @@
 import Package from '../models/Package.js';
 import CodHandover from '../models/CodHandover.js';
 import mongoose from 'mongoose';
+import User from '../models/User.js';
+import { canTransition } from '../services/packageTransitions.js';
 import eventBus from '../services/eventBus.js';
 
 // Helper: get timestamp string
@@ -51,6 +53,24 @@ export const updateDeliveryStatus = async (req, res) => {
     }
 
     const ts = nowStr();
+
+    const ACTION_TO_STATUS = {
+      deliver: 'Delivered',
+      postpone: 'Postponed',
+      cancel: 'Cancelled',
+      return: 'Returned',
+      pickup_complete: 'Picked Up'
+    };
+
+    const targetStatus = ACTION_TO_STATUS[action];
+    if (!targetStatus) {
+      return res.status(400).json({ success: false, message: 'Invalid action.' });
+    }
+
+    const transition = canTransition(pkg.status, targetStatus, req.user.role);
+    if (!transition.allowed) {
+      return res.status(400).json({ success: false, message: transition.reason });
+    }
 
     switch (action) {
       case 'deliver':
@@ -136,9 +156,6 @@ export const updateDeliveryStatus = async (req, res) => {
           user: req.user.name,
         });
         break;
-
-      default:
-        return res.status(400).json({ success: false, message: 'Invalid action.' });
     }
 
     await pkg.save();

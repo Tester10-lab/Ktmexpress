@@ -2,26 +2,7 @@ import Package from '../models/Package.js';
 import ScanEvent from '../models/ScanEvent.js';
 import logger from '../utils/logger.js';
 
-// ─── Status Transition Machine ───────────────────────────────────────────────
-// Defines valid next statuses for each current status, per role
-const TRANSITIONS = {
-  dispatcher: {
-    'Pick Up Requested': 'Picked Up',
-    'Picked Up':         'In Warehouse',
-    'In Warehouse':      'Sorted',
-    'Returned':          'Returned to Vendor',
-  },
-  rider: {
-    'Sorted':            'Out for Delivery',
-    'Out for Delivery':  'Delivered',
-  },
-  // Riders can also return — separate from the main chain
-};
-
-// Riders can mark Out for Delivery → Returned
-const RIDER_RETURN = {
-  'Out for Delivery': 'Returned',
-};
+import { canTransition, getDefaultNextStatus, getAllowedActions } from '../services/packageTransitions.js';
 
 // Label map for UI display
 const ROLE_LABELS = {
@@ -35,18 +16,21 @@ const ROLE_LABELS = {
 function resolveTransition(currentStatus, role, action) {
   if (role === 'admin') return { allowed: true, toStatus: action }; // admin can set any
 
-  const map = TRANSITIONS[role] || {};
-  const expectedTo = map[currentStatus];
-
-  if (role === 'rider' && action === 'Returned') {
-    if (RIDER_RETURN[currentStatus]) return { allowed: true, toStatus: 'Returned' };
-    return { allowed: false, reason: `Cannot mark Returned from "${currentStatus}"` };
+  let toStatus = action;
+  if (!toStatus) {
+    toStatus = getDefaultNextStatus(currentStatus, role);
+    if (!toStatus) {
+      return { allowed: false, reason: `Your role (${ROLE_LABELS[role]}) cannot scan packages with status "${currentStatus}"` };
+    }
   }
 
-  if (!expectedTo) {
-    return { allowed: false, reason: `Your role (${ROLE_LABELS[role]}) cannot scan packages with status "${currentStatus}"` };
+  const result = canTransition(currentStatus, toStatus, role);
+  if (!result.allowed) {
+    // If the error message didn't use role labels, we could inject it here, but the default generic is fine
+    return { allowed: false, reason: result.reason || `Your role (${ROLE_LABELS[role]}) cannot perform this scan.` };
   }
-  return { allowed: true, toStatus: expectedTo };
+  
+  return { allowed: true, toStatus };
 }
 
 // ─── POST /api/scan ───────────────────────────────────────────────────────────
@@ -315,18 +299,16 @@ export const lookupPackage = async (req, res) => {
     }
     // Also return what action this user's role can take
     const role = req.user.role;
-    const map = TRANSITIONS[role] || {};
-    const nextStatus = map[pkg.status] || (role === 'rider' && RIDER_RETURN[pkg.status] ? 'Returned' : null);
-    const canScan = !!nextStatus || role === 'admin';
+    const allowedActions = getAllowedActions(pkg.status, role);
+    const nextStatus = allowedActions.length > 0 ? allowedActions[0] : null;
+    const canScan = allowedActions.length > 0;
     res.json({
       success: true,
       data: {
         package: pkg,
         canScan,
         nextStatus,
-        allowedActions: role === 'rider' && pkg.status === 'Out for Delivery'
-          ? ['Delivered', 'Returned']
-          : nextStatus ? [nextStatus] : [],
+        allowedActions,
       },
     });
   } catch (err) {

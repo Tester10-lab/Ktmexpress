@@ -2,6 +2,7 @@ import Package from '../models/Package.js';
 import ScanEvent from '../models/ScanEvent.js';
 import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
+import { VALID_PREDECESSORS } from '../services/packageTransitions.js';
 
 // GET /api/packages
 export const getAllPackages = async (req, res) => {
@@ -225,7 +226,7 @@ export const confirmWarehouseArrival = async (req, res) => {
 
     // Atomic update, conditioning on valid predecessor statuses
     const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    const validPredecessors = ['Pending', 'Pick Up Requested', 'Picked Up'];
+    const validPredecessors = VALID_PREDECESSORS['In Warehouse'].dispatcher;
 
     const updatedPkg = await Package.findOneAndUpdate(
       { 

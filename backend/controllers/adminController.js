@@ -192,7 +192,7 @@ export const verifyCOD = async (req, res) => {
 
     pkg.codVerified = true;
     pkg.verifiedAt = new Date();
-    pkg.settlementStatus = 'COD Verified';
+    pkg.settlementStatus = 'Verified';
     pkg.timeline.push({
       time: new Date().toISOString().replace('T', ' ').substring(0, 16),
       status: pkg.status,
@@ -226,7 +226,7 @@ export const markVendorPaid = async (req, res) => {
       pkg.vendorPaid = true;
       pkg.paidAmount = pkg.vendorReceivable;
       pkg.paidAt = now;
-      pkg.settlementStatus = 'Paid';
+      pkg.settlementStatus = 'Settled';
       pkg.isSettling = false;
       pkg.timeline.push({
         time: nowStr,
@@ -1087,6 +1087,7 @@ export const verifyPackageAdmin = async (req, res) => {
     session = await mongoose.startSession();
     session.startTransaction();
   } catch (e) {
+    console.warn(`[WARN] MongoDB transaction failed in verifyPackageAdmin (likely no replica set). Proceeding without atomicity: ${e.message}`);
     session = null;
   }
 
@@ -1267,6 +1268,7 @@ export const reopenPackageAdmin = async (req, res) => {
     session = await mongoose.startSession();
     session.startTransaction();
   } catch (e) {
+    console.warn(`[WARN] MongoDB transaction failed in reopenPackageAdmin (likely no replica set). Proceeding without atomicity: ${e.message}`);
     session = null;
   }
 
@@ -1351,6 +1353,7 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
     session = await mongoose.startSession();
     session.startTransaction();
   } catch (e) {
+    console.warn(`[WARN] MongoDB transaction failed in bulkVerifyPackagesAdmin (likely no replica set). Proceeding without atomicity: ${e.message}`);
     session = null;
   }
 

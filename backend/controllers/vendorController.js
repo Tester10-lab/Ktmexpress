@@ -210,19 +210,17 @@ export const createPackage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Customer name, phone, address, and amount are required.' });
     }
 
-    let finalDeliveryCharge = Number(deliveryCharge);
-    if (!finalDeliveryCharge) {
-      try {
-        finalDeliveryCharge = await calculateDeliveryFee({
-          vendorId,
-          outOfValley: !!outOfValley,
-          city: city || '',
-          weight: weight || 0.5
-        });
-      } catch (e) {
-        logger.error('Pricing calculation failed', e);
-        finalDeliveryCharge = 0;
-      }
+    let finalDeliveryCharge;
+    try {
+      finalDeliveryCharge = await calculateDeliveryFee({
+        vendorId,
+        outOfValley: !!outOfValley,
+        city: city || '',
+        weight: weight || 0.5
+      });
+    } catch (e) {
+      logger.error('Pricing calculation failed', e);
+      finalDeliveryCharge = 0;
     }
 
     const trackingCode = await uniqueTrackingCode();
@@ -307,18 +305,16 @@ export const bulkCreatePackages = async (req, res) => {
       const trackingCode = await uniqueTrackingCode();
       const labelUrls = generateLabelUrls(trackingCode);
       
-      let finalDeliveryCharge = Number(p.deliveryCharge);
-      if (!finalDeliveryCharge) {
-        try {
-          finalDeliveryCharge = await calculateDeliveryFee({
-            vendorId,
-            outOfValley: !!p.outOfValley,
-            city: p.city || '',
-            weight: Number(p.weight) || 0.5
-          });
-        } catch (e) {
-          finalDeliveryCharge = 0;
-        }
+      let finalDeliveryCharge;
+      try {
+        finalDeliveryCharge = await calculateDeliveryFee({
+          vendorId,
+          outOfValley: !!p.outOfValley,
+          city: p.city || '',
+          weight: Number(p.weight) || 0.5
+        });
+      } catch (e) {
+        finalDeliveryCharge = 0;
       }
 
       const pkg = await Package.create({

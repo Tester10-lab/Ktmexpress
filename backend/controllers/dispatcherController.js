@@ -2,6 +2,7 @@ import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
 import User from '../models/User.js';
 import CodHandover from '../models/CodHandover.js';
+import { canTransition } from '../services/packageTransitions.js';
 
 // Helper: get timestamp string
 function nowStr() {
@@ -79,6 +80,11 @@ export const confirmWarehouseArrival = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
+    const transition = canTransition(pkg.status, 'In Warehouse', req.user.role);
+    if (!transition.allowed) {
+      return res.status(400).json({ success: false, message: transition.reason });
+    }
+
     pkg.status = 'In Warehouse';
     pkg.timeline.push({
       time: nowStr(),
@@ -108,6 +114,11 @@ export const assignRiderForDelivery = async (req, res) => {
     const pkg = await Package.findById(packageId);
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    const transition = canTransition(pkg.status, 'Out for Delivery', req.user.role);
+    if (!transition.allowed) {
+      return res.status(400).json({ success: false, message: transition.reason });
     }
 
     const rider = await User.findOne({ _id: riderId, role: 'rider', status: 'Active' });

@@ -82,18 +82,16 @@ export const processCsvImport = async (filePath, vendorId, creatorName) => {
 
             const outOfValleyParsed = String(outOfValley).toLowerCase() === 'true' || outOfValley === '1' || String(outOfValley).toLowerCase() === 'yes';
 
-            let finalDeliveryCharge = Number(deliveryChargeVal);
-            if (isNaN(finalDeliveryCharge) || deliveryChargeVal === undefined || deliveryChargeVal === null || deliveryChargeVal === '') {
-              try {
-                finalDeliveryCharge = await calculateDeliveryFee({
-                  vendorId,
-                  outOfValley: outOfValleyParsed,
-                  city: city || '',
-                  weight: weight
-                });
-              } catch (e) {
-                finalDeliveryCharge = 0;
-              }
+            let finalDeliveryCharge;
+            try {
+              finalDeliveryCharge = await calculateDeliveryFee({
+                vendorId,
+                outOfValley: outOfValleyParsed,
+                city: city || '',
+                weight: weight
+              });
+            } catch (e) {
+              finalDeliveryCharge = 0;
             }
 
             const trackingCode = await uniqueTrackingCode();

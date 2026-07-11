@@ -269,5 +269,13 @@ packageSchema.pre('findOne', excludeSoftDeleted);
 packageSchema.pre('findOneAndUpdate', excludeSoftDeleted);
 packageSchema.pre('countDocuments', excludeSoftDeleted);
 
+// Auto-calculate vendorReceivable whenever amount or deliveryCharge changes
+packageSchema.pre('save', function(next) {
+  if (this.isModified('amount') || this.isModified('deliveryCharge') || this.isNew) {
+    this.vendorReceivable = Math.max(0, (this.amount || 0) - (this.deliveryCharge || 0));
+  }
+  next();
+});
+
 const Package = mongoose.model('Package', packageSchema);
 export default Package;
