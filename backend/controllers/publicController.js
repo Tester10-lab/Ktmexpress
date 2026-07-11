@@ -4,8 +4,14 @@ import SystemSettings from '../models/SystemSettings.js';
 // GET /api/public/track/:code
 export const trackPackage = async (req, res) => {
   try {
-    const trackingCode = req.params.code.toUpperCase();
+    // Sanitize: allow only alphanumeric and hyphens, max length 20
+    const rawCode = req.params.code || '';
+    const trackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
     
+    if (!trackingCode) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code format.' });
+    }
+
     // We populate the rider info but only select what's safe for public view
     const pkg = await Package.findOne({ trackingCode })
       .populate('riderId', 'name contact');

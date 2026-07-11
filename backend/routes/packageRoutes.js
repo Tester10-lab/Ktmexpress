@@ -17,7 +17,7 @@ router.use(auth);
 router.get('/', roleGuard('admin', 'dispatcher'), getAllPackages);
 
 // Authenticated Tracking (Vendor only needs their own, admin/dispatcher any)
-router.get('/track/:trackingCode', trackPackage);
+router.get('/track/:trackingCode(*)', trackPackage);
 
 // Warehouse Arrival (Admin/Dispatcher only)
 router.patch('/:trackingCode/warehouse-arrival', roleGuard('admin', 'dispatcher'), warehouseArrivalLimiter, confirmWarehouseArrival);

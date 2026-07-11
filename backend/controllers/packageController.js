@@ -84,14 +84,14 @@ export const updatePackage = async (req, res) => {
 // GET /api/packages/track/:trackingCode
 export const trackPackage = async (req, res) => {
   try {
-    const { trackingCode } = req.params;
-    
-    // Validate tracking code format (basic check to ensure it's not arbitrary garbage)
+    const rawCode = req.params.trackingCode || '';
+    const trackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
+
     if (!trackingCode || trackingCode.length < 5) {
-      return res.status(400).json({ success: false, message: 'Invalid tracking code format.' });
+      return res.status(400).json({ success: false, message: 'Invalid tracking code.' });
     }
 
-    const pkg = await Package.findOne({ trackingCode: trackingCode.toUpperCase() })
+    const pkg = await Package.findOne({ trackingCode })
       .populate('vendorId', 'name')
       .populate('riderId', 'name')
       .lean();
@@ -114,19 +114,18 @@ export const trackPackage = async (req, res) => {
 // PATCH /api/packages/:trackingCode/warehouse-arrival
 export const confirmWarehouseArrival = async (req, res) => {
   try {
-    const { trackingCode } = req.params;
+    const rawCode = req.params.trackingCode || '';
+    const upperTrackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
 
-    if (!trackingCode || trackingCode.length < 5) {
-      return res.status(400).json({ success: false, message: 'Invalid tracking code format.' });
+    if (!upperTrackingCode || upperTrackingCode.length < 5) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code.' });
     }
-
-    const upperTrackingCode = trackingCode.toUpperCase();
     
     // Check if already in warehouse first (for idempotent success)
     const existing = await Package.findOne({ trackingCode: upperTrackingCode });
     
     if (!existing) {
-      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${upperTrackingCode}.` });
     }
 
     if (existing.status === 'In Warehouse') {
