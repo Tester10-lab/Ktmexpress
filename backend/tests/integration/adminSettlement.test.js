@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { app } from '../../server.js';
 import User from '../../models/User.js';
@@ -13,7 +13,7 @@ let adminToken;
 let vendorId;
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   const mongoUri = mongoServer.getUri();
   process.env.MONGO_URI = mongoUri;
   process.env.JWT_SECRET = 'testsecret';

@@ -77,10 +77,7 @@ const packageSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    codCollected: {
-      type: Boolean,
-      default: false,
-    },
+
     codVerified: {
       type: Boolean,
       default: false,

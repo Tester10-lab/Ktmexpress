@@ -4,9 +4,7 @@ import auth from '../middleware/auth.js';
 import roleGuard from '../middleware/roleGuard.js';
 import { 
   getAllPackages,
-  getPackageByCode,
   updatePackage,
-  createPackage,
   trackPackage,
   confirmWarehouseArrival
  } from '../controllers/packageController.js';
@@ -15,14 +13,8 @@ import { warehouseArrivalLimiter } from '../middleware/rateLimiter.js';
 // All routes require auth
 router.use(auth);
 
-// Create package (vendor only)
-router.post('/', roleGuard('vendor'), createPackage);
-
 // Get all packages (admin/dispatcher)
 router.get('/', roleGuard('admin', 'dispatcher'), getAllPackages);
-
-// Get package by tracking code (all roles)
-router.get('/:code', getPackageByCode);
 
 // Authenticated Tracking (Vendor only needs their own, admin/dispatcher any)
 router.get('/track/:trackingCode', trackPackage);

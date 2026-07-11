@@ -136,9 +136,9 @@ router.post('/reconcile/:riderId', reconcileRiderCOD);
 router.get('/expenses', getAllExpenses);
 router.put('/expenses/:id/status', updateExpenseStatus);
 router.get('/settlements', getSettlements);
-router.put('/settlements/:id', updateSettlement);
-router.post('/settlements/verify-cod/:packageId', verifyCOD);
-router.post('/settlements/mark-paid', markVendorPaid);
+router.put('/settlements/:id', authorize('canVerifyPackages'), updateSettlement);
+router.post('/settlements/verify-cod/:packageId', authorize('canVerifyPackages'), verifyCOD);
+router.post('/settlements/mark-paid', authorize('canVerifyPackages'), markVendorPaid);
 router.get('/settlements/export', exportSettlements);
 
 // Operational & Financial Verification endpoints

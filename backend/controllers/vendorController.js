@@ -422,6 +422,7 @@ export const getFinance = async (req, res) => {
 
 // POST /api/vendor/settlements
 export const requestSettlement = async (req, res) => {
+  let packageIds = [];
   try {
     const vendorId = req.user._id;
     const deliveredPkgs = await Package.find({ vendorId, status: 'Delivered', cashReconciled: true, vendorPaid: false, isSettling: false });
@@ -430,7 +431,7 @@ export const requestSettlement = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No unreconciled delivered packages found.' });
     }
 
-    const packageIds = deliveredPkgs.map(p => p._id);
+    packageIds = deliveredPkgs.map(p => p._id);
     
     // Acquire atomic lock on packages
     const lockResult = await Package.updateMany(
@@ -459,6 +460,16 @@ export const requestSettlement = async (req, res) => {
 
     res.status(201).json({ success: true, data: settlement });
   } catch (error) {
+    if (packageIds && packageIds.length > 0) {
+      try {
+        await Package.updateMany(
+          { _id: { $in: packageIds } },
+          { $set: { isSettling: false } }
+        );
+      } catch (rollbackError) {
+        // Just log the rollback failure, don't crash
+      }
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };

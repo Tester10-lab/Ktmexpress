@@ -12,6 +12,7 @@ let mongoServer;
 let adminToken;
 
 beforeAll(async () => {
+  process.env.JWT_SECRET = 'testsecret';
   mongoServer = await MongoMemoryServer.create();
   const uri = mongoServer.getUri();
   

@@ -49,34 +49,6 @@ export const getAllPackages = async (req, res) => {
   }
 };
 
-// GET /api/packages/:code
-export const getPackageByCode = async (req, res) => {
-  try {
-    const { code } = req.params;
-
-    const pkg = await Package.findOne({
-      $or: [
-        { trackingCode: code.toUpperCase() },
-        { invoiceId: code.toUpperCase() },
-      ],
-    })
-      .populate('vendorId', 'name vendorMeta')
-      .populate('riderId', 'name contact')
-      .lean();
-
-    if (!pkg) {
-      return res.status(404).json({
-        success: false,
-        message: `No package found with code "${code}".`,
-      });
-    }
-
-    res.json({ success: true, data: pkg });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
 // PUT /api/packages/:id
 export const updatePackage = async (req, res) => {
   try {
@@ -108,62 +80,6 @@ export const updatePackage = async (req, res) => {
   }
 };
 
-// POST /api/packages
-export const createPackage = async (req, res) => {
-  try {
-    const {
-      customerName,
-      customerPhone,
-      address,
-      outOfValley,
-      city,
-      weight,
-      packageAccess,
-      items,
-      amount,
-      deliveryCharge,
-    } = req.body;
-
-    // Generate unique tracking code
-    const trackingCode = await uniqueTrackingCode();
-    const labelUrls = generateLabelUrls(trackingCode);
-
-    // Generate concurrency-safe invoice ID
-    const invoiceId = generateInvoiceId();
-
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
-
-    const pkg = await Package.create({
-      trackingCode,
-      invoiceId,
-      customerName,
-      customerPhone,
-      address,
-      outOfValley: outOfValley || false,
-      city: city || '',
-      weight: weight || 0.5,
-      packageAccess: packageAccess || 'sealed',
-      items: items || [],
-      amount,
-      deliveryCharge: deliveryCharge || 0,
-      vendorId: req.user._id,
-      ...labelUrls,
-      status: 'Pending',
-      timeline: [
-        {
-          time: ts,
-          status: 'Invoice Created',
-          message: `Vendor created package invoice ${invoiceId}`,
-          user: req.user.name,
-        },
-      ],
-    });
-
-    res.status(201).json({ success: true, data: pkg });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
 
 // GET /api/packages/track/:trackingCode
 export const trackPackage = async (req, res) => {

@@ -212,12 +212,19 @@ export const verifyCOD = async (req, res) => {
 
 // POST /api/admin/settlements/mark-paid
 export const markVendorPaid = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
   try {
     const { packageIds, reference, paymentMethod } = req.body;
     if (!packageIds || !packageIds.length) return res.status(400).json({ success: false, message: 'No packages selected' });
 
-    const packages = await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } });
-    if (packages.length === 0) return res.status(400).json({ success: false, message: 'No eligible packages found' });
+    const packages = await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } }).session(session);
+    if (packages.length === 0) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: 'No eligible packages found' });
+    }
 
     const now = new Date();
     const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
@@ -234,8 +241,11 @@ export const markVendorPaid = async (req, res) => {
         message: `Vendor paid Rs. ${pkg.vendorReceivable}${reference ? ` (Ref: ${reference})` : ''}`,
         user: req.user.name,
       });
-      await pkg.save();
+      await pkg.save({ session });
     }
+
+    await session.commitTransaction();
+    session.endSession();
 
     // Invalidate dashboard cache
     dashboardCache.timestamp = 0;
@@ -246,6 +256,8 @@ export const markVendorPaid = async (req, res) => {
       data: { count: packages.length }
     });
   } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
     res.status(500).json({ success: false, message: error.message });
   }
 };
