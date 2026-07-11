@@ -19,7 +19,6 @@
     "dotenv": "^16.4.7",
     "envalid": "^8.2.0",
     "express": "^4.21.2",
-    "express-async-handler": "^1.2.0",
     "express-mongo-sanitize": "^2.2.0",
     "express-rate-limit": "^8.5.2",
     "helmet": "^8.2.0",
