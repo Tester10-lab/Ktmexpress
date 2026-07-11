@@ -29,6 +29,7 @@ beforeEach(async () => {
 
 test('track package public endpoint', async () => {
   await Package.create({
+    vendorId: new mongoose.Types.ObjectId(),
     trackingCode: 'LOG-TEST1',
     invoiceId: 'INV-TEST',
     customerName: 'Test User',
