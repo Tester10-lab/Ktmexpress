@@ -168,7 +168,7 @@ const AnalyticsDashboard = () => {
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
           <span className="text-lg">📅</span> Today's Activity
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <MetricCard title="Orders Today" value={data.todayPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
           <MetricCard title="Deliveries Today" value={data.todayDeliveries ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
           <MetricCard title="COD Today" value={`Rs. ${fmt(data.todayCOD ?? 0)}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
@@ -181,7 +181,7 @@ const AnalyticsDashboard = () => {
       {/* ─── KPI Section: Delivery Status ──────────────────────────── */}
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Delivery Overview</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
             <MetricCard title="Total Packages" value={data.totalPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
           </div>
@@ -206,7 +206,7 @@ const AnalyticsDashboard = () => {
       {/* ─── KPI Section: Financial ────────────────────────────────── */}
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Revenue & Settlement</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <MetricCard title="Total Revenue" value={`Rs. ${fmt(data.totalRevenue ?? 0)}`} color="primary" icon={<Wallet className="w-5 h-5 text-brand-600" />} />
           <MetricCard title="Delivery Revenue" value={`Rs. ${fmt(data.totalDeliveryCharges ?? 0)}`} color="success" icon={<ArrowUpRight className="w-5 h-5 text-emerald-600" />} />
           <MetricCard title="Vendor Payable" value={`Rs. ${fmt(data.vendorPayable ?? 0)}`} color="warning" icon={<DollarSign className="w-5 h-5 text-amber-600" />} />

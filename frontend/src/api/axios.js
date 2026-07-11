@@ -83,6 +83,7 @@ api.interceptors.response.use(
       message: error.response?.data?.message || 'Something went wrong',
       status: error.response?.status,
       errors: error.response?.data?.errors || [],
+      response: error.response,
     });
   }
 );
