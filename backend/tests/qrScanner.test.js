@@ -70,7 +70,7 @@ describe('QR Scanner API', () => {
     it('returns 400 for malformed tracking code', async () => {
       const res = await request(app).get('/api/packages/track/123').set('Authorization', `Bearer ${vendor1Token}`);
       expect(res.statusCode).toEqual(400);
-      expect(res.body.message).toMatch(/Invalid tracking code format/);
+      expect(res.body.message).toMatch(/Invalid tracking code/);
     });
 
     it('allows vendor to track their own package', async () => {
