@@ -3,7 +3,7 @@ export const VALID_PREDECESSORS = {
     dispatcher: ['Pending', 'Pick Up Requested', 'Picked Up']
   },
   'Out for Delivery': {
-    dispatcher: ['In Warehouse', 'Sorted']
+    dispatcher: ['In Warehouse', 'Sorted', 'Postponed']
   },
   'Picked Up': {
     rider: ['Pick Up Requested']
@@ -18,6 +18,9 @@ export const VALID_PREDECESSORS = {
     rider: ['Out for Delivery', 'Pick Up Requested', 'Picked Up']
   },
   'Returned': {
+    rider: ['Out for Delivery']
+  },
+  'Exchanged': {
     rider: ['Out for Delivery']
   }
 };
@@ -36,7 +39,7 @@ export const TRANSITIONS = {
 };
 
 export const RIDER_RETURN = {
-  'Out for Delivery': 'Returned',
+  'Out for Delivery': ['Returned', 'Cancelled', 'Exchanged'],
 };
 
 /**
@@ -47,9 +50,16 @@ export function canTransition(fromStatus, toStatus, role) {
   if (role === 'admin') return { allowed: true };
 
   // Rider return special case
-  if (role === 'rider' && toStatus === 'Returned') {
-    if (RIDER_RETURN[fromStatus]) return { allowed: true };
-    return { allowed: false, reason: `Cannot mark Returned from "${fromStatus}"` };
+  if (role === 'rider' && ['Returned', 'Cancelled', 'Exchanged'].includes(toStatus)) {
+    const validRiderActions = RIDER_RETURN[fromStatus];
+    if (validRiderActions && validRiderActions.includes(toStatus)) {
+      return { allowed: true };
+    }
+    // Cancelled is also explicitly allowed in VALID_PREDECESSORS from Pick Up Requested/Picked Up
+    if (toStatus === 'Cancelled' && ['Pick Up Requested', 'Picked Up'].includes(fromStatus)) {
+       return { allowed: true };
+    }
+    return { allowed: false, reason: `Cannot transition to ${toStatus} from "${fromStatus}"` };
   }
 
   // Check explicit overrides in VALID_PREDECESSORS
@@ -97,7 +107,9 @@ export function getAllowedActions(fromStatus, role) {
   if (defaultNext) actions.push(defaultNext);
   
   if (role === 'rider' && RIDER_RETURN[fromStatus]) {
-    actions.push('Returned');
+    RIDER_RETURN[fromStatus].forEach(action => {
+      if (!actions.includes(action)) actions.push(action);
+    });
   }
   
   // Check explicit actions from VALID_PREDECESSORS

@@ -9,6 +9,7 @@ export const PACKAGE_STATUS = {
   POSTPONED: 'Postponed',
   CANCELLED: 'Cancelled',
   RETURNED: 'Returned',
+  EXCHANGED: 'Exchanged',
   RETURNED_TO_VENDOR: 'Returned to Vendor',
 };
 

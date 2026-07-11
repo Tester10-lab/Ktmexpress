@@ -820,13 +820,14 @@ const ReverseLogistics = () => {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState('pending_rider');
+  const [selectedVendors, setSelectedVendors] = useState({});
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const r = await api.get('/dispatcher/packages?status=Returned,Returned to Vendor');
+      const r = await api.get('/dispatcher/packages?status=Returned,Cancelled,Exchanged,Returned to Vendor');
       setPackages(r.data.data || []);
     } catch { showToast('Failed to load returns', 'error'); }
     finally { setLoading(false); }
@@ -838,34 +839,91 @@ const ReverseLogistics = () => {
     setActionLoading(s => ({ ...s, [packageId]: type }));
     try {
       await api.put('/dispatcher/confirm-return', { packageId, type });
-      showToast(`✓ ${type === 'rider' ? 'Rider return' : 'Vendor receipt'} confirmed!`, 'success');
+      showToast(`✓ Rider return confirmed!`, 'success');
       fetchData(true);
     } catch (e) { showToast(e.message || 'Failed', 'error'); }
     finally { setActionLoading(s => ({ ...s, [packageId]: null })); }
   };
 
-  const filtered = packages.filter(p => {
-    if (filter === 'pending_rider') return !p.rtvSignoff?.riderReturned;
-    if (filter === 'pending_vendor') return p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived;
-    if (filter === 'complete') return p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived;
-    return true;
-  });
-
-  const stats = {
-    pendingRider: packages.filter(p => !p.rtvSignoff?.riderReturned).length,
-    pendingVendor: packages.filter(p => p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived).length,
-    complete: packages.filter(p => p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived).length,
+  const bulkVendorHandover = async (vendorId, packageIds) => {
+    setActionLoading(s => ({ ...s, [vendorId]: 'bulk_vendor' }));
+    try {
+      await api.put('/dispatcher/bulk-vendor-handover', { packageIds });
+      showToast(`✓ Bulk handover complete!`, 'success');
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [vendorId]: null })); }
   };
+
+  const pendingRider = packages.filter(p => !p.rtvSignoff?.riderReturned);
+  const pendingVendor = packages.filter(p => p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived);
+  const complete = packages.filter(p => p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived);
+
+  // Group pendingRider by Rider
+  const riderGroups = pendingRider.reduce((acc, p) => {
+    const riderName = p.riderId?.name || 'Unassigned';
+    if (!acc[riderName]) acc[riderName] = [];
+    acc[riderName].push(p);
+    return acc;
+  }, {});
+
+  // Group pendingVendor by Vendor
+  const vendorGroups = pendingVendor.reduce((acc, p) => {
+    const vendorId = p.vendorId?._id || 'unknown';
+    const shopName = p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || 'Unknown Vendor';
+    if (!acc[vendorId]) acc[vendorId] = { shopName, packages: [] };
+    acc[vendorId].packages.push(p);
+    return acc;
+  }, {});
+
+  const toggleVendor = (vId) => {
+    setSelectedVendors(prev => ({ ...prev, [vId]: !prev[vId] }));
+  };
+
+  const renderTable = (pkgs, hideRiderAction = false) => (
+    <div style={{ overflowX: 'auto', marginTop: 10 }}>
+      <table style={tableStyle}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Tracking</th>
+            <th style={thStyle}>Customer</th>
+            <th style={thStyle}>Vendor Shop</th>
+            <th style={thStyle}>Return Status</th>
+            <th style={thStyle}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pkgs.map(p => (
+            <tr key={p._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+              <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
+              <td style={tdStyle}>{p.customerName}</td>
+              <td style={tdStyle}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
+              <td style={tdStyle}><StatusBadge status={p.status} /></td>
+              <td style={tdStyle}>
+                {!p.rtvSignoff?.riderReturned && !hideRiderAction && (
+                  <ActionBtn onClick={() => confirmStep(p._id, 'rider')} disabled={actionLoading[p._id]} variant="warning" size="sm">
+                    {actionLoading[p._id] ? '...' : '✓ Rider Returned'}
+                  </ActionBtn>
+                )}
+                {p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived && (
+                  <span style={{ color: '#059669', fontWeight: 600, fontSize: 12 }}>✓ RTV Complete</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div>
-      {/* Stats + Filter Bar */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
         {[
-          { key: 'all', label: 'All Returns', count: packages.length, color: '#6b7280' },
-          { key: 'pending_rider', label: 'Rider Pending', count: stats.pendingRider, color: '#f59e0b' },
-          { key: 'pending_vendor', label: 'Vendor Pending', count: stats.pendingVendor, color: '#3b82f6' },
-          { key: 'complete', label: 'Complete', count: stats.complete, color: '#10b981' },
+          { key: 'pending_rider', label: 'Warehouse Receive (From Rider)', count: pendingRider.length, color: '#f59e0b' },
+          { key: 'pending_vendor', label: 'Vendor Handover', count: pendingVendor.length, color: '#3b82f6' },
+          { key: 'complete', label: 'Complete', count: complete.length, color: '#10b981' },
+          { key: 'all', label: 'All', count: packages.length, color: '#6b7280' },
         ].map(s => (
           <button key={s.key} onClick={() => setFilter(s.key)} style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', background: filter === s.key ? s.color : 'white', color: filter === s.key ? 'white' : s.color, border: `2px solid ${s.color}`, display: 'flex', alignItems: 'center', gap: 6 }}>
             {s.label} <span style={{ background: filter === s.key ? 'rgba(255,255,255,0.3)' : s.color + '20', padding: '1px 7px', borderRadius: 10 }}>{s.count}</span>
@@ -877,70 +935,59 @@ const ReverseLogistics = () => {
       </div>
 
       <div style={cardStyle}>
-        {/* Two-step signoff guide */}
-        <div style={{ padding: '12px 20px', background: '#fef3c7', borderBottom: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#92400e' }}>
-          <span>⚡</span>
-          <span><strong>Two-Step Signoff:</strong> Step 1 — Confirm physical return from rider. Step 2 — Confirm vendor has received the package. Both steps required to complete RTV.</span>
-        </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                {['Tracking', 'Vendor', 'Customer', 'Rider', 'Return Status', 'RTV Signoff', 'Actions'].map(h => <th key={h} style={thStyle}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? <tr><td colSpan="7"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="7"><EmptyState message="No returns in this category." icon="↩️" /></td></tr>
-                : filtered.map(p => {
-                  const riderDone = !!p.rtvSignoff?.riderReturned;
-                  const vendorDone = !!p.rtvSignoff?.vendorReceived;
-                  const fullDone = riderDone && vendorDone;
-                  const aLoading = actionLoading[p._id];
-                  return (
-                    <tr key={p._id} style={{ opacity: fullDone ? 0.6 : 1 }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                      <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
-                      <td style={tdStyle}>{p.customerName}</td>
-                      <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db' }}>—</span>}</td>
-                      <td style={tdStyle}><StatusBadge status={p.status} /></td>
-                      <td style={tdStyle}>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          {/* Rider Pill */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: riderDone ? '#f0fdf4' : '#fef9c3', color: riderDone ? '#059669' : '#854d0e', border: `1px solid ${riderDone ? '#bbf7d0' : '#fef08a'}` }}>
-                            {riderDone ? '✓' : '○'} Rider
-                          </div>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2" style={{ alignSelf: 'center' }}><path d="m9 18 6-6-6-6"/></svg>
-                          {/* Vendor Pill */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: vendorDone ? '#f0fdf4' : '#f3f4f6', color: vendorDone ? '#059669' : '#6b7280', border: `1px solid ${vendorDone ? '#bbf7d0' : '#e5e7eb'}` }}>
-                            {vendorDone ? '✓' : '○'} Vendor
-                          </div>
+        {loading ? <div style={{ padding: 20 }}><Spinner /></div> : (
+          <>
+            {filter === 'pending_rider' && (
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: '#1f2937' }}>Receive from Riders</h3>
+                {Object.keys(riderGroups).length === 0 ? <EmptyState message="No packages waiting from riders." icon="↩️" /> : 
+                  Object.entries(riderGroups).map(([riderName, pkgs]) => (
+                    <div key={riderName} style={{ marginBottom: 20, border: '1px solid #e5e7eb', borderRadius: 8, padding: 15 }}>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: '#374151', marginBottom: 10 }}>🛵 Rider: {riderName} ({pkgs.length})</div>
+                      {renderTable(pkgs)}
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {filter === 'pending_vendor' && (
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: '#1f2937' }}>Handover to Vendors</h3>
+                {Object.keys(vendorGroups).length === 0 ? <EmptyState message="No packages waiting for vendor handover." icon="📦" /> : 
+                  Object.entries(vendorGroups).map(([vendorId, { shopName, packages: pkgs }]) => (
+                    <div key={vendorId} style={{ marginBottom: 15, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                      <div 
+                        onClick={() => toggleVendor(vendorId)}
+                        style={{ padding: '12px 15px', background: '#f9fafb', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                      >
+                        <div style={{ fontWeight: 700, color: '#1f2937' }}>🏢 {shopName} <span style={{ color: '#6b7280', fontSize: 12, marginLeft: 8 }}>{pkgs.length} packages</span></div>
+                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                          <ActionBtn onClick={(e) => { e.stopPropagation(); bulkVendorHandover(vendorId, pkgs.map(p => p._id)); }} disabled={actionLoading[vendorId]} variant="success" size="sm">
+                            {actionLoading[vendorId] ? 'Handing over...' : `Handover All (${pkgs.length})`}
+                          </ActionBtn>
+                          <span style={{ fontSize: 12 }}>{selectedVendors[vendorId] ? '▲' : '▼'}</span>
                         </div>
-                      </td>
-                      <td style={tdStyle}>
-                        {fullDone ? (
-                          <span style={{ color: '#059669', fontWeight: 600, fontSize: 12 }}>✓ RTV Complete</span>
-                        ) : (
-                          <div style={{ display: 'flex', gap: 6 }}>
-                            {!riderDone && (
-                              <ActionBtn onClick={() => confirmStep(p._id, 'rider')} disabled={aLoading === 'rider'} variant="warning" size="sm">
-                                {aLoading === 'rider' ? '...' : '✓ Rider Returned'}
-                              </ActionBtn>
-                            )}
-                            {riderDone && !vendorDone && (
-                              <ActionBtn onClick={() => confirmStep(p._id, 'vendor')} disabled={aLoading === 'vendor'} variant="success" size="sm">
-                                {aLoading === 'vendor' ? '...' : '✓ Vendor Received'}
-                              </ActionBtn>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
+                      </div>
+                      {selectedVendors[vendorId] && (
+                        <div style={{ padding: 15 }}>
+                          {renderTable(pkgs, true)}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {(filter === 'complete' || filter === 'all') && (
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: '#1f2937' }}>{filter === 'complete' ? 'Completed RTV' : 'All Reverse Logistics'}</h3>
+                {renderTable(filter === 'complete' ? complete : packages)}
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

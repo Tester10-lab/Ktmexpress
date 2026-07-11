@@ -175,7 +175,7 @@ export const bulkAssignPackages = async (req, res) => {
     const updated = [];
     for (const id of packageIds) {
       const pkg = await Package.findById(id);
-      if (!pkg || pkg.status !== 'In Warehouse') continue;
+      if (!pkg || !['In Warehouse', 'Sorted', 'Postponed'].includes(pkg.status)) continue;
 
       pkg.riderId = riderId;
       pkg.status = 'Out for Delivery';
@@ -234,6 +234,43 @@ export const confirmReturn = async (req, res) => {
 
     await pkg.save();
     res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/dispatcher/bulk-vendor-handover
+export const bulkVendorHandover = async (req, res) => {
+  try {
+    const { packageIds } = req.body;
+
+    if (!packageIds?.length) {
+      return res.status(400).json({ success: false, message: 'No packages selected.' });
+    }
+
+    const updated = [];
+    for (const id of packageIds) {
+      const pkg = await Package.findById(id);
+      if (!pkg) continue;
+      
+      // Ensure it was physically returned by the rider first before handing to vendor
+      if (!pkg.rtvSignoff?.riderReturned) continue;
+      if (pkg.rtvSignoff?.vendorReceived) continue;
+
+      pkg.rtvSignoff.vendorReceived = true;
+      pkg.status = 'Returned to Vendor';
+      pkg.timeline.push({
+        time: nowStr(),
+        status: 'Returned to Vendor',
+        message: 'Package returned to vendor. RTV complete.',
+        user: req.user.name,
+      });
+
+      await pkg.save();
+      updated.push(pkg.trackingCode);
+    }
+
+    res.json({ success: true, data: { count: updated.length, trackingCodes: updated } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

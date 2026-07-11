@@ -147,6 +147,17 @@ export const updateDeliveryStatus = async (req, res) => {
         });
         break;
 
+      case 'exchange':
+        pkg.status = 'Exchanged';
+        pkg.comments = comment || '';
+        pkg.timeline.push({
+          time: ts,
+          status: 'Exchanged',
+          message: `Package marked for exchange. Reason: ${comment}`,
+          user: req.user.name,
+        });
+        break;
+
       case 'pickup_complete':
         pkg.status = 'Picked Up';
         pkg.timeline.push({

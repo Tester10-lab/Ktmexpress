@@ -133,7 +133,7 @@ const MyDeliveries = () => {
     }
   };
 
-  const actionLabel = { deliver:'Mark Delivered',postpone:'Postpone',cancel:'Cancel',return:'Mark Return',pickup_complete:'Confirm Pickup' };
+  const actionLabel = { deliver:'Mark Delivered',postpone:'Postpone',cancel:'Cancel',return:'Mark Return',exchange:'Exchange',pickup_complete:'Confirm Pickup' };
 
   // Filtering Logic
   const filteredDeliveries = deliveries.filter(d => {
@@ -148,7 +148,7 @@ const MyDeliveries = () => {
     if (deliveryFilter === 'pending') return ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status);
     if (deliveryFilter === 'active') return ['Out for Delivery'].includes(d.status);
     if (deliveryFilter === 'completed') return ['Delivered'].includes(d.status);
-    if (deliveryFilter === 'failed') return ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status);
+    if (deliveryFilter === 'failed') return ['Cancelled', 'Returned', 'Exchanged', 'Returned to Vendor'].includes(d.status);
     return true; // 'all'
   });
 
@@ -246,6 +246,12 @@ const MyDeliveries = () => {
                   <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'cancel')} title="Cancel">
                     <XCircle className="w-4 h-4" /> Cancel
                   </button>
+                  <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'return')} title="Return">
+                    <ArrowLeftRight className="w-4 h-4" /> Return
+                  </button>
+                  <button className="flex-1 lg:flex-none py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'exchange')} title="Exchange">
+                    <ArrowLeftRight className="w-4 h-4" /> Exchange
+                  </button>
                 </>
               )}
             </div>
@@ -294,7 +300,7 @@ const MyDeliveries = () => {
                   f === 'pending' ? ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status) :
                   f === 'active' ? ['Out for Delivery'].includes(d.status) :
                   f === 'completed' ? ['Delivered'].includes(d.status) :
-                  ['Cancelled', 'Returned', 'Returned to Vendor'].includes(d.status)
+                  ['Cancelled', 'Returned', 'Exchanged', 'Returned to Vendor'].includes(d.status)
                 ).length;
                 
                 return (

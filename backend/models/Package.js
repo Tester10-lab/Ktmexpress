@@ -225,6 +225,16 @@ const packageSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    replacementPackageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Package',
+      default: null,
+    },
+    originalPackageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Package',
+      default: null,
+    },
     deletedAt: {
       type: Date,
       default: null,
