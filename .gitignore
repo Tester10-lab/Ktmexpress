@@ -1,23 +1,26 @@
 node_modules/
-/.env
-.env.local
-.env.*.local
-logs/
-coverage/
 .vscode/
 .DS_Store
 npm-debug.log*
 yarn-error.log*
-dist/
-frontend/dist/
-backend/node_modules/
-frontend/node_modules/
-uploads/
-*.log
-node_modules/
-.env
 .gemini/
-uploads/
-dist/
-build/
-.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
+!/frontend/.env.production
+
+# Generated backend artifacts
+/backend/coverage/
+/backend/logs/
+/backend/uploads/
+
+# Frontend build output
+/frontend/dist/
+/frontend/build/
+/build/
+/dist/
+
+# Accidentally nested repository
+/delivery-system-main/
