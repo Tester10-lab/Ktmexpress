@@ -8,7 +8,7 @@ import TrackingLink from '../../components/TrackingLink';
 import { 
   Package, Truck, Wallet, History, MapPin, Navigation, 
   CheckCircle2, XCircle, Clock, Search, AlertCircle, X,
-  Calendar, FileText, ChevronRight, Phone, Target
+  Calendar, FileText, ChevronRight, Phone, Target, ArrowLeftRight
 } from 'lucide-react';
 
 const navLinks = [

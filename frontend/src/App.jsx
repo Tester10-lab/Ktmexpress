@@ -45,8 +45,8 @@ function App() {
               {/* Public */}
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/tracking" element={<TrackPackage />} />
-              <Route path="/tracking/:trackingCode" element={<TrackPackage />} />
+              <Route path="/track" element={<TrackPackage />} />
+              <Route path="/track/:trackingCode" element={<TrackPackage />} />
               <Route path="/pricing" element={<Pricing />} />
               <Route path="/branches" element={<Branches />} />
               <Route path="/contact" element={<Contact />} />
