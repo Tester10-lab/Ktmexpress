@@ -26,7 +26,7 @@ export const getPickupRequests = async (req, res) => {
       .populate('assignedRiderId', 'name')
       .sort({ requestedAt: -1 });
 
-    res.json({ success: true, data: pickups });
+    res.json({ success: true, data: assignedPickups });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
