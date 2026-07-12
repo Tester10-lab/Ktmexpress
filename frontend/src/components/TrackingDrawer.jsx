@@ -161,6 +161,26 @@ const TrackingDrawer = () => {
                 </>
               )}
 
+              {/* QR / Barcode */}
+              <div className="flex gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
+                <div className="flex flex-col items-center justify-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm shrink-0">
+                  <img
+                    src={pkg.qrCodeUrl || `https://quickchart.io/qr?size=100&text=${encodeURIComponent(`${window.location.origin}/track?code=${pkg.trackingCode}`)}`}
+                    alt="QR Code" 
+                    className="w-20 h-20"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">QR</span>
+                </div>
+                <div className="flex flex-col items-center justify-center flex-1 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
+                  <img
+                    src={pkg.barcodeUrl || `https://barcodeapi.org/api/128/${pkg.trackingCode}`}
+                    alt="Barcode" 
+                    className="h-12 w-full object-contain"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">Barcode</span>
+                </div>
+              </div>
+
               {/* Timeline */}
               {pkg.timeline?.length > 0 && (
                 <div className="space-y-4 pt-2">

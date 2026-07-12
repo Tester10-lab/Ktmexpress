@@ -110,7 +110,7 @@ const Tracking = () => {
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Scan to Track</p>
                   <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
                     <img
-                      src={pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=M&data=${encodeURIComponent(window.location.href)}`}
+                      src={pkg.qrCodeUrl || `https://quickchart.io/qr?size=150&text=${encodeURIComponent(`${window.location.origin}/track?code=${pkg.trackingCode}`)}`}
                       alt="QR Code" 
                       className="w-32 h-32"
                     />
