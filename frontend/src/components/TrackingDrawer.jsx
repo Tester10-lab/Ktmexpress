@@ -38,7 +38,7 @@ const TrackingDrawer = () => {
     try {
       // If user is logged in, use private route to get more details.
       // If not, use public route.
-      const endpoint = user ? `/packages/track/${code}` : `/public/track/${code}`;
+      const endpoint = user ? `packages/track/${code}` : `public/track/${code}`;
       const { data } = await api.get(endpoint);
       setPkg(data.data);
     } catch (e) {

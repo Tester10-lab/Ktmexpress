@@ -558,8 +558,8 @@ const InboundScan = () => {
   };
 
   const bulkSendForDelivery = async () => {
-    const toSend = selected.filter(id => packages.find(p => p._id === id)?.status === 'In Warehouse');
-    if (!toSend.length) return showToast('No warehouse packages selected', 'warning');
+    const toSend = selected.filter(id => ['In Warehouse', 'Sorted', 'Postponed'].includes(packages.find(p => p._id === id)?.status));
+    if (!toSend.length) return showToast('No eligible packages selected', 'warning');
     if (!riderId) return showToast('Select a rider first', 'warning');
     setBulkAssigning(true);
     try {

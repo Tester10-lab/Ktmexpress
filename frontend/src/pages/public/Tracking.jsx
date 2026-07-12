@@ -30,7 +30,7 @@ const Tracking = () => {
     setLoading(true); setError(''); setPkg(null);
     setSearchParams({ code: q });
     try {
-      const { data } = await api.get(`/public/track/${q}`);
+      const { data } = await api.get(`public/track/${q}`);
       setPkg(data.data);
     } catch (e) {
       setError(e.message || 'Tracking code not found. Please check and try again.');

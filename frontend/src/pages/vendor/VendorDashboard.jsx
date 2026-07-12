@@ -287,7 +287,7 @@ const PackageList = () => {
 
   const handleScanSuccess = async (trackingCode) => {
     try {
-      const r = await api.get(`/packages/track/${trackingCode}`);
+      const r = await api.get(`packages/track/${trackingCode}`);
       setViewPackageDetails(r.data.data);
       setScannerOpen(false);
       showToast('Package found', 'success');
