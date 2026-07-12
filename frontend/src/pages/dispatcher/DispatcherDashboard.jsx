@@ -72,10 +72,12 @@ const thStyle = { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWei
 const tdStyle = { padding: '11px 14px', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' };
 const cardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 20 };
 const cardHeaderStyle = { padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' };
+const drawerFooterStyle = { padding: '16px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', justifyContent: 'flex-end', gap: 10 };
 
 function ActionBtn({ onClick, children, variant = 'primary', disabled = false, size = 'sm', icon }) {
   const colors = {
     primary: { bg: '#2563eb', hover: '#1d4ed8', text: '#fff' },
+    secondary: { bg: '#6b7280', hover: '#4b5563', text: '#fff' },
     success: { bg: '#059669', hover: '#047857', text: '#fff' },
     warning: { bg: '#d97706', hover: '#b45309', text: '#fff' },
     danger: { bg: '#dc2626', hover: '#b91c1c', text: '#fff' },
