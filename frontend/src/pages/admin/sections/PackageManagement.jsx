@@ -39,6 +39,14 @@ const AdminPackages = () => {
   const [limit, setLimit] = useState(20);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [trackingCode, setTrackingCode] = useState('');
+  const [vendor, setVendor] = useState('');
+  const [customer, setCustomer] = useState('');
+  const [rider, setRider] = useState('');
+  const [riders, setRiders] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
   const { showToast } = useToast();
@@ -60,6 +68,12 @@ const AdminPackages = () => {
     const q = new URLSearchParams({ page, limit });
     if (search) q.append('search', search);
     if (statusFilter) q.append('status', statusFilter);
+    if (startDate) q.append('startDate', startDate);
+    if (endDate) q.append('endDate', endDate);
+    if (trackingCode) q.append('trackingCode', trackingCode);
+    if (vendor) q.append('vendor', vendor);
+    if (customer) q.append('customer', customer);
+    if (rider) q.append('rider', rider);
     
     api.get(`/admin/packages?${q.toString()}`)
       .then(r => {
@@ -76,8 +90,36 @@ const AdminPackages = () => {
     });
   };
 
-  useEffect(() => { fetchPackages(); }, [page, limit, statusFilter]);
-  useEffect(() => { fetchVendors(); }, []);
+  const fetchRiders = () => {
+    api.get('/admin/users?role=rider&limit=500').then(r => {
+      setRiders((r.data.data || []).filter(u => u.role === 'rider'));
+    });
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('');
+    setStartDate('');
+    setEndDate('');
+    setTrackingCode('');
+    setVendor('');
+    setCustomer('');
+    setRider('');
+    setPage(1);
+    // Cannot rely on useEffect if only text inputs change, so we trigger fetch manually.
+    // However, setPage(1) will trigger the [page, limit] useEffect, so we don't need to call fetchPackages directly if page changes.
+    // But if page is already 1, we must trigger it.
+    setTimeout(() => {
+      // Force reload after states have settled
+      setPage(prev => {
+        if (prev === 1) fetchPackages();
+        return 1;
+      });
+    }, 0);
+  };
+
+  useEffect(() => { fetchPackages(); }, [page, limit]);
+  useEffect(() => { fetchVendors(); fetchRiders(); }, []);
   
   useEffect(() => {
     if (!socket) return;
@@ -220,10 +262,6 @@ const AdminPackages = () => {
           <p className="text-sm text-slate-500">Manage all packages across the platform</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <select className="input-field py-2" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
-            <option value="">All Statuses</option>
-            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input 
@@ -236,6 +274,10 @@ const AdminPackages = () => {
             />
           </div>
           <button className="btn-secondary py-2" onClick={() => { setPage(1); fetchPackages(); }}>Search</button>
+          
+          <button className={`btn-outline py-2 flex items-center gap-2 ${showFilters ? 'bg-slate-100' : ''}`} onClick={() => setShowFilters(!showFilters)}>
+            <Settings2 className="w-4 h-4" /> Filters
+          </button>
           
           <div className="w-px h-8 bg-slate-200 mx-1 hidden lg:block" />
           
@@ -252,7 +294,57 @@ const AdminPackages = () => {
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> CSV Upload
           </button>
         </div>
-      </div>
+        </div>
+
+        {/* Advanced Filters */}
+        {showFilters && (
+          <div className="px-6 py-4 border-b border-slate-100 bg-white grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 animate-fadeIn">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Date Range</label>
+              <div className="flex gap-2">
+                <input type="date" className="input-field py-2 w-full" value={startDate} onChange={e => setStartDate(e.target.value)} />
+                <input type="date" className="input-field py-2 w-full" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Tracking Code</label>
+              <input type="text" className="input-field py-2 w-full" placeholder="Exact or partial..." value={trackingCode} onChange={e => setTrackingCode(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchPackages()} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Vendor Shop Name</label>
+              <select className="input-field py-2 w-full" value={vendor} onChange={e => setVendor(e.target.value)}>
+                <option value="">All Vendors</option>
+                {vendors.map(v => (
+                  <option key={v._id} value={v._id}>
+                    {v.vendorMeta?.shopName || v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Customer Name/Phone</label>
+              <input type="text" className="input-field py-2 w-full" placeholder="Search customer..." value={customer} onChange={e => setCustomer(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchPackages()} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Rider</label>
+              <select className="input-field py-2 w-full" value={rider} onChange={e => setRider(e.target.value)}>
+                <option value="">All Riders</option>
+                {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Status</label>
+              <select className="input-field py-2 w-full" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <option value="">All Statuses</option>
+                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="col-span-full flex gap-3 mt-2">
+              <button className="btn-primary py-2 px-6" onClick={() => { setPage(1); fetchPackages(); }}>Apply Filters</button>
+              <button className="btn-outline py-2 px-6 text-slate-500" onClick={clearFilters}>Clear Filters</button>
+            </div>
+          </div>
+        )}
       
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">

@@ -8,12 +8,37 @@ import { VALID_PREDECESSORS } from '../services/packageTransitions.js';
 // GET /api/packages
 export const getAllPackages = async (req, res) => {
   try {
-    const { status, search, vendor, rider, page = 1, limit = 50 } = req.query;
+    const { status, search, vendor, rider, startDate, endDate, trackingCode, customer, page = 1, limit = 50 } = req.query;
 
     const filter = {};
     if (status && status !== 'all') filter.status = status;
     if (vendor) filter.vendorId = vendor;
     if (rider) filter.riderId = rider;
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = end;
+      }
+    }
+
+    if (trackingCode) {
+      filter.trackingCode = { $regex: trackingCode, $options: 'i' };
+    }
+
+    if (customer) {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { customerName: { $regex: customer, $options: 'i' } },
+          { customerPhone: { $regex: customer, $options: 'i' } }
+        ]
+      });
+    }
+
     if (search) {
       const matchingVendors = await User.find({
         role: 'vendor',
@@ -24,13 +49,16 @@ export const getAllPackages = async (req, res) => {
       }).select('_id').lean();
       const vendorIds = matchingVendors.map(v => v._id);
 
-      filter.$or = [
-        { trackingCode: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { invoiceId: { $regex: search, $options: 'i' } },
-        { address: { $regex: search, $options: 'i' } },
-        { vendorId: { $in: vendorIds } }
-      ];
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { trackingCode: { $regex: search, $options: 'i' } },
+          { customerName: { $regex: search, $options: 'i' } },
+          { invoiceId: { $regex: search, $options: 'i' } },
+          { address: { $regex: search, $options: 'i' } },
+          { vendorId: { $in: vendorIds } }
+        ]
+      });
     }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
