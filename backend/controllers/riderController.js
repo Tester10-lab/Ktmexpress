@@ -23,7 +23,13 @@ export const getMyDeliveries = async (req, res) => {
     } else if (type === 'pickup') {
       filter.status = { $in: ['Pick Up Requested', 'Picked Up'] };
     } else if (type === 'delivery') {
-      filter.status = { $nin: ['Pick Up Requested', 'Picked Up', 'Pending'] }; // all deliveries
+      filter.$or = [
+        { status: { $in: ['Out for Delivery', 'Postponed'] } },
+        { 
+          status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged'] },
+          deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] }
+        }
+      ];
     } else if (type === 'active_delivery') {
       filter.status = { $in: ['Out for Delivery', 'Postponed'] };
     }

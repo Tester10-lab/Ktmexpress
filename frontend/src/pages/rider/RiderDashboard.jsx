@@ -139,17 +139,17 @@ const MyDeliveries = () => {
   const filteredDeliveries = deliveries.filter(d => {
     const isPendingVerification = d.deliveryVerificationStatus === 'Pending' || d.deliveryVerificationStatus === 'Reopened';
     
-    if (isPendingVerification) {
-      if (deliveryFilter === 'completed') return true;
-      if (deliveryFilter === 'all') return true;
-      return false; // Exclude from other active filters
-    }
-
-    if (deliveryFilter === 'pending') return ['In Warehouse', 'Sorted', 'Postponed'].includes(d.status);
-    if (deliveryFilter === 'active') return ['Out for Delivery'].includes(d.status);
-    if (deliveryFilter === 'completed') return ['Delivered'].includes(d.status);
-    if (deliveryFilter === 'failed') return ['Cancelled', 'Returned', 'Exchanged', 'Returned to Vendor'].includes(d.status);
-    return true; // 'all'
+    if (deliveryFilter === 'pending') return d.status === 'Postponed';
+    if (deliveryFilter === 'active') return d.status === 'Out for Delivery';
+    if (deliveryFilter === 'completed') return isPendingVerification && d.status === 'Delivered';
+    if (deliveryFilter === 'failed') return isPendingVerification && ['Cancelled', 'Returned', 'Exchanged'].includes(d.status);
+    
+    // For 'all' tab, show exactly the ones allowed above
+    return (
+      d.status === 'Postponed' || 
+      d.status === 'Out for Delivery' || 
+      (isPendingVerification && ['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(d.status))
+    );
   });
 
   const filteredPickups = pickups.filter(p => {
