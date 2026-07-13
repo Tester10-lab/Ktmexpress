@@ -19,7 +19,7 @@ const verificationAuditSchema = new mongoose.Schema({
   verificationTime: { type: Date, default: Date.now },
   reason: { type: String },
   customRemarks: { type: String },
-  action: { type: String, required: true }, // 'Verify', 'Save Draft', 'Reopen'
+  action: { type: String, required: true }, // 'Verify', 'Save Draft', 'Reopen', 'Edit & Verify'
   ipAddress: { type: String },
   device: { type: String },
   browser: { type: String }

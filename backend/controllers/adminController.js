@@ -1153,10 +1153,7 @@ export const verifyPackageAdmin = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
-    if (pkg.deliveryVerificationStatus === 'Verified') {
-      if (session) await session.abortTransaction();
-      return res.status(400).json({ success: false, message: 'Package is already verified.' });
-    }
+    const isEditVerified = pkg.deliveryVerificationStatus === 'Verified';
 
     // Optimistic Concurrency Control check
     if (version !== undefined && pkg.__v !== version) {
@@ -1167,8 +1164,10 @@ export const verifyPackageAdmin = async (req, res) => {
       });
     }
 
-    const originalRiderAmount = pkg.riderSubmission?.amount || pkg.amount;
-    const difference = amount - originalRiderAmount;
+    const previousAmount = isEditVerified ? pkg.amount : (pkg.riderSubmission?.amount || pkg.amount);
+    const previousStatus = isEditVerified ? pkg.status : (pkg.riderSubmission?.status || pkg.status);
+    
+    const difference = amount - previousAmount;
     const now = new Date();
     const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
 
@@ -1177,7 +1176,7 @@ export const verifyPackageAdmin = async (req, res) => {
     // Financial adjustment logging
     if (difference !== 0) {
       pkg.financialAdjustments.push({
-        originalAmount: originalRiderAmount,
+        originalAmount: previousAmount,
         adjustedAmount: amount,
         difference,
         reason: reason || 'Adjustment',
@@ -1185,11 +1184,11 @@ export const verifyPackageAdmin = async (req, res) => {
         adjustedByName: req.user.name,
         createdAt: now,
       });
-      timelineChanges.push({ field: 'amount', before: originalRiderAmount, after: amount });
+      timelineChanges.push({ field: 'amount', before: previousAmount, after: amount });
     }
 
-    if (pkg.status !== status) {
-      timelineChanges.push({ field: 'status', before: pkg.status, after: status });
+    if (previousStatus !== status) {
+      timelineChanges.push({ field: 'status', before: previousStatus, after: status });
     }
 
     // Apply edits
@@ -1253,10 +1252,10 @@ export const verifyPackageAdmin = async (req, res) => {
     // Push Verification Audit Log
     pkg.verificationAudit.push({
       riderSubmission: pkg.riderSubmission,
-      previousAmount: originalRiderAmount,
+      previousAmount: previousAmount,
       updatedAmount: amount,
       difference,
-      previousStatus: pkg.riderSubmission?.status || pkg.status,
+      previousStatus: previousStatus,
       updatedStatus: status,
       approvedBy: req.user._id,
       approvedByName: req.user.name,
@@ -1264,7 +1263,7 @@ export const verifyPackageAdmin = async (req, res) => {
       verificationTime: now,
       reason,
       customRemarks: customRemarks || '',
-      action: 'Verify',
+      action: isEditVerified ? 'Edit & Verify' : 'Verify',
       ipAddress: req.ip || req.connection?.remoteAddress || '127.0.0.1',
       device,
       browser,
@@ -1283,7 +1282,7 @@ export const verifyPackageAdmin = async (req, res) => {
       reqUser: req.user,
       io: req.io,
       isAdjustment: difference !== 0,
-      originalRiderAmount,
+      originalRiderAmount: previousAmount,
       finalAmount: amount,
       reason: reason,
     });
