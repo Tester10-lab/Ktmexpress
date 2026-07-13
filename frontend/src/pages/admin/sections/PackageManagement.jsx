@@ -40,6 +40,7 @@ const AdminPackages = () => {
   const [limit, setLimit] = useState(20);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [verificationStatusFilter, setVerificationStatusFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [trackingCode, setTrackingCode] = useState('');
@@ -70,6 +71,7 @@ const AdminPackages = () => {
     const q = new URLSearchParams({ page, limit });
     if (search) q.append('search', search);
     if (statusFilter) q.append('status', statusFilter);
+    if (verificationStatusFilter) q.append('verificationStatus', verificationStatusFilter);
     if (startDate) q.append('startDate', startDate);
     if (endDate) q.append('endDate', endDate);
     if (trackingCode) q.append('trackingCode', trackingCode);
@@ -101,6 +103,7 @@ const AdminPackages = () => {
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('');
+    setVerificationStatusFilter('');
     setStartDate('');
     setEndDate('');
     setTrackingCode('');
@@ -343,6 +346,14 @@ const AdminPackages = () => {
                 {statuses.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Verification Status</label>
+              <select className="input-field py-2 w-full" value={verificationStatusFilter} onChange={e => setVerificationStatusFilter(e.target.value)}>
+                <option value="">All Verification Statuses</option>
+                <option value="Pending">Verification Requested (Pending)</option>
+                <option value="Verified">Verified</option>
+              </select>
+            </div>
             <div className="col-span-full flex gap-3 mt-2">
               <button className="btn-primary py-2 px-6" onClick={() => { setPage(1); fetchPackages(); }}>Apply Filters</button>
               <button className="btn-outline py-2 px-6 text-slate-500" onClick={clearFilters}>Clear Filters</button>
@@ -385,7 +396,20 @@ const AdminPackages = () => {
                     <td className={`px-6 py-4 font-medium ${p.riderId?.name ? 'text-slate-800' : 'text-slate-400 italic'}`}>
                       {p.riderId?.name || 'Unassigned'}
                     </td>
-                    <td className="px-6 py-4">{statusBadge(p.status)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1 items-start">
+                        {statusBadge(p.status)}
+                        {p.deliveryVerificationStatus === 'Pending' && p.activeVerificationPriority && (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            p.activeVerificationPriority === 'High' ? 'bg-red-50 text-red-700 border-red-200' :
+                            p.activeVerificationPriority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            'bg-slate-50 text-slate-700 border-slate-200'
+                          }`}>
+                            {p.activeVerificationPriority} Priority
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">

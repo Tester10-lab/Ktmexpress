@@ -9,6 +9,20 @@ import { VERIFICATION_STATUSES } from '../constants/verificationStatus.js';
 import { SETTLEMENT_STATUSES } from '../constants/settlementStatus.js';
 import { PAYMENT_METHODS } from '../constants/paymentMethod.js';
 
+const verificationRequestSchema = new mongoose.Schema({
+  requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  requestedByName: { type: String, required: true },
+  requestedRole: { type: String, required: true },
+  requestedAt: { type: Date, default: Date.now },
+  reason: { type: String, required: true },
+  priority: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Low' },
+  status: { type: String, enum: ['Pending', 'Resolved'], default: 'Pending' },
+  resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  resolvedByName: { type: String, default: '' },
+  resolvedAt: { type: Date, default: null },
+  resolutionNotes: { type: String, default: '' }
+}, { _id: true });
+
 const lineItemSchema = new mongoose.Schema(
   {
     productId: { type: String, default: '' },
@@ -140,6 +154,12 @@ const packageSchema = new mongoose.Schema(
     verificationStartedAt: {
       type: Date,
       default: null,
+    },
+    verificationRequests: [verificationRequestSchema],
+    activeVerificationPriority: {
+      type: String,
+      enum: ['High', 'Medium', 'Low', ''],
+      default: '',
     },
     verificationCompletedAt: {
       type: Date,

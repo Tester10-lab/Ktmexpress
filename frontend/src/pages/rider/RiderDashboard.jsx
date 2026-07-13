@@ -424,10 +424,42 @@ const MyDeliveries = () => {
                     <input type="date" className="input-field" value={form.newDate} onChange={e=>setForm(f=>({...f,newDate:e.target.value}))}/>
                   </div>
                 )}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Remarks / Reason {actionModal.action!=='deliver'&&<span className="text-red-500">*</span>}</label>
-                  <textarea className="input-field min-h-[100px]" placeholder="Explain reason or add notes..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required={actionModal.action!=='deliver'}/>
-                </div>
+                {actionModal.action === 'request_verification' ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason for Verification <span className="text-red-500">*</span></label>
+                      <select 
+                        className="input-field mb-4" 
+                        value={form.verificationReason || ''} 
+                        onChange={e => setForm(f => ({ ...f, verificationReason: e.target.value, comment: e.target.value === 'Other' ? '' : e.target.value }))}
+                        required
+                      >
+                        <option value="" disabled>Select a reason...</option>
+                        <option value="COD amount mismatch">COD amount mismatch</option>
+                        <option value="Delivery charge correction">Delivery charge correction</option>
+                        <option value="Wrong package status">Wrong package status</option>
+                        <option value="Customer dispute">Customer dispute</option>
+                        <option value="Exchange issue">Exchange issue</option>
+                        <option value="Return issue">Return issue</option>
+                        <option value="Damaged package">Damaged package</option>
+                        <option value="Address correction">Address correction</option>
+                        <option value="Receiver information correction">Receiver information correction</option>
+                        <option value="Other">Other (please specify below)</option>
+                      </select>
+                    </div>
+                    {form.verificationReason === 'Other' && (
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Additional Details <span className="text-red-500">*</span></label>
+                        <textarea className="input-field min-h-[100px]" placeholder="Please specify the reason..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required/>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Remarks / Reason {actionModal.action!=='deliver'&&<span className="text-red-500">*</span>}</label>
+                    <textarea className="input-field min-h-[100px]" placeholder="Explain reason or add notes..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required={actionModal.action!=='deliver'}/>
+                  </div>
+                )}
                 <div className="pt-2">
                   <button type="submit" className="btn-primary w-full py-3 text-base">Submit Update</button>
                 </div>

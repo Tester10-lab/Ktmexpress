@@ -306,15 +306,34 @@ export const requestVerification = async (req, res) => {
     if (pkg.deliveryVerificationStatus === 'Verified') {
       return res.status(400).json({ success: false, message: 'Package is already verified.' });
     }
+    if (pkg.deliveryVerificationStatus === 'Pending') {
+      return res.status(400).json({ success: false, message: 'Package is already pending verification.' });
+    }
+
+    let priority = 'Low';
+    if (['COD amount mismatch', 'Customer dispute', 'Damaged package'].includes(reason)) priority = 'High';
+    else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(reason)) priority = 'Medium';
 
     pkg.deliveryVerificationStatus = 'Pending';
-    pkg.verificationStartedAt = new Date();
+    pkg.activeVerificationPriority = priority;
+    if (!pkg.verificationStartedAt) {
+      pkg.verificationStartedAt = new Date();
+    }
+
+    pkg.verificationRequests.push({
+      requestedBy: req.user.id,
+      requestedByName: req.user.name,
+      requestedRole: req.user.role,
+      reason,
+      priority,
+      status: 'Pending'
+    });
 
     const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
     pkg.timeline.push({
       time: ts,
       status: 'Verification Requested',
-      message: `Verification requested by ${req.user.role}. Reason: ${reason}`,
+      message: `Verification requested by ${req.user.role}. Reason: ${reason} (Priority: ${priority})`,
       user: req.user.name,
       changes: [
         { field: 'deliveryVerificationStatus', before: pkg.deliveryVerificationStatus || null, after: 'Pending' }

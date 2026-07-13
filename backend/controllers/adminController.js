@@ -525,9 +525,10 @@ export const updateUser = async (req, res) => {
 // GET /api/admin/packages - Full package overview for admin
 export const getAllPackagesAdmin = async (req, res) => {
   try {
-    const { status, vendor, rider, trackingCode, customer, startDate, endDate, search, page = 1, limit = 50 } = req.query;
+    const { status, verificationStatus, vendor, rider, trackingCode, customer, startDate, endDate, search, page = 1, limit = 50 } = req.query;
     const filter = {};
     if (status && status !== 'all') filter.status = status;
+    if (verificationStatus && verificationStatus !== 'all') filter.deliveryVerificationStatus = verificationStatus;
     if (vendor) filter.vendorId = vendor;
     if (rider) filter.riderId = rider;
 
@@ -1233,8 +1234,23 @@ export const verifyPackageAdmin = async (req, res) => {
     pkg.deliveryVerificationStatus = 'Verified';
     pkg.verifiedAt = now;
     pkg.verificationCompletedAt = now;
+    pkg.activeVerificationPriority = '';
     if (pkg.verificationStartedAt) {
       pkg.verificationDuration = Math.round((now - pkg.verificationStartedAt) / 60000);
+    }
+
+    // Resolve any pending verification requests
+    let requesterToNotify = null;
+    if (pkg.verificationRequests && pkg.verificationRequests.length > 0) {
+      const pendingRequest = pkg.verificationRequests.find(r => r.status === 'Pending');
+      if (pendingRequest) {
+        pendingRequest.status = 'Resolved';
+        pendingRequest.resolvedBy = req.user._id;
+        pendingRequest.resolvedByName = req.user.name;
+        pendingRequest.resolvedAt = now;
+        pendingRequest.resolutionNotes = reason || customRemarks || 'Verified by admin';
+        requesterToNotify = pendingRequest.requestedBy;
+      }
     }
 
     if (status === 'Delivered') {
@@ -1298,6 +1314,14 @@ export const verifyPackageAdmin = async (req, res) => {
     if (session) {
       await session.commitTransaction();
       session.endSession();
+    }
+
+    if (req.io && requesterToNotify) {
+      req.io.to(requesterToNotify.toString()).emit('notification', {
+        title: 'Verification Resolved',
+        message: `Your verification request for package ${pkg.trackingCode} has been resolved by Admin.`,
+        type: 'success'
+      });
     }
 
     eventBus.emit('package.verified', {

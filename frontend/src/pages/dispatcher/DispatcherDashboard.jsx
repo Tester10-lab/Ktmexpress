@@ -1013,16 +1013,19 @@ const ActiveRiders = () => {
     endDate: '',
   });
   const [expandedTimelines, setExpandedTimelines] = useState(new Set());
+  const [verificationModal, setVerificationModal] = useState({ open: false, pkgId: null, reason: '', comment: '' });
 
-  const handleRequestVerification = async (pkgId) => {
-    const reason = window.prompt("Enter reason for requesting verification:");
-    if (!reason) return;
+  const handleRequestVerificationSubmit = async (e) => {
+    e.preventDefault();
+    if (!verificationModal.reason) return;
     try {
-      await api.post(`/packages/${pkgId}/request-verification`, { reason });
+      const payloadReason = verificationModal.reason === 'Other' ? verificationModal.comment : verificationModal.reason;
+      await api.post(`/packages/${verificationModal.pkgId}/request-verification`, { reason: payloadReason });
       showToast("Verification requested", "success");
-      if (selectedRider) fetchRiderHistory(selectedRider._id);
-    } catch (e) {
-      showToast(e.response?.data?.message || "Failed to request verification", "error");
+      setVerificationModal({ open: false, pkgId: null, reason: '', comment: '' });
+      if (selectedRider) fetchRiderHistory(selectedRider._id, historyFilters);
+    } catch (err) {
+      showToast(err.response?.data?.message || "Failed to request verification", "error");
     }
   };
 
@@ -1317,7 +1320,7 @@ const ActiveRiders = () => {
                                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                                         {['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(p.status) && p.deliveryVerificationStatus !== 'Pending' && p.deliveryVerificationStatus !== 'Verified' && (
                                           <button 
-                                            onClick={() => handleRequestVerification(p._id)}
+                                            onClick={() => setVerificationModal({ open: true, pkgId: p._id, reason: '', comment: '' })}
                                             style={{ background: 'none', border: 'none', color: '#d97706', fontWeight: 700, cursor: 'pointer', padding: 0 }}
                                             title="Request Verification"
                                           >
@@ -1372,6 +1375,61 @@ const ActiveRiders = () => {
               <ActionBtn onClick={() => setSelectedRider(null)} variant="secondary">Close History</ActionBtn>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Verification Modal */}
+      {verificationModal.open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setVerificationModal({open:false,pkgId:null,reason:'',comment:''})}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg">Request Verification</h3>
+              <button onClick={() => setVerificationModal({open:false,pkgId:null,reason:'',comment:''})} className="text-slate-400 hover:text-slate-600 transition-colors">
+                ✕
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleRequestVerificationSubmit}>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason for Verification <span className="text-red-500">*</span></label>
+                  <select 
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 mb-4" 
+                    value={verificationModal.reason || ''} 
+                    onChange={e => setVerificationModal(m => ({ ...m, reason: e.target.value, comment: e.target.value === 'Other' ? '' : e.target.value }))}
+                    required
+                  >
+                    <option value="" disabled>Select a reason...</option>
+                    <option value="COD amount mismatch">COD amount mismatch</option>
+                    <option value="Delivery charge correction">Delivery charge correction</option>
+                    <option value="Wrong package status">Wrong package status</option>
+                    <option value="Customer dispute">Customer dispute</option>
+                    <option value="Exchange issue">Exchange issue</option>
+                    <option value="Return issue">Return issue</option>
+                    <option value="Damaged package">Damaged package</option>
+                    <option value="Address correction">Address correction</option>
+                    <option value="Receiver information correction">Receiver information correction</option>
+                    <option value="Other">Other (please specify below)</option>
+                  </select>
+                </div>
+                {verificationModal.reason === 'Other' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Additional Details <span className="text-red-500">*</span></label>
+                    <textarea 
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 min-h-[100px]" 
+                      placeholder="Please specify the reason..." 
+                      value={verificationModal.comment} 
+                      onChange={e=>setVerificationModal(m=>({...m,comment:e.target.value}))} 
+                      required
+                    />
+                  </div>
+                )}
+                <div className="flex justify-end gap-3 mt-6">
+                  <button type="button" onClick={() => setVerificationModal({open:false,pkgId:null,reason:'',comment:''})} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', color: '#374151', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                  <button type="submit" style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#0ea5e9', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Request Verification</button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
