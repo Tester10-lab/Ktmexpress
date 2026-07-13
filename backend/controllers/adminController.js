@@ -273,8 +273,8 @@ export const exportSettlements = async (req, res) => {
     else if (status === 'unpaid') filter.vendorPaid = { $ne: true };
     if (startDate || endDate) {
       filter.updatedAt = {};
-      if (startDate) filter.updatedAt.$gte = new Date(startDate);
-      if (endDate) { const end = new Date(endDate); end.setHours(23, 59, 59, 999); filter.updatedAt.$lte = end; }
+      if (startDate) { const [y,m,d] = startDate.split('-'); filter.updatedAt.$gte = new Date(y, m-1, d, 0, 0, 0, 0); }
+      if (endDate) { const [y,m,d] = endDate.split('-'); filter.updatedAt.$lte = new Date(y, m-1, d, 23, 59, 59, 999); }
     }
 
     const packages = await Package.find(filter)
@@ -309,14 +309,8 @@ export const getFinancialAnalytics = async (req, res) => {
 
     if (startDate || endDate) {
       matchFilter.createdAt = {};
-      if (startDate) matchFilter.createdAt.$gte = new Date(startDate);
-      // To include the entire end day, we can set the time to 23:59:59 if we wanted to,
-      // or assume the client passes an inclusive date. We'll set the time to end of day if endDate is provided.
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        matchFilter.createdAt.$lte = end;
-      }
+      if (startDate) { const [y,m,d] = startDate.split('-'); matchFilter.createdAt.$gte = new Date(y, m-1, d, 0, 0, 0, 0); }
+      if (endDate) { const [y,m,d] = endDate.split('-'); matchFilter.createdAt.$lte = new Date(y, m-1, d, 23, 59, 59, 999); }
     }
 
     const analytics = await Package.aggregate([

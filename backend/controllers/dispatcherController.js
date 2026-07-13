@@ -464,14 +464,8 @@ export const getRiderHistory = async (req, res) => {
 
     if (startDate || endDate) {
       filteredQuery.createdAt = {};
-      if (startDate) {
-        filteredQuery.createdAt.$gte = new Date(startDate);
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filteredQuery.createdAt.$lte = end;
-      }
+      if (startDate) { const [y,m,d] = startDate.split('-'); filteredQuery.createdAt.$gte = new Date(y, m-1, d, 0, 0, 0, 0); }
+      if (endDate) { const [y,m,d] = endDate.split('-'); filteredQuery.createdAt.$lte = new Date(y, m-1, d, 23, 59, 59, 999); }
     }
 
     const packagesList = await Package.find(filteredQuery)

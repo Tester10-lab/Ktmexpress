@@ -17,12 +17,8 @@ export const getAllPackages = async (req, res) => {
 
     if (startDate || endDate) {
       filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
-      }
+      if (startDate) { const [y,m,d] = startDate.split('-'); filter.createdAt.$gte = new Date(y, m-1, d, 0, 0, 0, 0); }
+      if (endDate) { const [y,m,d] = endDate.split('-'); filter.createdAt.$lte = new Date(y, m-1, d, 23, 59, 59, 999); }
     }
 
     if (trackingCode) {
