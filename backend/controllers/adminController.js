@@ -273,8 +273,8 @@ export const exportSettlements = async (req, res) => {
     else if (status === 'unpaid') filter.vendorPaid = { $ne: true };
     if (startDate || endDate) {
       filter.updatedAt = {};
-      if (startDate) { const [y,m,d] = startDate.split('-'); filter.updatedAt.$gte = new Date(y, m-1, d, 0, 0, 0, 0); }
-      if (endDate) { const [y,m,d] = endDate.split('-'); filter.updatedAt.$lte = new Date(y, m-1, d, 23, 59, 59, 999); }
+      if (startDate) { filter.updatedAt.$gte = new Date(`${startDate}T00:00:00+05:45`); }
+      if (endDate) { filter.updatedAt.$lte = new Date(`${endDate}T23:59:59+05:45`); }
     }
 
     const packages = await Package.find(filter)
@@ -309,8 +309,8 @@ export const getFinancialAnalytics = async (req, res) => {
 
     if (startDate || endDate) {
       matchFilter.createdAt = {};
-      if (startDate) { const [y,m,d] = startDate.split('-'); matchFilter.createdAt.$gte = new Date(y, m-1, d, 0, 0, 0, 0); }
-      if (endDate) { const [y,m,d] = endDate.split('-'); matchFilter.createdAt.$lte = new Date(y, m-1, d, 23, 59, 59, 999); }
+      if (startDate) { matchFilter.createdAt.$gte = new Date(`${startDate}T00:00:00+05:45`); }
+      if (endDate) { matchFilter.createdAt.$lte = new Date(`${endDate}T23:59:59+05:45`); }
     }
 
     const analytics = await Package.aggregate([
@@ -534,16 +534,10 @@ export const getAllPackagesAdmin = async (req, res) => {
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) {
-        const [sYear, sMonth, sDay] = startDate.split('-');
-        const start = new Date(sYear, sMonth - 1, sDay);
-        start.setHours(0, 0, 0, 0);
-        filter.createdAt.$gte = start;
+        filter.createdAt.$gte = new Date(`${startDate}T00:00:00+05:45`);
       }
       if (endDate) {
-        const [eYear, eMonth, eDay] = endDate.split('-');
-        const end = new Date(eYear, eMonth - 1, eDay);
-        end.setHours(23, 59, 59, 999);
-        filter.createdAt.$lte = end;
+        filter.createdAt.$lte = new Date(`${endDate}T23:59:59+05:45`);
       }
     }
 
