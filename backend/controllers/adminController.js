@@ -687,7 +687,7 @@ export const createPackageForVendor = async (req, res) => {
       timeline: [{
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
         status: PACKAGE_STATUS.IN_WAREHOUSE,
-        message: `Package created by Admin - Received directly in Warehouse`,
+        message: 'Package arrived at warehouse.',
         user: req.user.name,
       }]
     });
@@ -760,7 +760,7 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         timeline: [{
           time: new Date().toISOString().replace('T', ' ').substring(0, 16),
           status: PACKAGE_STATUS.IN_WAREHOUSE,
-          message: `Package created by Admin - Received directly in Warehouse`,
+          message: 'Package arrived at warehouse.',
           user: req.user.name,
         }]
       });

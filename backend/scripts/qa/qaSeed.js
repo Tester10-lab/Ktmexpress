@@ -125,8 +125,8 @@ const runSeed = async () => {
       vendorPaid: isVendorPaid,
       timeline: [{
         time: new Date().toISOString(),
-        status: 'Invoice Created',
-        message: 'QA Generated',
+        status: 'In Warehouse',
+        message: 'Package arrived at warehouse.',
         user: 'System'
       }]
     });

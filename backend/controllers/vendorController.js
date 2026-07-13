@@ -243,11 +243,11 @@ export const createPackage = async (req, res) => {
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
-      status: 'Pending',
+      status: 'In Warehouse',
       timeline: [{
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: 'Invoice Created',
-        message: 'Vendor created package invoice',
+        status: 'In Warehouse',
+        message: 'Package arrived at warehouse.',
         user: req.user.name,
       }]
     });
@@ -334,11 +334,11 @@ export const bulkCreatePackages = async (req, res) => {
         deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
-        status: 'Pending',
+        status: 'In Warehouse',
         timeline: [{
           time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-          status: 'Invoice Created',
-          message: `Vendor bulk created package`,
+          status: 'In Warehouse',
+          message: 'Package arrived at warehouse.',
           user: req.user.name,
         }]
       });
