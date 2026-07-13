@@ -239,6 +239,10 @@ const packageSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    originalValues: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
   },
   { timestamps: true }
 );

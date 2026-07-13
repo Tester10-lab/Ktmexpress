@@ -91,28 +91,83 @@ export const getAllPackages = async (req, res) => {
 // PUT /api/packages/:id
 export const updatePackage = async (req, res) => {
   try {
-    const { amount, address, comments, deliveryDate, status } = req.body;
+    const editFields = [
+      'amount', 'deliveryCharge', 'paymentMethod', 'status', 
+      'address', 'city', 'customerName', 'customerPhone', 
+      'weight', 'packageAccess', 'comments', 'deliveryDate'
+    ];
+    const { reason, ...updates } = req.body;
 
     const pkg = await Package.findById(req.params.id);
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    if (!pkg.originalValues) {
+      pkg.originalValues = {};
+    }
 
-    if (amount !== undefined) pkg.amount = amount;
-    if (address !== undefined) pkg.address = address;
-    if (comments !== undefined) pkg.comments = comments;
-    if (status !== undefined) pkg.status = status;
+    const changes = [];
+    let isFinancialOrStatusChange = false;
+
+    // Track changes and update fields
+    for (const field of editFields) {
+      if (updates[field] !== undefined) {
+        // Simple comparison, might need to handle Dates or numbers specifically
+        let oldVal = pkg[field];
+        let newVal = updates[field];
+        
+        // Handle Date objects comparison
+        if (oldVal instanceof Date) oldVal = oldVal.toISOString();
+        if (newVal && field === 'deliveryDate') newVal = new Date(newVal).toISOString();
+
+        if (String(oldVal) !== String(newVal)) {
+          // Record original value on first edit
+          if (pkg.originalValues[field] === undefined) {
+            pkg.originalValues[field] = pkg[field];
+            pkg.markModified('originalValues');
+          }
+
+          changes.push({
+            field,
+            before: pkg[field],
+            after: updates[field]
+          });
+
+          // Update the field
+          pkg[field] = updates[field];
+
+          if (['amount', 'deliveryCharge', 'paymentMethod', 'status'].includes(field)) {
+            isFinancialOrStatusChange = true;
+          }
+        }
+      }
+    }
+
+    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     pkg.timeline.push({
       time: ts,
       status: 'Admin Override',
-      message: `Package details updated by admin. ${comments || ''}`,
+      message: `Package details updated by admin. ${reason ? `Reason: ${reason}` : ''}`,
       user: req.user.name,
+      changes
     });
 
     await pkg.save();
+
+    // Emit live event to vendor for financial/status changes
+    if (isFinancialOrStatusChange && req.io) {
+      req.io.to(`user_${pkg.vendorId}`).emit('notification', {
+        title: 'Package Edited',
+        message: `Package ${pkg.trackingCode} was edited by Admin. Important fields (like amount, status) were changed.`,
+        type: 'warning',
+        timestamp: new Date(),
+        changes,
+        trackingCode: pkg.trackingCode
+      });
+    }
+
     res.json({ success: true, data: pkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -604,9 +604,28 @@ const PackageList = () => {
                 <div>
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Customer Details</h4>
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <p className="font-bold text-slate-900 mb-2 text-base">{viewPackageDetails.customerName}</p>
-                    <p className="text-sm text-slate-600 mb-1 flex items-center gap-2"><Phone className="w-4 h-4 text-slate-400"/> {viewPackageDetails.customerPhone}</p>
-                    <p className="text-sm text-slate-600 flex items-start gap-2 mt-2"><MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5"/> {viewPackageDetails.city ? `${viewPackageDetails.city}, ` : ''}{viewPackageDetails.address}</p>
+                    <p className="font-bold text-slate-900 mb-2 text-base">
+                      {viewPackageDetails.originalValues?.customerName && (
+                        <span className="line-through text-slate-400 mr-2 text-sm">{viewPackageDetails.originalValues.customerName}</span>
+                      )}
+                      {viewPackageDetails.customerName}
+                    </p>
+                    <p className="text-sm text-slate-600 mb-1 flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-slate-400"/> 
+                      {viewPackageDetails.originalValues?.customerPhone && (
+                        <span className="line-through text-slate-400 mr-1">{viewPackageDetails.originalValues.customerPhone}</span>
+                      )}
+                      {viewPackageDetails.customerPhone}
+                    </p>
+                    <p className="text-sm text-slate-600 flex items-start gap-2 mt-2">
+                      <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5"/> 
+                      {viewPackageDetails.originalValues?.address && (
+                        <span className="line-through text-slate-400 mr-1 block">
+                          {viewPackageDetails.originalValues.city ? `${viewPackageDetails.originalValues.city}, ` : ''}{viewPackageDetails.originalValues.address}
+                        </span>
+                      )}
+                      <span>{viewPackageDetails.city ? `${viewPackageDetails.city}, ` : ''}{viewPackageDetails.address}</span>
+                    </p>
                   </div>
                 </div>
                 {/* Order Financials */}
@@ -615,11 +634,21 @@ const PackageList = () => {
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
                     <div className="flex justify-between items-center pb-2 border-b border-slate-50">
                       <span className="text-sm text-slate-500 font-medium">COD Amount</span>
-                      <span className="font-bold text-brand-600 text-lg">Rs. {viewPackageDetails.amount}</span>
+                      <span className="font-bold text-brand-600 text-lg flex items-center gap-2">
+                        {viewPackageDetails.originalValues?.amount !== undefined && (
+                          <span className="line-through text-slate-400 text-sm font-normal">Rs. {viewPackageDetails.originalValues.amount}</span>
+                        )}
+                        Rs. {viewPackageDetails.amount}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center pb-2 border-b border-slate-50">
                       <span className="text-sm text-slate-500 font-medium">Delivery Charge</span>
-                      <span className="font-bold text-slate-700">Rs. {viewPackageDetails.deliveryCharge}</span>
+                      <span className="font-bold text-slate-700 flex items-center gap-2">
+                        {viewPackageDetails.originalValues?.deliveryCharge !== undefined && (
+                          <span className="line-through text-slate-400 text-xs font-normal">Rs. {viewPackageDetails.originalValues.deliveryCharge}</span>
+                        )}
+                        Rs. {viewPackageDetails.deliveryCharge}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-slate-500 font-medium">Status</span>
@@ -665,6 +694,23 @@ const PackageList = () => {
                               <div className="font-bold text-slate-900 text-sm">{t.status}</div>
                               <div className="text-xs text-slate-500 mt-0.5">{new Date(t.time).toLocaleString()} • <span className="font-medium text-slate-600">{t.user || 'System'}</span></div>
                               {t.message && <div className="text-sm text-slate-700 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100">{t.message}</div>}
+                              
+                              {/* Render Audit Changes if present */}
+                              {t.changes && t.changes.length > 0 && (
+                                <div className="mt-2 bg-white border border-slate-100 p-2 rounded-lg">
+                                  <div className="text-xs font-bold text-slate-500 uppercase mb-1">Edited Fields</div>
+                                  <ul className="space-y-1">
+                                    {t.changes.map((c, i) => (
+                                      <li key={i} className="text-xs flex items-center gap-2 flex-wrap">
+                                        <span className="font-mono bg-slate-100 px-1 rounded text-slate-600">{c.field}</span>
+                                        <span className="line-through text-red-500">{String(c.before)}</span>
+                                        <span className="text-slate-400">→</span>
+                                        <span className="text-emerald-600 font-medium">{String(c.after)}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}

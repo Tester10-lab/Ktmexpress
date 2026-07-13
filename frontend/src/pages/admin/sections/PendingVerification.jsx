@@ -653,8 +653,20 @@ const PendingVerification = () => {
                   <div className="font-bold text-slate-400 uppercase tracking-wide">Original Package Details</div>
                   <div className="mt-2 space-y-1">
                     <div>Original Status: <span className="font-bold text-slate-700">{currentPkg.status}</span></div>
-                    <div>Original COD: <span className="font-bold text-slate-700">Rs. {currentPkg.amount}</span></div>
-                    <div>Delivery Charge: <span className="font-bold text-slate-700">Rs. {currentPkg.deliveryCharge}</span></div>
+                    
+                    <div className="flex items-center gap-2">Original COD: 
+                      {currentPkg.originalValues?.amount !== undefined && (
+                        <span className="line-through text-slate-400 font-normal">Rs. {currentPkg.originalValues.amount}</span>
+                      )}
+                      <span className="font-bold text-slate-700">Rs. {currentPkg.amount}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">Delivery Charge: 
+                      {currentPkg.originalValues?.deliveryCharge !== undefined && (
+                        <span className="line-through text-slate-400 font-normal">Rs. {currentPkg.originalValues.deliveryCharge}</span>
+                      )}
+                      <span className="font-bold text-slate-700">Rs. {currentPkg.deliveryCharge}</span>
+                    </div>
                   </div>
                 </div>
               </div>

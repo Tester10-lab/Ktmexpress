@@ -11,7 +11,7 @@ import {
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
   MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
-  Edit2, Trash2, Check, X, Bell
+  Edit2, Trash2, Check, X, Bell, History
 } from 'lucide-react';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
@@ -54,6 +54,7 @@ const AdminPackages = () => {
 
   const [editModal, setEditModal] = useState(false);
   const [editPkg, setEditPkg] = useState(null);
+  const [editReason, setEditReason] = useState('');
 
   const [createModal, setCreateModal] = useState(false);
   const [csvModal, setCsvModal] = useState(false);
@@ -132,6 +133,7 @@ const AdminPackages = () => {
 
   const openEdit = (pkg) => {
     setEditPkg({ ...pkg, deliveryDate: pkg.deliveryDate ? new Date(pkg.deliveryDate).toISOString().split('T')[0] : '' });
+    setEditReason('');
     setEditModal(true);
   };
 
@@ -144,7 +146,8 @@ const AdminPackages = () => {
       city: editPkg.city,
       amount: Number(editPkg.amount),
       weight: Number(editPkg.weight),
-      deliveryDate: editPkg.deliveryDate || null
+      deliveryDate: editPkg.deliveryDate || null,
+      reason: editReason
     };
 
     // Optimistic Update
@@ -452,6 +455,43 @@ const AdminPackages = () => {
                     <input type="date" className="input-field" value={editPkg.deliveryDate || ''} onChange={e => setEditPkg({ ...editPkg, deliveryDate: e.target.value })} />
                   </div>
                 </div>
+                
+                {/* Reason for Edit */}
+                <div className="border-t border-slate-100 pt-5">
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Reason for Edit <span className="text-slate-400 font-normal">(Optional but recommended)</span></label>
+                  <input type="text" className="input-field" placeholder="Why are you making these changes?" value={editReason} onChange={e => setEditReason(e.target.value)} />
+                </div>
+
+                {/* Audit History */}
+                {editPkg.timeline && editPkg.timeline.some(t => t.changes && t.changes.length > 0) && (
+                  <div className="border-t border-slate-100 pt-5">
+                    <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                      <History className="w-4 h-4 text-brand-600" /> Package Edit History
+                    </h4>
+                    <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                      {editPkg.timeline.filter(t => t.changes && t.changes.length > 0).map((t, idx) => (
+                        <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm">
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-semibold text-slate-700">{t.user} <span className="font-normal text-slate-500">edited</span></span>
+                            <span className="text-xs text-slate-400">{new Date(t.time).toLocaleString()}</span>
+                          </div>
+                          {t.message && <div className="text-xs text-slate-600 mb-2 italic">"{t.message}"</div>}
+                          <ul className="space-y-1">
+                            {t.changes.map((c, i) => (
+                              <li key={i} className="text-xs flex items-center gap-2">
+                                <span className="font-mono bg-slate-200 px-1 rounded text-slate-600">{c.field}</span>
+                                <span className="line-through text-red-500">{String(c.before)}</span>
+                                <span className="text-slate-400">→</span>
+                                <span className="text-emerald-600 font-medium">{String(c.after)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
                   <button type="button" onClick={() => setEditModal(false)} className="btn-secondary">Cancel</button>
                   <button type="submit" className="btn-primary">Save Changes</button>
