@@ -539,9 +539,15 @@ export const getAllPackagesAdmin = async (req, res) => {
 
     if (startDate || endDate) {
       filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
+      if (startDate) {
+        const [sYear, sMonth, sDay] = startDate.split('-');
+        const start = new Date(sYear, sMonth - 1, sDay);
+        start.setHours(0, 0, 0, 0);
+        filter.createdAt.$gte = start;
+      }
       if (endDate) {
-        const end = new Date(endDate);
+        const [eYear, eMonth, eDay] = endDate.split('-');
+        const end = new Date(eYear, eMonth - 1, eDay);
         end.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = end;
       }
