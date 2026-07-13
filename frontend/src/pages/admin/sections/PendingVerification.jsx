@@ -132,7 +132,7 @@ const PendingVerification = () => {
       const todayStr = now.toLocaleDateString();
 
       if (activeTab === 'pending') {
-        list = list.filter(p => p.deliveryVerificationStatus === 'Pending' || p.deliveryVerificationStatus === 'Reopened' || (p.status === 'Delivered' && !p.deliveryVerificationStatus));
+        list = list.filter(p => p.deliveryVerificationStatus === 'Pending' || p.deliveryVerificationStatus === 'Reopened');
       } else if (activeTab === 'verified_today') {
         list = list.filter(p => p.deliveryVerificationStatus === 'Verified' && p.verifiedAt && new Date(p.verifiedAt).toLocaleDateString() === todayStr);
       } else if (activeTab === 'history') {

@@ -6,12 +6,16 @@ import {
   getAllPackages,
   updatePackage,
   trackPackage,
-  confirmWarehouseArrival
+  confirmWarehouseArrival,
+  requestVerification
  } from '../controllers/packageController.js';
 import { warehouseArrivalLimiter } from '../middleware/rateLimiter.js';
 
 // All routes require auth
 router.use(auth);
+
+// Request Verification (Admin/Dispatcher/Vendor/Rider)
+router.post('/:id/request-verification', roleGuard('admin', 'dispatcher', 'vendor', 'rider'), requestVerification);
 
 // Get all packages (admin/dispatcher)
 router.get('/', roleGuard('admin', 'dispatcher'), getAllPackages);

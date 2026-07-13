@@ -87,11 +87,15 @@ const MyDeliveries = () => {
   const submitAction = async e => {
     e.preventDefault();
     try {
-      await api.put('/rider/update-status',{packageId:actionModal.pkg._id,action:actionModal.action,comment:form.comment,cashCollected:Number(form.cashCollected),newDate:form.newDate});
+      if (actionModal.action === 'request_verification') {
+        await api.post(`/packages/${actionModal.pkg._id}/request-verification`, { reason: form.comment });
+      } else {
+        await api.put('/rider/update-status',{packageId:actionModal.pkg._id,action:actionModal.action,comment:form.comment,cashCollected:Number(form.cashCollected),newDate:form.newDate});
+      }
       showToast('Status updated!','success');
       setActionModal({open:false,pkg:null,action:''});
       fetchAll(true);
-    } catch(err) { showToast(err.message||'Failed','error'); }
+    } catch(err) { showToast(err.response?.data?.message || err.message || 'Failed','error'); }
   };
 
   const handleBulkPickup = async () => {
@@ -133,23 +137,17 @@ const MyDeliveries = () => {
     }
   };
 
-  const actionLabel = { deliver:'Mark Delivered',postpone:'Postpone',cancel:'Cancel',return:'Mark Return',exchange:'Exchange',pickup_complete:'Confirm Pickup' };
+  const actionLabel = { deliver:'Mark Delivered',postpone:'Postpone',cancel:'Cancel',return:'Mark Return',exchange:'Exchange',pickup_complete:'Confirm Pickup', request_verification: 'Request Verification' };
 
   // Filtering Logic
   const filteredDeliveries = deliveries.filter(d => {
-    const isPendingVerification = d.deliveryVerificationStatus === 'Pending' || d.deliveryVerificationStatus === 'Reopened';
-    
     if (deliveryFilter === 'pending') return d.status === 'Postponed';
     if (deliveryFilter === 'active') return d.status === 'Out for Delivery';
-    if (deliveryFilter === 'completed') return isPendingVerification && d.status === 'Delivered';
-    if (deliveryFilter === 'failed') return isPendingVerification && ['Cancelled', 'Returned', 'Exchanged'].includes(d.status);
+    if (deliveryFilter === 'completed') return d.status === 'Delivered';
+    if (deliveryFilter === 'failed') return ['Cancelled', 'Returned', 'Exchanged'].includes(d.status);
     
-    // For 'all' tab, show exactly the ones allowed above
-    return (
-      d.status === 'Postponed' || 
-      d.status === 'Out for Delivery' || 
-      (isPendingVerification && ['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(d.status))
-    );
+    // For 'all' tab
+    return true;
   });
 
   const filteredPickups = pickups.filter(p => {
@@ -253,6 +251,11 @@ const MyDeliveries = () => {
                     <ArrowLeftRight className="w-4 h-4" /> Exchange
                   </button>
                 </>
+              )}
+              {(!isActiveDelivery && !isPendingPickup && pkg.deliveryVerificationStatus !== 'Pending' && pkg.deliveryVerificationStatus !== 'Verified') && (
+                <button className="flex-1 lg:flex-none py-2 px-3 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'request_verification')} title="Request Verification">
+                  <AlertCircle className="w-4 h-4" /> Request Verification
+                </button>
               )}
             </div>
             

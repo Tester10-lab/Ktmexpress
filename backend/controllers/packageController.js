@@ -286,3 +286,54 @@ export const confirmWarehouseArrival = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// POST /api/packages/:id/request-verification
+export const requestVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Reason for verification is required.' });
+    }
+
+    const pkg = await Package.findById(id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    // Allowed if package is complete but not verified
+    if (pkg.deliveryVerificationStatus === 'Verified') {
+      return res.status(400).json({ success: false, message: 'Package is already verified.' });
+    }
+
+    pkg.deliveryVerificationStatus = 'Pending';
+    pkg.verificationStartedAt = new Date();
+
+    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    pkg.timeline.push({
+      time: ts,
+      status: 'Verification Requested',
+      message: `Verification requested by ${req.user.role}. Reason: ${reason}`,
+      user: req.user.name,
+      changes: [
+        { field: 'deliveryVerificationStatus', before: pkg.deliveryVerificationStatus || null, after: 'Pending' }
+      ]
+    });
+
+    await pkg.save();
+
+    // Notify admins
+    if (req.io) {
+      req.io.to('admins').emit('notification', {
+        title: 'Verification Requested',
+        message: `Verification requested for package ${pkg.trackingCode} by ${req.user.name}.`,
+        type: 'warning'
+      });
+    }
+
+    res.json({ success: true, message: 'Verification requested successfully.', data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

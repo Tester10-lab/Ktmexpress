@@ -1014,6 +1014,18 @@ const ActiveRiders = () => {
   });
   const [expandedTimelines, setExpandedTimelines] = useState(new Set());
 
+  const handleRequestVerification = async (pkgId) => {
+    const reason = window.prompt("Enter reason for requesting verification:");
+    if (!reason) return;
+    try {
+      await api.post(`/packages/${pkgId}/request-verification`, { reason });
+      showToast("Verification requested", "success");
+      if (selectedRider) fetchRiderHistory(selectedRider._id);
+    } catch (e) {
+      showToast(e.response?.data?.message || "Failed to request verification", "error");
+    }
+  };
+
   const fetchRiders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -1302,12 +1314,23 @@ const ActiveRiders = () => {
                                       <StatusBadge status={p.status} />
                                     </td>
                                     <td style={{ ...tdStyle, textAlign: 'right' }}>
-                                      <button 
-                                        onClick={() => toggleTimeline(p._id)}
-                                        style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                                      >
-                                        {isTimelineExpanded ? 'Hide' : 'Timeline'}
-                                      </button>
+                                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                                        {['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(p.status) && p.deliveryVerificationStatus !== 'Pending' && p.deliveryVerificationStatus !== 'Verified' && (
+                                          <button 
+                                            onClick={() => handleRequestVerification(p._id)}
+                                            style={{ background: 'none', border: 'none', color: '#d97706', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                            title="Request Verification"
+                                          >
+                                            Verify?
+                                          </button>
+                                        )}
+                                        <button 
+                                          onClick={() => toggleTimeline(p._id)}
+                                          style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                                        >
+                                          {isTimelineExpanded ? 'Hide' : 'Timeline'}
+                                        </button>
+                                      </div>
                                     </td>
                                   </tr>
 

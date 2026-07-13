@@ -226,7 +226,7 @@ const PackageList = () => {
   const [limit, setLimit] = useState(20);
   const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
-  const [commentModal, setCommentModal] = useState({open:false,packageId:null,text:''});
+  const [commentModal, setCommentModal] = useState({open:false,packageId:null,text:'', isVerification: false});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState({});
@@ -320,12 +320,17 @@ const PackageList = () => {
   const addComment = async e => {
     e.preventDefault();
     try { 
-      await api.post(`/vendor/packages/${commentModal.packageId}/comments`,{text:commentModal.text}); 
-      showToast('Comment saved','success'); 
-      setCommentModal({open:false,packageId:null,text:''}); 
+      if (commentModal.isVerification) {
+        await api.post(`/packages/${commentModal.packageId}/request-verification`, { reason: commentModal.text });
+        showToast('Verification requested successfully', 'success');
+      } else {
+        await api.post(`/vendor/packages/${commentModal.packageId}/comments`,{text:commentModal.text}); 
+        showToast('Comment saved','success'); 
+      }
+      setCommentModal({open:false,packageId:null,text:'', isVerification: false}); 
       fetchPackages(true); 
     }
-    catch { showToast('Failed to add comment','error'); }
+    catch (err) { showToast(err.response?.data?.message || 'Failed to complete action','error'); }
   };
 
   const handleFormChange = e => {
@@ -504,9 +509,14 @@ const PackageList = () => {
                       <button onClick={()=>setViewPackageDetails(pkg)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View details">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:''})} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Add note">
+                      <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:'', isVerification: false})} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Add note">
                         <FileText className="w-4 h-4" />
                       </button>
+                      {['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(pkg.status) && pkg.deliveryVerificationStatus !== 'Pending' && pkg.deliveryVerificationStatus !== 'Verified' && (
+                        <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:'', isVerification: true})} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Request Verification">
+                          <AlertCircle className="w-4 h-4" />
+                        </button>
+                      )}
                       {pkg.status === 'Pending' && (
                         <button onClick={() => {
                           setEditMode(true);
@@ -562,12 +572,12 @@ const PackageList = () => {
             <div className="p-6">
               <form onSubmit={addComment}>
                 <div>
-                  <label className={labelClass}>Note for dispatcher/rider</label>
-                  <textarea className="input-field" rows="4" value={commentModal.text} onChange={e => setCommentModal(m => ({...m,text:e.target.value}))} placeholder="Enter instructions or notes..." required />
+                  <label className={labelClass}>{commentModal.isVerification ? "Reason for Verification" : "Note for dispatcher/rider"}</label>
+                  <textarea className="input-field" rows="4" value={commentModal.text} onChange={e => setCommentModal(m => ({...m,text:e.target.value}))} placeholder={commentModal.isVerification ? "Enter reason for verification request..." : "Enter instructions or notes..."} required />
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" className="btn-secondary" onClick={() => setCommentModal({open:false,packageId:null,text:''})}>Cancel</button>
-                  <button type="submit" className="btn-primary">Save Comment</button>
+                  <button type="button" className="btn-secondary" onClick={() => setCommentModal({open:false,packageId:null,text:'', isVerification: false})}>Cancel</button>
+                  <button type="submit" className="btn-primary">{commentModal.isVerification ? "Request Verification" : "Save Comment"}</button>
                 </div>
               </form>
             </div>

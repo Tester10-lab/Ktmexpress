@@ -23,11 +23,16 @@ export const getMyDeliveries = async (req, res) => {
     } else if (type === 'pickup') {
       filter.status = { $in: ['Pick Up Requested', 'Picked Up'] };
     } else if (type === 'delivery') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
       filter.$or = [
         { status: { $in: ['Out for Delivery', 'Postponed'] } },
         { 
           status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged'] },
-          deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] }
+          $or: [
+            { deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] } },
+            { updatedAt: { $gte: today } }
+          ]
         }
       ];
     } else if (type === 'active_delivery') {
@@ -81,9 +86,6 @@ export const updateDeliveryStatus = async (req, res) => {
     switch (action) {
       case 'deliver':
         pkg.status = 'Delivered';
-        pkg.deliveryVerificationStatus = 'Pending';
-        pkg.codVerificationStatus = 'Pending';
-        pkg.verificationStartedAt = new Date();
         pkg.cashReconciled = false;
         pkg.comments = comment || '';
         pkg.riderSubmission = {
@@ -95,11 +97,10 @@ export const updateDeliveryStatus = async (req, res) => {
         pkg.timeline.push({
           time: ts,
           status: 'Delivered',
-          message: `Delivery completed. Collected Rs. ${cashCollected || pkg.amount} COD. Pending verification.`,
+          message: `Delivery completed. Collected Rs. ${cashCollected || pkg.amount} COD.`,
           user: req.user.name,
           type: 'RIDER_SUBMITTED',
           changes: [
-            { field: 'deliveryVerificationStatus', before: 'Pending', after: 'Pending' },
             { field: 'status', before: pkg.status, after: 'Delivered' }
           ]
         });
@@ -107,9 +108,6 @@ export const updateDeliveryStatus = async (req, res) => {
 
       case 'postpone':
         pkg.status = 'Postponed';
-        pkg.deliveryVerificationStatus = 'Pending';
-        pkg.codVerificationStatus = 'Pending';
-        pkg.verificationStartedAt = new Date();
         pkg.comments = comment || '';
         pkg.riderSubmission = {
           status: 'Postponed',
@@ -121,11 +119,10 @@ export const updateDeliveryStatus = async (req, res) => {
         pkg.timeline.push({
           time: ts,
           status: 'Postponed',
-          message: `Delivery postponed. Reason: ${comment}. New date: ${newDate || 'TBD'}. Pending verification.`,
+          message: `Delivery postponed. Reason: ${comment}. New date: ${newDate || 'TBD'}.`,
           user: req.user.name,
           type: 'RIDER_SUBMITTED',
           changes: [
-            { field: 'deliveryVerificationStatus', before: 'Pending', after: 'Pending' },
             { field: 'status', before: pkg.status, after: 'Postponed' }
           ]
         });

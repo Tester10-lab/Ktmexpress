@@ -33,6 +33,7 @@ function statusBadge(status) {
 }
 
 const AdminPackages = () => {
+  const navigate = useNavigate();
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -391,6 +392,11 @@ const AdminPackages = () => {
                         <button className="btn-secondary btn-sm p-2" onClick={() => openEdit(p)} title="Edit">
                           <Edit2 className="w-4 h-4" />
                         </button>
+                        {p.deliveryVerificationStatus === 'Pending' && (
+                          <button className="btn-secondary btn-sm p-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200" onClick={() => navigate('/admin/verifications')} title="Verify Package">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </button>
+                        )}
                         <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" onClick={() => handleDelete(p._id, p.trackingCode)} title="Delete">
                           <Trash2 className="w-4 h-4" />
                         </button>
