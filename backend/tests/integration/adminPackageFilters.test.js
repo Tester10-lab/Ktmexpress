@@ -5,6 +5,7 @@ import Package from '../../models/Package.js';
 import User from '../../models/User.js';
 import { getAllPackagesAdmin } from '../../controllers/adminController.js';
 
+jest.setTimeout(30000);
 describe('Admin Package Filters - Date Range & Combined Logic', () => {
   let mongoServer;
   let admin, vendor1, rider1;

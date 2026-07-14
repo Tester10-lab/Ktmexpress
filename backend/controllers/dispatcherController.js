@@ -427,17 +427,18 @@ export const getRiderHistory = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Rider not found.' });
     }
 
+    const ridObjId = new mongoose.Types.ObjectId(id);
+
     // Base filter matching any package this rider has ever touched (assigned, timelines, etc.)
     const baseFilter = {
       $or: [
-        { riderId: id },
+        { riderId: ridObjId },
         { 'timeline.user': rider.name },
         { 'timeline.message': { $regex: new RegExp(rider.name, 'i') } }
       ]
     };
 
     // Calculate absolute lifetime KPIs via aggregation (avoids loading all documents)
-    const ridObjId = new mongoose.Types.ObjectId(id);
     const [statsResult] = await Package.aggregate([
       { $match: { ...baseFilter, deletedAt: null } },
       {

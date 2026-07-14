@@ -649,13 +649,16 @@ export const updatePackageAdmin = async (req, res) => {
     }
 
     if (updates.length > 0) {
-      pkg.timeline.push({
-        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: pkg.status,
-        message: `Admin updated details: ${updates.join(', ')}${req.body.reason ? `. Reason: ${req.body.reason}` : ''}`,
-        user: req.user.name,
-        changes
-      });
+      const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      for (const change of changes) {
+        pkg.timeline.push({
+          time: ts,
+          status: pkg.status,
+          message: `Admin updated ${change.field}: ${change.before} -> ${change.after}${req.body.reason ? `. Reason: ${req.body.reason}` : ''}`,
+          user: req.user.name,
+          changes: [change]
+        });
+      }
       await pkg.save();
       dashboardCache.timestamp = 0;
     }
@@ -1309,15 +1312,29 @@ export const verifyPackageAdmin = async (req, res) => {
     pkg.verificationDraft = null;
 
     // Timeline Log
-    pkg.timeline.push({
-      time: nowStr,
-      status: status,
-      message: `Package verified by admin ${req.user.name}. Reason: ${reason}.`,
-      user: req.user.name,
-      role: req.user.role,
-      type: 'VERIFIED',
-      changes: timelineChanges,
-    });
+    if (timelineChanges.length > 0) {
+      for (const change of timelineChanges) {
+        pkg.timeline.push({
+          time: nowStr,
+          status: status,
+          message: `Admin verified & updated ${change.field}: ${change.before} -> ${change.after}. Reason: ${reason}.`,
+          user: req.user.name,
+          role: req.user.role,
+          type: 'VERIFIED',
+          changes: [change],
+        });
+      }
+    } else {
+      pkg.timeline.push({
+        time: nowStr,
+        status: status,
+        message: `Package verified by admin ${req.user.name}. Reason: ${reason}.`,
+        user: req.user.name,
+        role: req.user.role,
+        type: 'VERIFIED',
+        changes: [],
+      });
+    }
 
     // User-agent audit parsing
     const ua = req.headers['user-agent'] || '';

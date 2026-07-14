@@ -311,13 +311,16 @@ export const updatePackage = async (req, res) => {
     }
 
     if (updates.length > 0) {
-      pkg.timeline.push({
-        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: pkg.status,
-        message: `Vendor updated details: ${updates.join(', ')}`,
-        user: req.user.name,
-        changes
-      });
+      const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      for (const change of changes) {
+        pkg.timeline.push({
+          time: ts,
+          status: pkg.status,
+          message: `Vendor updated ${change.field}: ${change.before} -> ${change.after}`,
+          user: req.user.name,
+          changes: [change]
+        });
+      }
       await pkg.save();
     }
     res.json({ success: true, data: pkg });

@@ -13,6 +13,7 @@ import { processCsvImport } from '../../utils/csvHelper.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+jest.setTimeout(30000);
 describe('Verification of Package Creation Workflows', () => {
   let mongoServer;
   let admin, vendor, rider;

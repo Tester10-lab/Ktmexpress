@@ -142,13 +142,25 @@ export const updatePackage = async (req, res) => {
 
     const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
-    pkg.timeline.push({
-      time: ts,
-      status: 'Admin Override',
-      message: `Package details updated by admin. ${reason ? `Reason: ${reason}` : ''}`,
-      user: req.user.name,
-      changes
-    });
+    if (changes.length > 0) {
+      for (const change of changes) {
+        pkg.timeline.push({
+          time: ts,
+          status: 'Admin Override',
+          message: `Admin updated ${change.field}: ${change.before} -> ${change.after}${reason ? `. Reason: ${reason}` : ''}`,
+          user: req.user.name,
+          changes: [change]
+        });
+      }
+    } else if (reason) {
+      pkg.timeline.push({
+        time: ts,
+        status: 'Admin Override',
+        message: `Package details updated by admin. Reason: ${reason}`,
+        user: req.user.name,
+        changes: []
+      });
+    }
 
     await pkg.save();
 
