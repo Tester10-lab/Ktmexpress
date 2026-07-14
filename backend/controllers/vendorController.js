@@ -274,14 +274,50 @@ export const updatePackage = async (req, res) => {
     if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
     if (pkg.status !== 'Pending') return res.status(400).json({ success: false, message: 'Can only edit Pending packages' });
 
-    if (amount !== undefined) pkg.amount = amount;
-    if (address !== undefined) pkg.address = address;
-    if (comments !== undefined) pkg.comments = comments;
-    if (outOfValley !== undefined) pkg.outOfValley = outOfValley;
-    if (city !== undefined) pkg.city = city;
-    if (items !== undefined) pkg.items = items;
+    const updates = [];
+    const changes = [];
 
-    await pkg.save();
+    if (amount !== undefined && Number(amount) !== Number(pkg.amount)) {
+      changes.push({ field: 'Amount', before: pkg.amount, after: amount });
+      updates.push('Amount');
+      pkg.amount = amount;
+    }
+    if (address !== undefined && address !== pkg.address) {
+      changes.push({ field: 'Address', before: pkg.address, after: address });
+      updates.push('Address');
+      pkg.address = address;
+    }
+    if (comments !== undefined && comments !== pkg.comments) {
+      changes.push({ field: 'Comments', before: pkg.comments, after: comments });
+      updates.push('Comments');
+      pkg.comments = comments;
+    }
+    if (outOfValley !== undefined && outOfValley !== pkg.outOfValley) {
+      changes.push({ field: 'Out of Valley', before: pkg.outOfValley, after: outOfValley });
+      updates.push('Out of Valley');
+      pkg.outOfValley = outOfValley;
+    }
+    if (city !== undefined && city !== pkg.city) {
+      changes.push({ field: 'City', before: pkg.city, after: city });
+      updates.push('City');
+      pkg.city = city;
+    }
+    if (items !== undefined && JSON.stringify(items) !== JSON.stringify(pkg.items)) {
+      changes.push({ field: 'Items', before: JSON.stringify(pkg.items), after: JSON.stringify(items) });
+      updates.push('Items');
+      pkg.items = items;
+    }
+
+    if (updates.length > 0) {
+      pkg.timeline.push({
+        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: pkg.status,
+        message: `Vendor updated details: ${updates.join(', ')}`,
+        user: req.user.name,
+        changes
+      });
+      await pkg.save();
+    }
     res.json({ success: true, data: pkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

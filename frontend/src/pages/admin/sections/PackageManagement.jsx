@@ -8,11 +8,15 @@ import ScanStation from '../../../components/ScanStation';
 import Pagination from '../../../components/Pagination';
 import TrackingLink from '../../../components/TrackingLink';
 import { 
+
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
   MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
-  Edit2, Trash2, Check, X, Bell, History
+  Edit2, Trash2, Check, X, Bell, History, Sliders, ChevronDown, ChevronUp
 } from 'lucide-react';
+
+import { VerificationStatusBadge, VerificationPriorityBadge } from '../../../components/verification/VerificationRequestBadge';
+import { VerificationAudit } from '../../../components/verification/VerificationAudit';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
@@ -57,6 +61,14 @@ const AdminPackages = () => {
   const [editModal, setEditModal] = useState(false);
   const [editPkg, setEditPkg] = useState(null);
   const [editReason, setEditReason] = useState('');
+
+  const [expandedAudits, setExpandedAudits] = useState(new Set());
+  const toggleAudit = (pkgId) => {
+    const newSet = new Set(expandedAudits);
+    if (newSet.has(pkgId)) newSet.delete(pkgId);
+    else newSet.add(pkgId);
+    setExpandedAudits(newSet);
+  };
 
   const [createModal, setCreateModal] = useState(false);
   const [csvModal, setCsvModal] = useState(false);
@@ -111,11 +123,7 @@ const AdminPackages = () => {
     setCustomer('');
     setRider('');
     setPage(1);
-    // Cannot rely on useEffect if only text inputs change, so we trigger fetch manually.
-    // However, setPage(1) will trigger the [page, limit] useEffect, so we don't need to call fetchPackages directly if page changes.
-    // But if page is already 1, we must trigger it.
     setTimeout(() => {
-      // Force reload after states have settled
       setPage(prev => {
         if (prev === 1) fetchPackages();
         return 1;
@@ -154,11 +162,10 @@ const AdminPackages = () => {
       reason: editReason
     };
 
-    // Optimistic Update
     setPackages(prev => prev.map(p => p._id === editPkg._id ? { ...p, ...payload } : p));
 
     try {
-      setEditModal(false); // Close immediately for optimistic UI
+      setEditModal(false); 
       await api.put(`/admin/packages/${editPkg._id}`, payload);
       showToast('Package updated successfully', 'success');
       fetchPackages(true);
@@ -171,7 +178,6 @@ const AdminPackages = () => {
   const handleDelete = async (id, trackingCode) => {
     if (!window.confirm(`Delete package "${trackingCode}"? This will soft-delete it.`)) return;
     
-    // Optimistic Update
     setPackages(prev => prev.filter(p => p._id !== id));
 
     try {
@@ -187,7 +193,7 @@ const AdminPackages = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      setCreateModal(false); // Close immediately
+      setCreateModal(false); 
       await api.post('/admin/packages', {
         ...newPkg,
         amount: Number(newPkg.amount),
@@ -227,24 +233,6 @@ const AdminPackages = () => {
       fetchPackages(true);
     } catch (err) { showToast(err.message || 'CSV upload failed', 'error'); }
     finally { setCsvUploading(false); }
-  };
-
-  const handleRequestPickup = async () => {
-    if (selected.length === 0) return;
-    if (!window.confirm(`Request pickup for ${selected.length} package(s)?`)) return;
-    
-    // Optimistic Update
-    setPackages(prev => prev.map(p => selected.includes(p._id) ? { ...p, status: 'Pick Up Requested' } : p));
-
-    try {
-      setSelected([]); // Clear selection immediately
-      await api.post('/admin/packages/pickup-request', { packageIds: selected });
-      showToast('Pickup requested successfully', 'success');
-      fetchPackages(true);
-    } catch (err) {
-      showToast(err.message || 'Failed to request pickup', 'error');
-      fetchPackages(true);
-    }
   };
 
   const toggleSelect = (id) => {
@@ -287,12 +275,6 @@ const AdminPackages = () => {
           </button>
           
           <div className="w-px h-8 bg-slate-200 mx-1 hidden lg:block" />
-          
-          {selected.length > 0 && (
-            <button className="btn-sm bg-brand-50 text-brand-700 border border-brand-200 font-bold hover:bg-brand-100 py-2 flex items-center gap-2" onClick={handleRequestPickup}>
-              <Truck className="w-4 h-4" /> Request Pickup ({selected.length})
-            </button>
-          )}
 
           <button className="btn-primary py-2 flex items-center gap-2" onClick={() => setCreateModal(true)}>
             <Plus className="w-4 h-4" /> Create Order
@@ -374,15 +356,17 @@ const AdminPackages = () => {
               <th className="px-6 py-3">Customer</th>
               <th className="px-6 py-3">Rider</th>
               <th className="px-6 py-3">Status</th>
+              <th className="px-6 py-3">Verification Info</th>
               <th className="px-6 py-3 text-right">Amount (COD)</th>
-              <th className="px-6 py-3">Actions</th>
+              <th className="px-6 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
-            {loading ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
-              : packages.length === 0 ? <tr><td colSpan="9" className="px-6 py-12 text-center text-slate-500">No packages found.</td></tr>
+            {loading ? <tr><td colSpan="10" className="px-6 py-12 text-center text-slate-500">Loading...</td></tr>
+              : packages.length === 0 ? <tr><td colSpan="10" className="px-6 py-12 text-center text-slate-500">No packages found.</td></tr>
                 : packages.map(p => (
-                  <tr key={p._id} className={`hover:bg-slate-50 transition-colors ${selected.includes(p._id) ? 'bg-brand-50/30' : ''}`}>
+                  <React.Fragment key={p._id}>
+                  <tr className={`hover:bg-slate-50 transition-colors ${selected.includes(p._id) ? 'bg-brand-50/30' : ''}`}>
                     <td className="px-6 py-4">
                       <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked={selected.includes(p._id)} onChange={() => toggleSelect(p._id)} />
                     </td>
@@ -399,34 +383,48 @@ const AdminPackages = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1 items-start">
                         {statusBadge(p.status)}
-                        {p.deliveryVerificationStatus === 'Pending' && p.activeVerificationPriority && (
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            p.activeVerificationPriority === 'High' ? 'bg-red-50 text-red-700 border-red-200' :
-                            p.activeVerificationPriority === 'Medium' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                            'bg-slate-50 text-slate-700 border-slate-200'
-                          }`}>
-                            {p.activeVerificationPriority} Priority
-                          </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <VerificationStatusBadge status={p.deliveryVerificationStatus} />
+                          {p.deliveryVerificationStatus === 'Pending' && p.activeVerificationPriority && (
+                            <VerificationPriorityBadge priority={p.activeVerificationPriority} />
+                          )}
+                        </div>
+                        {p.deliveryVerificationStatus === 'Pending' && p.verificationRequests && p.verificationRequests.find(r => r.status === 'Pending') && (
+                          <div className="text-[10px] text-slate-500 mt-1">
+                            Requested by: <span className="font-semibold">{p.verificationRequests.find(r => r.status === 'Pending').requestedByName}</span> ({p.verificationRequests.find(r => r.status === 'Pending').requestedByRole})
+                          </div>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 justify-end">
                         <button className="btn-secondary btn-sm p-2" onClick={() => openEdit(p)} title="Edit">
                           <Edit2 className="w-4 h-4" />
                         </button>
-                        {p.deliveryVerificationStatus === 'Pending' && (
-                          <button className="btn-secondary btn-sm p-2 bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200" onClick={() => navigate('/admin/verifications')} title="Verify Package">
-                            <CheckCircle2 className="w-4 h-4" />
-                          </button>
-                        )}
                         <button className="btn-sm p-2 rounded-lg bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 font-bold" onClick={() => handleDelete(p._id, p.trackingCode)} title="Delete">
                           <Trash2 className="w-4 h-4" />
                         </button>
+                        {p.verificationAudit && p.verificationAudit.length > 0 && (
+                          <button onClick={() => toggleAudit(p._id)} className="text-slate-400 hover:text-slate-700 transition-colors p-1" title="View Logs">
+                            {expandedAudits.has(p._id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
+                  {expandedAudits.has(p._id) && (
+                    <tr>
+                      <td colSpan="10" className="px-6 py-4 bg-slate-50 border-t border-slate-100">
+                        <VerificationAudit auditLogs={p.verificationAudit} />
+                      </td>
+                    </tr>
+                  )}
+                  </React.Fragment>
                 ))}
           </tbody>
         </table>

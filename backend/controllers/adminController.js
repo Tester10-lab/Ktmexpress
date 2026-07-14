@@ -607,20 +607,55 @@ export const updatePackageAdmin = async (req, res) => {
     }
 
     const updates = [];
-    if (customerName && customerName !== pkg.customerName) { updates.push('Customer Name'); pkg.customerName = customerName; }
-    if (customerPhone && customerPhone !== pkg.customerPhone) { updates.push('Customer Phone'); pkg.customerPhone = customerPhone; }
-    if (address && address !== pkg.address) { updates.push('Address'); pkg.address = address; }
-    if (city && city !== pkg.city) { updates.push('City'); pkg.city = city; }
-    if (amount !== undefined && amount !== pkg.amount) { updates.push('Amount'); pkg.amount = amount; }
-    if (weight !== undefined && weight !== pkg.weight) { updates.push('Weight'); pkg.weight = weight; }
-    if (deliveryDate !== undefined) { updates.push('Delivery Date'); pkg.deliveryDate = deliveryDate ? new Date(deliveryDate) : null; }
+    const changes = [];
+
+    if (customerName && customerName !== pkg.customerName) { 
+      changes.push({ field: 'Customer Name', before: pkg.customerName, after: customerName });
+      updates.push('Customer Name'); 
+      pkg.customerName = customerName; 
+    }
+    if (customerPhone && customerPhone !== pkg.customerPhone) { 
+      changes.push({ field: 'Customer Phone', before: pkg.customerPhone, after: customerPhone });
+      updates.push('Customer Phone'); 
+      pkg.customerPhone = customerPhone; 
+    }
+    if (address && address !== pkg.address) { 
+      changes.push({ field: 'Address', before: pkg.address, after: address });
+      updates.push('Address'); 
+      pkg.address = address; 
+    }
+    if (city && city !== pkg.city) { 
+      changes.push({ field: 'City', before: pkg.city, after: city });
+      updates.push('City'); 
+      pkg.city = city; 
+    }
+    if (amount !== undefined && Number(amount) !== Number(pkg.amount)) { 
+      changes.push({ field: 'Amount', before: pkg.amount, after: amount });
+      updates.push('Amount'); 
+      pkg.amount = amount; 
+    }
+    if (weight !== undefined && Number(weight) !== Number(pkg.weight)) { 
+      changes.push({ field: 'Weight', before: pkg.weight, after: weight });
+      updates.push('Weight'); 
+      pkg.weight = weight; 
+    }
+    if (deliveryDate !== undefined) { 
+      const newDateStr = deliveryDate ? new Date(deliveryDate).toISOString().split('T')[0] : null;
+      const oldDateStr = pkg.deliveryDate ? new Date(pkg.deliveryDate).toISOString().split('T')[0] : null;
+      if (newDateStr !== oldDateStr) {
+        changes.push({ field: 'Delivery Date', before: oldDateStr || 'None', after: newDateStr || 'None' });
+        updates.push('Delivery Date'); 
+        pkg.deliveryDate = deliveryDate ? new Date(deliveryDate) : null; 
+      }
+    }
 
     if (updates.length > 0) {
       pkg.timeline.push({
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
         status: pkg.status,
-        message: `Admin updated details: ${updates.join(', ')}`,
+        message: `Admin updated details: ${updates.join(', ')}${req.body.reason ? `. Reason: ${req.body.reason}` : ''}`,
         user: req.user.name,
+        changes
       });
       await pkg.save();
       dashboardCache.timestamp = 0;

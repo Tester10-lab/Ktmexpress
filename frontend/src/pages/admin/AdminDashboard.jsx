@@ -17,8 +17,6 @@ import PackageManagement from './sections/PackageManagement';
 import DispatcherPanel from './sections/DispatcherPanel';
 import CodReconciliation from './sections/CodReconciliation';
 import FinancialAnalytics from './sections/FinancialAnalytics';
-import PendingVerification from './sections/PendingVerification';
-
 // Nav icons
 const navLinks = [
   { name: 'Dashboard', path: '/admin', exact: true, icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -30,7 +28,6 @@ const navLinks = [
   { name: 'All Packages', path: '/admin/packages', icon: <Package className="w-5 h-5" /> },
   { name: 'Dispatcher Panel', path: '/admin/dispatcher', icon: <LayoutGrid className="w-5 h-5" /> },
   { name: 'COD Handovers', path: '/admin/handovers', icon: <Wallet className="w-5 h-5" /> },
-  { name: 'Verifications', path: '/admin/verifications', icon: <CheckCircle2 className="w-5 h-5" /> },
   { name: 'Reports', path: '/admin/reports', icon: <BarChart3 className="w-5 h-5" /> }
 ];
 
@@ -44,7 +41,6 @@ const titleMap = {
   '/admin/packages': 'All Packages',
   '/admin/dispatcher': 'Dispatcher Panel',
   '/admin/handovers': 'COD Handovers Verification',
-  '/admin/verifications': 'Operational & Financial Verification',
   '/admin/reports': 'Reports & Analytics',
 };
 
@@ -124,7 +120,6 @@ const AdminDashboard = () => {
         <Route path="/packages" element={<PackageManagement />} />
         <Route path="/dispatcher" element={<DispatcherPanel />} />
         <Route path="/handovers" element={<CodReconciliation />} />
-        <Route path="/verifications" element={<PendingVerification />} />
         <Route path="/reports" element={<FinancialAnalytics />} />
       </Routes>
     </AppShell>

@@ -204,6 +204,18 @@ const TrackingDrawer = () => {
                             <span className="text-xs font-medium text-slate-400 whitespace-nowrap">{new Date(event.time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                           </div>
                           {event.message && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{event.message}</p>}
+                          {event.changes && event.changes.length > 0 && (
+                            <ul className="mt-2 space-y-1 border-l-2 border-slate-100 pl-2">
+                              {event.changes.map((c, i) => (
+                                <li key={i} className="text-[11px] flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium">{c.field}</span>
+                                  <span className="line-through text-red-500">{String(c.before)}</span>
+                                  <span className="text-slate-400">→</span>
+                                  <span className="text-emerald-600 font-medium">{String(c.after)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
                       </div>
                     ))}
