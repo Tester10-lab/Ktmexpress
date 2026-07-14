@@ -132,13 +132,17 @@ export const bulkScan = async (req, res) => {
       return res.status(400).json({ success: false, message: 'trackingCodes array is required.' });
     }
 
+    // Normalize codes and batch-fetch all packages in one query
+    const normalizedCodes = trackingCodes.map(c => c.trim().toUpperCase());
+    const packages = await Package.find({ trackingCode: { $in: normalizedCodes } });
+    const pkgMap = new Map(packages.map(p => [p.trackingCode, p]));
+
     const results = [];
     const errors  = [];
 
-    for (const rawCode of trackingCodes) {
-      const code = rawCode.trim().toUpperCase();
+    for (const code of normalizedCodes) {
       try {
-        const pkg = await Package.findOne({ trackingCode: code });
+        const pkg = pkgMap.get(code);
         if (!pkg) {
           errors.push({ code, error: 'Not found' });
           continue;
@@ -214,7 +218,8 @@ export const getScanHistory = async (req, res) => {
     const { packageId } = req.params;
     const events = await ScanEvent.find({ packageId })
       .populate('scannedBy', 'name role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, data: events });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -227,7 +232,8 @@ export const getScanHistoryByCode = async (req, res) => {
     const { trackingCode } = req.params;
     const events = await ScanEvent.find({ trackingCode: trackingCode.toUpperCase() })
       .populate('scannedBy', 'name role')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, data: events });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -238,18 +244,21 @@ export const getScanHistoryByCode = async (req, res) => {
 export const getMyScanHistory = async (req, res) => {
   try {
     const { page = 1, limit = 50 } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
     const [events, total] = await Promise.all([
       ScanEvent.find({ scannedBy: req.user._id })
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum)
+        .lean(),
       ScanEvent.countDocuments({ scannedBy: req.user._id }),
     ]);
     res.json({
       success: true,
       data: events,
-      pagination: { total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page: pageNum, pages: Math.ceil(total / limitNum) },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -268,19 +277,22 @@ export const getAllScanHistory = async (req, res) => {
       if (from) filter.createdAt.$gte = new Date(from);
       if (to)   filter.createdAt.$lte = new Date(to + 'T23:59:59Z');
     }
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
     const [events, total] = await Promise.all([
       ScanEvent.find(filter)
         .populate('scannedBy', 'name role')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(parseInt(limit)),
+        .limit(limitNum)
+        .lean(),
       ScanEvent.countDocuments(filter),
     ]);
     res.json({
       success: true,
       data: events,
-      pagination: { total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page: pageNum, pages: Math.ceil(total / limitNum) },
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

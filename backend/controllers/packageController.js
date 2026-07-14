@@ -314,6 +314,8 @@ export const requestVerification = async (req, res) => {
     if (['COD amount mismatch', 'Customer dispute', 'Damaged package'].includes(reason)) priority = 'High';
     else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(reason)) priority = 'Medium';
 
+    const prevVerificationStatus = pkg.deliveryVerificationStatus || null;
+
     pkg.deliveryVerificationStatus = 'Pending';
     pkg.activeVerificationPriority = priority;
     if (!pkg.verificationStartedAt) {
@@ -336,7 +338,7 @@ export const requestVerification = async (req, res) => {
       message: `Verification requested by ${req.user.role}. Reason: ${reason} (Priority: ${priority})`,
       user: req.user.name,
       changes: [
-        { field: 'deliveryVerificationStatus', before: pkg.deliveryVerificationStatus || null, after: 'Pending' }
+        { field: 'deliveryVerificationStatus', before: prevVerificationStatus, after: 'Pending' }
       ]
     });
 

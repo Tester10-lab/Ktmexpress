@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import crypto from 'crypto';
+import sendEmail from '../utils/emailService.js';
 
 // Generate JWT Access token
 const generateAccessToken = (user) => {
@@ -220,10 +222,6 @@ export const logout = (req, res) => {
   });
   res.json({ success: true, message: 'Logged out successfully' });
 };
-
-import crypto from 'crypto';
-
-import sendEmail from '../utils/emailService.js';
 
 // POST /api/auth/forgot-password
 export const forgotPassword = async (req, res) => {

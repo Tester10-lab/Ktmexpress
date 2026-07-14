@@ -1,6 +1,30 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 
+// Brief in-memory user cache to avoid DB query on every authenticated request.
+// TTL: 30 seconds. Keyed by userId. Automatically cleaned up.
+const userCache = new Map();
+const USER_CACHE_TTL = 30_000;
+
+function getCachedUser(userId) {
+  const entry = userCache.get(userId);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > USER_CACHE_TTL) {
+    userCache.delete(userId);
+    return null;
+  }
+  return entry.user;
+}
+
+function setCachedUser(userId, user) {
+  userCache.set(userId, { user, ts: Date.now() });
+}
+
+// Exported for use by controllers that modify user data (to invalidate cache)
+export function invalidateUserCache(userId) {
+  userCache.delete(String(userId));
+}
+
 const auth = async (req, res, next) => {
   try {
     // Extract token from Authorization header
@@ -17,8 +41,13 @@ const auth = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Attach user to request
-    const user = await User.findById(decoded.id).select('-password');
+    // Check cache first, then DB
+    let user = getCachedUser(decoded.id);
+    if (!user) {
+      user = await User.findById(decoded.id).select('-password');
+      if (user) setCachedUser(decoded.id, user);
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -50,3 +79,4 @@ const auth = async (req, res, next) => {
 };
 
 export default auth;
+

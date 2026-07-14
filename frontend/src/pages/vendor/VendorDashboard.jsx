@@ -55,6 +55,69 @@ function statusBadge(status) {
   return <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>{status}</span>;
 }
 
+const PackageRow = React.memo(({ pkg, isSelected, handleSelect, setViewPackageDetails, setCommentModal, setEditMode, setEditPackageId, setCreateForm, setDrawerOpen }) => {
+  return (
+    <tr className="hover:bg-slate-50 transition-colors">
+      <td className="px-6 py-4">
+        <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked={isSelected} onChange={()=>handleSelect(pkg._id)} disabled={pkg.status!=='Pending'}/>
+      </td>
+      <td className="px-6 py-4">
+        <TrackingLink code={pkg.trackingCode} className="text-base" />
+        <div className="text-xs text-slate-500 font-medium mt-0.5">{pkg.invoiceId || 'No Invoice'}</div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="font-bold text-slate-900">{pkg.customerName}</div>
+        <div className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</div>
+      </td>
+      <td className="px-6 py-4">{statusBadge(pkg.status)}</td>
+      <td className="px-6 py-4 font-bold text-brand-600">Rs. {pkg.amount}</td>
+      <td className="px-6 py-4 text-slate-500 font-medium">{new Date(pkg.createdAt).toLocaleDateString()}</td>
+      <td className="px-6 py-4 text-right">
+        <div className="flex justify-end gap-1">
+          <button onClick={()=>setViewPackageDetails(pkg)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View details">
+            <Eye className="w-4 h-4" />
+          </button>
+          <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:'', isVerification: false})} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Add note">
+            <FileText className="w-4 h-4" />
+          </button>
+          {['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(pkg.status) && pkg.deliveryVerificationStatus !== 'Pending' && pkg.deliveryVerificationStatus !== 'Verified' && (
+            <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:'', isVerification: true})} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Request Verification">
+              <AlertCircle className="w-4 h-4" />
+            </button>
+          )}
+          {pkg.status === 'Pending' && (
+            <button onClick={() => {
+              setEditMode(true);
+              setEditPackageId(pkg._id);
+              setCreateForm({
+                branch: 'HEAD OFFICE',
+                destinationBranch: pkg.city || '--------',
+                customerName: pkg.customerName,
+                customerPhone: pkg.customerPhone,
+                altPhone: '',
+                address: pkg.address,
+                city: pkg.city || '',
+                deliveryDate: pkg.deliveryDate || '',
+                outOfValley: pkg.outOfValley || false,
+                weight: pkg.weight || 1,
+                deliveryCharge: pkg.deliveryCharge || 0,
+                amount: pkg.amount || 0,
+                packageAccess: pkg.packageAccess === 'open' ? 'Can Open' : 'Sealed',
+                invoiceId: pkg.invoiceId || '',
+                packageType: pkg.packageType || '',
+                comments: pkg.comments || ''
+              });
+              setDrawerOpen(true);
+            }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit Order">
+              <Edit2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
+
 // ─── Vendor Home ─────────────────────────────────────────────────────────
 const VendorHome = () => {
   const [stats, setStats] = useState({});
@@ -490,64 +553,18 @@ const PackageList = () => {
               {loading ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500"><div className="flex justify-center items-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600 mr-2"></div>Loading...</div></td></tr>
               : packages.length===0 ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">No packages found. <button className="text-brand-600 font-semibold ml-2 hover:underline" onClick={()=>setDrawerOpen(true)}>+ Create First Order</button></td></tr>
               : packages.map(pkg => (
-                <tr key={pkg._id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <input type="checkbox" className="rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked={selected.includes(pkg._id)} onChange={()=>handleSelect(pkg._id)} disabled={pkg.status!=='Pending'}/>
-                  </td>
-                  <td className="px-6 py-4">
-                    <TrackingLink code={pkg.trackingCode} className="text-base" />
-                    <div className="text-xs text-slate-500 font-medium mt-0.5">{pkg.invoiceId || 'No Invoice'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-slate-900">{pkg.customerName}</div>
-                    <div className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</div>
-                  </td>
-                  <td className="px-6 py-4">{statusBadge(pkg.status)}</td>
-                  <td className="px-6 py-4 font-bold text-brand-600">Rs. {pkg.amount}</td>
-                  <td className="px-6 py-4 text-slate-500 font-medium">{new Date(pkg.createdAt).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button onClick={()=>setViewPackageDetails(pkg)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View details">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:'', isVerification: false})} className="p-2 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors" title="Add note">
-                        <FileText className="w-4 h-4" />
-                      </button>
-                      {['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(pkg.status) && pkg.deliveryVerificationStatus !== 'Pending' && pkg.deliveryVerificationStatus !== 'Verified' && (
-                        <button onClick={()=>setCommentModal({open:true,packageId:pkg._id,text:'', isVerification: true})} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Request Verification">
-                          <AlertCircle className="w-4 h-4" />
-                        </button>
-                      )}
-                      {pkg.status === 'Pending' && (
-                        <button onClick={() => {
-                          setEditMode(true);
-                          setEditPackageId(pkg._id);
-                          setCreateForm({
-                            branch: 'HEAD OFFICE',
-                            destinationBranch: pkg.city || '--------',
-                            customerName: pkg.customerName,
-                            customerPhone: pkg.customerPhone,
-                            altPhone: '',
-                            address: pkg.address,
-                            city: pkg.city || '',
-                            deliveryDate: pkg.deliveryDate || '',
-                            outOfValley: pkg.outOfValley || false,
-                            weight: pkg.weight || 1,
-                            deliveryCharge: pkg.deliveryCharge || 0,
-                            amount: pkg.amount || 0,
-                            packageAccess: pkg.packageAccess === 'open' ? 'Can Open' : 'Sealed',
-                            invoiceId: pkg.invoiceId || '',
-                            packageType: pkg.packageType || '',
-                            comments: pkg.comments || ''
-                          });
-                          setDrawerOpen(true);
-                        }} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Edit Order">
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
+                <PackageRow 
+                  key={pkg._id} 
+                  pkg={pkg} 
+                  isSelected={selected.includes(pkg._id)}
+                  handleSelect={handleSelect}
+                  setViewPackageDetails={setViewPackageDetails}
+                  setCommentModal={setCommentModal}
+                  setEditMode={setEditMode}
+                  setEditPackageId={setEditPackageId}
+                  setCreateForm={setCreateForm}
+                  setDrawerOpen={setDrawerOpen}
+                />
               ))}
             </tbody>
           </table>

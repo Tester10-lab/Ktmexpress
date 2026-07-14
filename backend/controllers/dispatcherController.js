@@ -2,12 +2,9 @@ import Package from '../models/Package.js';
 import User from '../models/User.js';
 import PickupRequest from '../models/PickupRequest.js';
 import CodHandover from '../models/CodHandover.js';
+import mongoose from 'mongoose';
 import { canTransition } from '../services/packageTransitions.js';
-
-// Helper: get timestamp string
-function nowStr() {
-  return new Date().toISOString().replace('T', ' ').substring(0, 16);
-}
+import { nowStr } from '../utils/helpers.js';
 
 // GET /api/dispatcher/pickups
 export const getPickupRequests = async (req, res) => {
@@ -24,7 +21,8 @@ export const getPickupRequests = async (req, res) => {
       .populate('packageId', 'trackingCode customerName address vendorId')
       .populate('vendorId', 'name vendorMeta')
       .populate('assignedRiderId', 'name')
-      .sort({ requestedAt: -1 });
+      .sort({ requestedAt: -1 })
+      .lean();
 
     res.json({ success: true, data: assignedPickups });
   } catch (error) {
@@ -172,11 +170,14 @@ export const bulkAssignPackages = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Rider not found.' });
     }
 
-    const updated = [];
-    for (const id of packageIds) {
-      const pkg = await Package.findById(id);
-      if (!pkg || !['In Warehouse', 'Sorted', 'Postponed'].includes(pkg.status)) continue;
+    // Batch fetch all eligible packages in one query
+    const packages = await Package.find({
+      _id: { $in: packageIds },
+      status: { $in: ['In Warehouse', 'Sorted', 'Postponed'] },
+    });
 
+    const updated = [];
+    for (const pkg of packages) {
       pkg.riderId = riderId;
       pkg.status = 'Out for Delivery';
       pkg.timeline.push({
@@ -248,11 +249,11 @@ export const bulkVendorHandover = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No packages selected.' });
     }
 
+    // Batch fetch all packages in one query
+    const packages = await Package.find({ _id: { $in: packageIds } });
+
     const updated = [];
-    for (const id of packageIds) {
-      const pkg = await Package.findById(id);
-      if (!pkg) continue;
-      
+    for (const pkg of packages) {
       // Ensure it was physically returned by the rider first before handing to vendor
       if (!pkg.rtvSignoff?.riderReturned) continue;
       if (pkg.rtvSignoff?.vendorReceived) continue;
@@ -328,7 +329,8 @@ export const getAllPackagesForDispatcher = async (req, res) => {
       .populate('vendorId', 'name email vendorMeta')
       .populate('riderId', 'name contact')
       .sort({ createdAt: -1 })
-      .limit(500);
+      .limit(500)
+      .lean();
 
     res.json({ success: true, data: packages });
   } catch (error) {
@@ -372,7 +374,8 @@ export const getCodHandovers = async (req, res) => {
     const handovers = await CodHandover.find(filter)
       .populate('riderId', 'name contact')
       .populate('verifiedBy', 'name')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: handovers });
   } catch (error) {
@@ -433,16 +436,47 @@ export const getRiderHistory = async (req, res) => {
       ]
     };
 
-    // Calculate absolute lifetime KPIs
-    const allPkgs = await Package.find(baseFilter).lean();
+    // Calculate absolute lifetime KPIs via aggregation (avoids loading all documents)
+    const ridObjId = new mongoose.Types.ObjectId(id);
+    const [statsResult] = await Package.aggregate([
+      { $match: { ...baseFilter, deletedAt: null } },
+      {
+        $facet: {
+          totalHandled: [{ $count: 'count' }],
+          totalDelivered: [
+            { $match: { status: 'Delivered' } },
+            { $count: 'count' },
+          ],
+          totalFailedReturned: [
+            { $match: { status: { $in: ['Cancelled', 'Returned', 'Returned to Vendor'] } } },
+            { $count: 'count' },
+          ],
+          totalCODCollected: [
+            { $match: { status: 'Delivered' } },
+            { $group: { _id: null, total: { $sum: { $ifNull: ['$riderSubmission.amount', '$amount'] } } } },
+          ],
+          currentAssigned: [
+            { $match: { riderId: ridObjId, status: { $in: ['Out for Delivery', 'Picked Up'] } } },
+            { $count: 'count' },
+          ],
+          totalPickedUp: [
+            { $match: { $or: [
+              { status: { $in: ['Picked Up', 'Out for Delivery', 'Delivered', 'Postponed', 'Cancelled', 'Returned', 'Returned to Vendor'] } },
+              { 'timeline.status': 'Picked Up' }
+            ] } },
+            { $count: 'count' },
+          ],
+        },
+      },
+    ]);
 
     const lifetimeStats = {
-      totalHandled: allPkgs.length,
-      totalPickedUp: allPkgs.filter(p => ['Picked Up', 'Out for Delivery', 'Delivered', 'Postponed', 'Cancelled', 'Returned', 'Returned to Vendor'].includes(p.status) || p.timeline.some(t => t.status === 'Picked Up')).length,
-      totalDelivered: allPkgs.filter(p => p.status === 'Delivered').length,
-      totalFailedReturned: allPkgs.filter(p => ['Cancelled', 'Returned', 'Returned to Vendor'].includes(p.status)).length,
-      totalCODCollected: allPkgs.filter(p => p.status === 'Delivered').reduce((sum, p) => sum + (p.riderSubmission?.amount !== undefined ? p.riderSubmission.amount : p.amount || 0), 0),
-      currentAssigned: allPkgs.filter(p => p.riderId?.toString() === id.toString() && ['Out for Delivery', 'Picked Up'].includes(p.status)).length
+      totalHandled: statsResult.totalHandled[0]?.count || 0,
+      totalPickedUp: statsResult.totalPickedUp[0]?.count || 0,
+      totalDelivered: statsResult.totalDelivered[0]?.count || 0,
+      totalFailedReturned: statsResult.totalFailedReturned[0]?.count || 0,
+      totalCODCollected: statsResult.totalCODCollected[0]?.total || 0,
+      currentAssigned: statsResult.currentAssigned[0]?.count || 0,
     };
 
     // Apply filtering query

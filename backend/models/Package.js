@@ -287,6 +287,10 @@ packageSchema.index({ codVerified: 1, vendorPaid: 1 });
 packageSchema.index({ deliveryVerificationStatus: 1 });
 packageSchema.index({ codVerificationStatus: 1 });
 packageSchema.index({ verifiedAt: -1 });
+// Compound indexes for settlement page queries
+packageSchema.index({ vendorId: 1, status: 1, cashReconciled: 1, vendorPaid: 1, isSettling: 1 });
+// Compound index for verification + status filtering
+packageSchema.index({ deliveryVerificationStatus: 1, status: 1 });
 
 // Soft delete query middleware
 const excludeSoftDeleted = function(next) {

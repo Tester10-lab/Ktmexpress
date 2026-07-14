@@ -21,6 +21,14 @@ export const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // Mongoose CastError (e.g. invalid ObjectId in URL params)
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid ${err.path}: ${err.value}`,
+    });
+  }
+
   // JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({ success: false, message: 'Invalid token' });

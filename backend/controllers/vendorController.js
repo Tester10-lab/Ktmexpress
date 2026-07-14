@@ -3,13 +3,13 @@ import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
 import Settlement from '../models/Settlement.js';
 import Product from '../models/Product.js';
+import User from '../models/User.js';
 import fs from 'fs';
-import csv from 'csv-parser';
 import { generateLabelUrls } from '../services/labelService.js';
-import { calculateDeliveryFee } from '../services/pricingService.js';
+import { calculateDeliveryFee, getGlobalSettings } from '../services/pricingService.js';
 import { logger } from '../config/logger.js';
 
-import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
+import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr } from '../utils/helpers.js';
 import { processCsvImport } from '../utils/csvHelper.js';
 
 // GET /api/vendor/dashboard
@@ -158,12 +158,15 @@ export const createPickupRequest = async (req, res) => {
 
     const results = [];
 
-    for (const pkgId of packageIds) {
-      const pkg = await Package.findOne({ _id: pkgId, vendorId });
-      if (!pkg || pkg.status !== 'Pending') continue;
+    // Batch fetch all packages in one query
+    const packages = await Package.find({
+      _id: { $in: packageIds },
+      vendorId,
+      status: 'Pending'
+    });
 
-      // Update package status
-      const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const now = nowStr();
+    for (const pkg of packages) {
       pkg.status = 'Pick Up Requested';
       pkg.timeline.push({
         time: now,
@@ -173,7 +176,6 @@ export const createPickupRequest = async (req, res) => {
       });
       await pkg.save();
 
-      // Create pickup request
       const pickup = await PickupRequest.create({
         packageId: pkg._id,
         vendorId,
@@ -334,9 +336,19 @@ export const bulkCreatePackages = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid packages data' });
     }
 
-    const createdPackages = [];
-    for (const p of packages) {
-      const trackingCode = await uniqueTrackingCode();
+    // Pre-fetch global data to avoid N DB calls
+    const [vendor, globalSettings] = await Promise.all([
+      User.findById(vendorId),
+      getGlobalSettings(),
+    ]);
+
+    // Pre-generate all tracking codes at once (1 DB call instead of N)
+    const trackingCodes = await uniqueTrackingCodes(packages.length);
+
+    const packageDocs = [];
+    for (let i = 0; i < packages.length; i++) {
+      const p = packages[i];
+      const trackingCode = trackingCodes[i];
       const labelUrls = generateLabelUrls(trackingCode);
       
       let finalDeliveryCharge;
@@ -345,13 +357,15 @@ export const bulkCreatePackages = async (req, res) => {
           vendorId,
           outOfValley: !!p.outOfValley,
           city: p.city || '',
-          weight: Number(p.weight) || 0.5
+          weight: Number(p.weight) || 0.5,
+          _vendor: vendor,
+          _globalSettings: globalSettings,
         });
       } catch (e) {
         finalDeliveryCharge = 0;
       }
 
-      const pkg = await Package.create({
+      packageDocs.push({
         trackingCode,
         invoiceId: p.invoiceId || `INV-${Date.now()}-${Math.floor(Math.random()*1000)}`,
         customerName: p.customerName,
@@ -368,14 +382,16 @@ export const bulkCreatePackages = async (req, res) => {
         ...labelUrls,
         status: 'In Warehouse',
         timeline: [{
-          time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          time: nowStr(),
           status: 'In Warehouse',
           message: 'Package arrived at warehouse.',
           user: req.user.name,
         }]
       });
-      createdPackages.push(pkg);
     }
+    
+    // Bulk insert to avoid N insert queries
+    const createdPackages = packageDocs.length > 0 ? await Package.insertMany(packageDocs) : [];
     if (req.io) {
       createdPackages.forEach(pkg => {
         req.io.to('role_admin').emit('package:created', pkg);
@@ -520,10 +536,21 @@ export const getSettlements = async (req, res) => {
     const vendorId = req.user._id;
     const settlements = await Settlement.find({ vendorId }).sort({ createdAt: -1 }).lean();
     
+    // Extract all package IDs across all settlements
+    const allPackageIds = [...new Set(settlements.flatMap(s => s.packageIds))];
+    
+    // Fetch all packages in one query
+    const packagesList = await Package.find({ _id: { $in: allPackageIds } }).lean();
+    
+    // Map for quick lookup
+    const packageMap = new Map();
+    packagesList.forEach(p => packageMap.set(p._id.toString(), p));
+    
     // Populate package details and add summary for each settlement
-    const enhancedSettlements = await Promise.all(
-      settlements.map(async (settlement) => {
-        const packages = await Package.find({ _id: { $in: settlement.packageIds } }).lean();
+    const enhancedSettlements = settlements.map((settlement) => {
+        const packages = settlement.packageIds
+          .map(id => packageMap.get(id.toString()))
+          .filter(Boolean);
         
         const summary = {
           totalPackages: packages.length,
@@ -547,8 +574,7 @@ export const getSettlements = async (req, res) => {
           })),
           summary
         };
-      })
-    );
+      });
     
     res.json({ success: true, data: enhancedSettlements });
   } catch (error) {

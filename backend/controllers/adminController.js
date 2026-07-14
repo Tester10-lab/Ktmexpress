@@ -10,9 +10,9 @@ import eventBus from '../services/eventBus.js';
 import fs from 'fs';
 import csv from 'csv-parser';
 import bcrypt from 'bcryptjs';
-import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
+import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
-import { calculateDeliveryFee } from '../services/pricingService.js';
+import { calculateDeliveryFee, getGlobalSettings } from '../services/pricingService.js';
 import { processCsvImport } from '../utils/csvHelper.js';
 import { PACKAGE_STATUS } from '../constants/packageStatus.js';
 
@@ -223,12 +223,11 @@ export const markVendorPaid = async (req, res) => {
     const packages = await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } }).session(session);
     if (packages.length === 0) {
       await session.abortTransaction();
-      session.endSession();
       return res.status(400).json({ success: false, message: 'No eligible packages found' });
     }
 
     const now = new Date();
-    const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
+    const currentStr = nowStr();
 
     for (const pkg of packages) {
       pkg.vendorPaid = true;
@@ -237,7 +236,7 @@ export const markVendorPaid = async (req, res) => {
       pkg.settlementStatus = 'Settled';
       pkg.isSettling = false;
       pkg.timeline.push({
-        time: nowStr,
+        time: currentStr,
         status: pkg.status,
         message: `Vendor paid Rs. ${pkg.vendorReceivable}${reference ? ` (Ref: ${reference})` : ''}`,
         user: req.user.name,
@@ -246,7 +245,6 @@ export const markVendorPaid = async (req, res) => {
     }
 
     await session.commitTransaction();
-    session.endSession();
 
     // Invalidate dashboard cache
     dashboardCache.timestamp = 0;
@@ -258,8 +256,9 @@ export const markVendorPaid = async (req, res) => {
     });
   } catch (error) {
     await session.abortTransaction();
-    session.endSession();
     res.status(500).json({ success: false, message: error.message });
+  } finally {
+    session.endSession();
   }
 };
 
@@ -780,9 +779,14 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Vendor not found.' });
     }
 
-    const createdPackages = [];
-    for (const p of packages) {
-      const trackingCode = await uniqueTrackingCode();
+    const packageDocs = [];
+    // Pre-fetch global data
+    const globalSettings = await getGlobalSettings();
+    const trackingCodes = await uniqueTrackingCodes(packages.length);
+
+    for (let i = 0; i < packages.length; i++) {
+      const p = packages[i];
+      const trackingCode = trackingCodes[i];
       const labelUrls = generateLabelUrls(trackingCode);
 
       let finalDeliveryCharge = Number(p.deliveryCharge);
@@ -792,14 +796,16 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
             vendorId,
             outOfValley: !!p.outOfValley,
             city: p.city || '',
-            weight: Number(p.weight) || 0.5
+            weight: Number(p.weight) || 0.5,
+            _vendor: vendor,
+            _globalSettings: globalSettings,
           });
         } catch (e) {
           finalDeliveryCharge = 0;
         }
       }
 
-      const pkg = await Package.create({
+      packageDocs.push({
         trackingCode,
         invoiceId: p.invoiceId || generateInvoiceId(),
         customerName: p.customerName,
@@ -808,6 +814,7 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         outOfValley: !!p.outOfValley,
         city: p.city || '',
         weight: Number(p.weight) || 0.5,
+        packageAccess: p.packageAccess || 'sealed',
         items: p.items || [],
         amount: Number(p.amount) || 0,
         deliveryCharge: finalDeliveryCharge,
@@ -817,14 +824,15 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         ...labelUrls,
         status: PACKAGE_STATUS.IN_WAREHOUSE,
         timeline: [{
-          time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          time: nowStr(),
           status: PACKAGE_STATUS.IN_WAREHOUSE,
           message: 'Package arrived at warehouse.',
           user: req.user.name,
         }]
       });
-      createdPackages.push(pkg);
     }
+
+    const createdPackages = packageDocs.length > 0 ? await Package.insertMany(packageDocs) : [];
 
     if (req.io) {
       createdPackages.forEach(pkg => {
@@ -854,12 +862,14 @@ export const requestPickupAdmin = async (req, res) => {
 
     const results = [];
 
-    for (const pkgId of packageIds) {
-      const pkg = await Package.findOne({ _id: pkgId });
-      if (!pkg || pkg.status !== 'Pending') continue;
+    // Batch fetch all eligible packages
+    const packages = await Package.find({
+      _id: { $in: packageIds },
+      status: 'Pending'
+    });
 
-      // Update package status
-      const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const now = nowStr();
+    for (const pkg of packages) {
       pkg.status = 'Pick Up Requested';
       pkg.timeline.push({
         time: now,
@@ -869,7 +879,6 @@ export const requestPickupAdmin = async (req, res) => {
       });
       await pkg.save();
 
-      // Create pickup request
       const pickup = await PickupRequest.create({
         packageId: pkg._id,
         vendorId: pkg.vendorId,
@@ -1486,11 +1495,14 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
     const now = new Date();
     const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
 
-    for (const id of packageIds) {
-      const pkg = await Package.findById(id).session(session ? session : null);
-      if (!pkg) {
-        throw new Error(`Package with ID ${id} not found.`);
-      }
+    const packages = await Package.find({ _id: { $in: packageIds } }).session(session ? session : null);
+    
+    if (packages.length !== packageIds.length) {
+      if (session) await session.abortTransaction();
+      return res.status(404).json({ success: false, message: 'Some packages were not found.' });
+    }
+
+    for (const pkg of packages) {
 
       if (pkg.deliveryVerificationStatus === 'Verified') {
         continue; // Skip already verified packages

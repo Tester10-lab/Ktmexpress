@@ -42,6 +42,93 @@ function statusBadge(status, verificationStatus) {
   return <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>{status}</span>;
 }
 
+const TaskCard = React.memo(({ pkg, isPickup, selectedPickups, selectedDeliveries, toggleSelect, toggleSelectDelivery, openModal }) => {
+  const isPendingPickup = isPickup && pkg.status === 'Pick Up Requested';
+  const isActiveDelivery = !isPickup && ['Out for Delivery'].includes(pkg.status);
+
+  return (
+    <div className={`bg-white rounded-2xl border ${isPendingPickup || isActiveDelivery ? 'border-brand-200 shadow-md ring-1 ring-brand-100' : 'border-slate-200 shadow-sm opacity-80'} p-5 transition-all duration-300 hover:shadow-lg`}>
+      <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+        
+        <div className="flex items-center gap-4">
+          {isPendingPickup && (
+            <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" checked={selectedPickups.includes(pkg._id)} onChange={() => toggleSelect(pkg._id)} />
+          )}
+          {isActiveDelivery && (
+            <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={selectedDeliveries.includes(pkg._id)} onChange={() => toggleSelectDelivery(pkg._id)} />
+          )}
+        </div>
+
+        <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          
+          <div className="space-y-3 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <TrackingLink code={pkg.trackingCode} className="text-lg" />
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
+                🏢 {pkg.vendorId?.vendorMeta?.shopName || (pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name) || 'Vendor'}
+              </span>
+              {statusBadge(pkg.status, pkg.deliveryVerificationStatus)}
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+              <div className="flex items-center gap-2 font-semibold text-slate-800">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">👤</div>
+                {pkg.customerName}
+              </div>
+              <div className="flex items-center gap-2 text-slate-600">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><Phone className="w-3.5 h-3.5"/></div>
+                {pkg.customerPhone || 'No Phone'}
+              </div>
+              <div className="flex items-start gap-2 text-slate-600 sm:col-span-2 lg:col-span-1">
+                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5"><MapPin className="w-3.5 h-3.5"/></div>
+                <span>{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</span>
+              </div>
+            </div>
+            
+            <div className="pt-2 border-t border-slate-100 mt-2">
+              <span className="text-sm font-medium text-slate-500 mr-2">To Collect:</span>
+              <span className="text-lg font-bold text-brand-600">Rs. {pkg.amount}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap sm:flex-col lg:flex-row gap-2 shrink-0 md:min-w-[140px] md:justify-end">
+            {isPendingPickup && (
+              <button className="btn-primary py-2 px-4 flex items-center gap-2 flex-1 justify-center whitespace-nowrap" onClick={()=>openModal(pkg,'pickup_complete')} title="Confirm Pickup">
+                <CheckCircle2 className="w-4 h-4" /> Confirm Pickup
+              </button>
+            )}
+            {isActiveDelivery && (
+              <>
+                <button className="flex-1 lg:flex-none py-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'deliver')} title="Delivered">
+                  <CheckCircle2 className="w-4 h-4" /> Delivered
+                </button>
+                <button className="flex-1 lg:flex-none py-2 px-3 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'postpone')} title="Postpone">
+                  <Clock className="w-4 h-4" /> Postpone
+                </button>
+                <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'cancel')} title="Cancel">
+                  <XCircle className="w-4 h-4" /> Cancel
+                </button>
+                <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'return')} title="Return">
+                  <ArrowLeftRight className="w-4 h-4" /> Return
+                </button>
+                <button className="flex-1 lg:flex-none py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'exchange')} title="Exchange">
+                  <ArrowLeftRight className="w-4 h-4" /> Exchange
+                </button>
+              </>
+            )}
+            {(!isActiveDelivery && !isPendingPickup && pkg.deliveryVerificationStatus !== 'Pending' && pkg.deliveryVerificationStatus !== 'Verified') && (
+              <button className="flex-1 lg:flex-none py-2 px-3 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'request_verification')} title="Request Verification">
+                <AlertCircle className="w-4 h-4" /> Request Verification
+              </button>
+            )}
+          </div>
+          
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // ─── My Deliveries ────────────────────────────────────────────────────────
 const MyDeliveries = () => {
   const [deliveries, setDeliveries] = useState([]);
@@ -59,7 +146,7 @@ const MyDeliveries = () => {
   
   const { showToast } = useToast();
 
-  const fetchAll = async (silent = false) => {
+  const fetchAll = React.useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const [d, p] = await Promise.all([
@@ -75,14 +162,14 @@ const MyDeliveries = () => {
     } finally { 
       setLoading(false); 
     }
-  };
+  }, [showToast]);
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const openModal = (pkg, action) => { 
+  const openModal = React.useCallback((pkg, action) => { 
     setActionModal({open:true,pkg,action}); 
     setForm({comment:'',cashCollected:pkg.amount,newDate:''}); 
-  };
+  }, []);
 
   const submitAction = async e => {
     e.preventDefault();
@@ -109,13 +196,13 @@ const MyDeliveries = () => {
     }
   };
 
-  const toggleSelect = (id) => {
+  const toggleSelect = React.useCallback((id) => {
     setSelectedPickups(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
+  }, []);
 
-  const toggleSelectDelivery = (id) => {
+  const toggleSelectDelivery = React.useCallback((id) => {
     setSelectedDeliveries(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
+  }, []);
 
   const handleBulkDelivery = async () => {
     if (!selectedDeliveries.length) return;
@@ -178,92 +265,7 @@ const MyDeliveries = () => {
     }
   };
 
-  const TaskCard = ({ pkg, isPickup }) => {
-    const isPendingPickup = isPickup && pkg.status === 'Pick Up Requested';
-    const isActiveDelivery = !isPickup && ['Out for Delivery'].includes(pkg.status);
 
-    return (
-      <div className={`bg-white rounded-2xl border ${isPendingPickup || isActiveDelivery ? 'border-brand-200 shadow-md ring-1 ring-brand-100' : 'border-slate-200 shadow-sm opacity-80'} p-5 transition-all duration-300 hover:shadow-lg`}>
-        <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
-          
-          <div className="flex items-center gap-4">
-            {isPendingPickup && (
-              <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" checked={selectedPickups.includes(pkg._id)} onChange={() => toggleSelect(pkg._id)} />
-            )}
-            {isActiveDelivery && (
-              <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={selectedDeliveries.includes(pkg._id)} onChange={() => toggleSelectDelivery(pkg._id)} />
-            )}
-          </div>
-
-          <div className="flex-1 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            
-            <div className="space-y-3 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <TrackingLink code={pkg.trackingCode} className="text-lg" />
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200">
-                  🏢 {pkg.vendorId?.vendorMeta?.shopName || (pkg.vendorId?.vendorMeta?.shopName || pkg.vendorId?.name) || 'Vendor'}
-                </span>
-                {statusBadge(pkg.status, pkg.deliveryVerificationStatus)}
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
-                <div className="flex items-center gap-2 font-semibold text-slate-800">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">👤</div>
-                  {pkg.customerName}
-                </div>
-                <div className="flex items-center gap-2 text-slate-600">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0"><Phone className="w-3.5 h-3.5"/></div>
-                  {pkg.customerPhone || 'No Phone'}
-                </div>
-                <div className="flex items-start gap-2 text-slate-600 sm:col-span-2 lg:col-span-1">
-                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5"><MapPin className="w-3.5 h-3.5"/></div>
-                  <span>{pkg.city ? `${pkg.city}, ` : ''}{pkg.address}</span>
-                </div>
-              </div>
-              
-              <div className="pt-2 border-t border-slate-100 mt-2">
-                <span className="text-sm font-medium text-slate-500 mr-2">To Collect:</span>
-                <span className="text-lg font-bold text-brand-600">Rs. {pkg.amount}</span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap sm:flex-col lg:flex-row gap-2 shrink-0 md:min-w-[140px] md:justify-end">
-              {isPendingPickup && (
-                <button className="btn-primary py-2 px-4 flex items-center gap-2 flex-1 justify-center whitespace-nowrap" onClick={()=>openModal(pkg,'pickup_complete')} title="Confirm Pickup">
-                  <CheckCircle2 className="w-4 h-4" /> Confirm Pickup
-                </button>
-              )}
-              {isActiveDelivery && (
-                <>
-                  <button className="flex-1 lg:flex-none py-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'deliver')} title="Delivered">
-                    <CheckCircle2 className="w-4 h-4" /> Delivered
-                  </button>
-                  <button className="flex-1 lg:flex-none py-2 px-3 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'postpone')} title="Postpone">
-                    <Clock className="w-4 h-4" /> Postpone
-                  </button>
-                  <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'cancel')} title="Cancel">
-                    <XCircle className="w-4 h-4" /> Cancel
-                  </button>
-                  <button className="flex-1 lg:flex-none py-2 px-3 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'return')} title="Return">
-                    <ArrowLeftRight className="w-4 h-4" /> Return
-                  </button>
-                  <button className="flex-1 lg:flex-none py-2 px-3 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'exchange')} title="Exchange">
-                    <ArrowLeftRight className="w-4 h-4" /> Exchange
-                  </button>
-                </>
-              )}
-              {(!isActiveDelivery && !isPendingPickup && pkg.deliveryVerificationStatus !== 'Pending' && pkg.deliveryVerificationStatus !== 'Verified') && (
-                <button className="flex-1 lg:flex-none py-2 px-3 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-1.5" onClick={()=>openModal(pkg,'request_verification')} title="Request Verification">
-                  <AlertCircle className="w-4 h-4" /> Request Verification
-                </button>
-              )}
-            </div>
-            
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -342,7 +344,7 @@ const MyDeliveries = () => {
                 <p className="text-slate-500">Try changing the filter or check back later.</p>
               </div>
             )
-            : filteredDeliveries.map(p => <TaskCard key={p._id} pkg={p} isPickup={false}/>)}
+            : filteredDeliveries.map(p => <TaskCard key={p._id} pkg={p} isPickup={false} selectedPickups={selectedPickups} selectedDeliveries={selectedDeliveries} toggleSelect={toggleSelect} toggleSelectDelivery={toggleSelectDelivery} openModal={openModal}/>)}
           </div>
         </div>
       )}
@@ -393,7 +395,7 @@ const MyDeliveries = () => {
                 <p className="text-slate-500">Try changing the filter or check back later.</p>
               </div>
             )
-            : filteredPickups.map(p => <TaskCard key={p._id} pkg={p} isPickup={true}/>)}
+            : filteredPickups.map(p => <TaskCard key={p._id} pkg={p} isPickup={true} selectedPickups={selectedPickups} selectedDeliveries={selectedDeliveries} toggleSelect={toggleSelect} toggleSelectDelivery={toggleSelectDelivery} openModal={openModal}/>)}
           </div>
         </div>
       )}

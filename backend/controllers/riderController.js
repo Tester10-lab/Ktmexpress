@@ -4,11 +4,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { canTransition } from '../services/packageTransitions.js';
 import eventBus from '../services/eventBus.js';
-
-// Helper: get timestamp string
-function nowStr() {
-  return new Date().toISOString().replace('T', ' ').substring(0, 16);
-}
+import { nowStr } from '../utils/helpers.js';
 
 // GET /api/rider/deliveries
 export const getMyDeliveries = async (req, res) => {
@@ -41,7 +37,8 @@ export const getMyDeliveries = async (req, res) => {
 
     const packages = await Package.find(filter)
       .populate('vendorId', 'name vendorMeta')
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.json({ success: true, data: packages });
   } catch (error) {
@@ -177,12 +174,6 @@ export const updateDeliveryStatus = async (req, res) => {
     // Emit event on Event Bus
     if (action === 'deliver' || action === 'postpone') {
       eventBus.emit('package.rider_submitted', { pkg, reqUser: req.user, io: req.io });
-    } else if (action === 'deliver' && req.io) {
-      req.io.to(`user_${pkg.vendorId}`).emit('notification', {
-        title: 'Package Delivered!',
-        message: `Your package ${pkg.trackingCode} has been successfully delivered.`,
-        type: 'package_delivered'
-      });
     }
 
     res.json({ success: true, data: pkg });
@@ -191,40 +182,7 @@ export const updateDeliveryStatus = async (req, res) => {
   }
 };
 
-// PUT /api/rider/bulk-pickup
-export const bulkMarkPickedUp = async (req, res) => {
-  try {
-    const { packageIds } = req.body;
-    const riderId = new mongoose.Types.ObjectId(req.user._id);
-    const ts = nowStr();
-
-    if (!packageIds?.length) {
-      return res.status(400).json({ success: false, message: 'No packages selected.' });
-    }
-
-    const updated = [];
-    for (const id of packageIds) {
-      const pkg = await Package.findOne({ _id: id, riderId });
-      if (!pkg || pkg.status !== 'Pick Up Requested') continue;
-
-      pkg.status = 'Picked Up';
-      pkg.timeline.push({
-        time: ts,
-        status: 'Picked Up',
-        message: `Rider ${req.user.name} picked up package`,
-        user: req.user.name,
-      });
-      await pkg.save();
-      updated.push(pkg.trackingCode);
-    }
-
-    res.json({ success: true, data: { count: updated.length, trackingCodes: updated } });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// GET /api/rider/summary
+// GET /api/rider/summary — single $facet aggregation instead of 6 separate queries
 export const getRiderSummary = async (req, res) => {
   try {
     const riderId = new mongoose.Types.ObjectId(req.user._id);
@@ -232,20 +190,44 @@ export const getRiderSummary = async (req, res) => {
     today.setHours(0, 0, 0, 0);
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-    const [delivered, pending, postponed, cancelled, deliveredThisMonth] = await Promise.all([
-      Package.countDocuments({ riderId, status: 'Delivered' }),
-      Package.countDocuments({ riderId, status: 'Out for Delivery' }),
-      Package.countDocuments({ riderId, status: 'Postponed' }),
-      Package.countDocuments({ riderId, status: 'Cancelled' }),
-      Package.countDocuments({ riderId, status: 'Delivered', updatedAt: { $gte: startOfMonth } }),
+    const [result] = await Package.aggregate([
+      { $match: { riderId, deletedAt: null } },
+      {
+        $facet: {
+          delivered: [
+            { $match: { status: 'Delivered' } },
+            { $count: 'count' },
+          ],
+          pending: [
+            { $match: { status: 'Out for Delivery' } },
+            { $count: 'count' },
+          ],
+          postponed: [
+            { $match: { status: 'Postponed' } },
+            { $count: 'count' },
+          ],
+          cancelled: [
+            { $match: { status: 'Cancelled' } },
+            { $count: 'count' },
+          ],
+          deliveredThisMonth: [
+            { $match: { status: 'Delivered', updatedAt: { $gte: startOfMonth } } },
+            { $count: 'count' },
+          ],
+          totalCOD: [
+            { $match: { status: 'Delivered', cashReconciled: false } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+          ],
+        },
+      },
     ]);
 
-    const codAgg = await Package.aggregate([
-      { $match: { riderId: new mongoose.Types.ObjectId(riderId), status: 'Delivered', cashReconciled: false, deletedAt: null } },
-      { $group: { _id: null, totalCOD: { $sum: '$amount' } } },
-    ]);
-
-    const totalCOD = codAgg[0]?.totalCOD || 0;
+    const delivered = result.delivered[0]?.count || 0;
+    const pending = result.pending[0]?.count || 0;
+    const postponed = result.postponed[0]?.count || 0;
+    const cancelled = result.cancelled[0]?.count || 0;
+    const deliveredThisMonth = result.deliveredThisMonth[0]?.count || 0;
+    const totalCOD = result.totalCOD[0]?.total || 0;
     const monthlyTarget = req.user.riderMeta?.monthlyTarget || 0;
 
     res.json({
@@ -257,7 +239,7 @@ export const getRiderSummary = async (req, res) => {
   }
 };
 
-// PUT /api/rider/bulk-pickup
+// PUT /api/rider/bulk-pickup — batch query instead of N individual findOne calls
 export const bulkPickup = async (req, res) => {
   try {
     const { packageIds } = req.body;
@@ -268,22 +250,25 @@ export const bulkPickup = async (req, res) => {
     }
 
     const ts = nowStr();
+
+    // Batch fetch all eligible packages in one query
+    const packages = await Package.find({
+      _id: { $in: packageIds },
+      riderId,
+      status: 'Pick Up Requested',
+    });
     
-    // Process one by one to ensure history logs
     const updated = [];
-    for (const pkgId of packageIds) {
-      const pkg = await Package.findOne({ _id: pkgId, riderId, status: 'Pick Up Requested' });
-      if (pkg) {
-        pkg.status = 'Picked Up';
-        pkg.timeline.push({
-          time: ts,
-          status: 'Picked Up',
-          message: `Rider ${req.user.name} picked up package from vendor (Bulk)`,
-          user: req.user.name,
-        });
-        await pkg.save();
-        updated.push(pkgId);
-      }
+    for (const pkg of packages) {
+      pkg.status = 'Picked Up';
+      pkg.timeline.push({
+        time: ts,
+        status: 'Picked Up',
+        message: `Rider ${req.user.name} picked up package from vendor (Bulk)`,
+        user: req.user.name,
+      });
+      await pkg.save();
+      updated.push(pkg._id);
     }
 
     res.json({ success: true, data: updated, message: `Picked up ${updated.length} packages.` });

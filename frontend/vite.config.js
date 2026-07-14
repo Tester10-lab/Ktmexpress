@@ -31,6 +31,12 @@ export default defineConfig({
             if (id.includes('lucide-react')) {
               return 'ui';
             }
+            if (id.includes('recharts')) {
+              return 'charts';
+            }
+            if (id.includes('socket.io-client')) {
+              return 'socket';
+            }
             return 'dependencies';
           }
         }

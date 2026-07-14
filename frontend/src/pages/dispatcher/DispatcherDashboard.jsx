@@ -76,24 +76,23 @@ const drawerFooterStyle = { padding: '16px 24px', borderTop: '1px solid #e5e7eb'
 
 function ActionBtn({ onClick, children, variant = 'primary', disabled = false, size = 'sm', icon }) {
   const colors = {
-    primary: { bg: '#2563eb', hover: '#1d4ed8', text: '#fff' },
-    secondary: { bg: '#6b7280', hover: '#4b5563', text: '#fff' },
-    success: { bg: '#059669', hover: '#047857', text: '#fff' },
-    warning: { bg: '#d97706', hover: '#b45309', text: '#fff' },
-    danger: { bg: '#dc2626', hover: '#b91c1c', text: '#fff' },
-    ghost: { bg: 'transparent', hover: '#f3f4f6', text: '#374151', border: '1px solid #e5e7eb' },
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white border-none',
+    secondary: 'bg-slate-500 hover:bg-slate-600 text-white border-none',
+    success: 'bg-emerald-600 hover:bg-emerald-700 text-white border-none',
+    warning: 'bg-amber-600 hover:bg-amber-700 text-white border-none',
+    danger: 'bg-red-600 hover:bg-red-700 text-white border-none',
+    ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 border border-slate-200',
   };
-  const c = colors[variant] || colors.primary;
-  const pad = size === 'sm' ? '5px 12px' : '8px 18px';
-  const [hov, setHov] = useState(false);
+  
+  const baseClasses = 'inline-flex items-center gap-1.5 font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
+  const sizeClasses = size === 'sm' ? 'py-[5px] px-[12px] text-xs' : 'py-[8px] px-[18px] text-sm';
+  const variantClasses = colors[variant] || colors.primary;
+  
   return (
     <button
-      className={icon ? 'btn-mobile-icon' : ''}
+      className={`${baseClasses} ${sizeClasses} ${variantClasses} ${icon ? 'btn-mobile-icon' : ''}`}
       onClick={onClick}
       disabled={disabled}
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{ padding: pad, fontSize: 12, fontWeight: 600, color: c.text, background: hov && !disabled ? c.hover : c.bg, border: c.border || 'none', borderRadius: 7, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, transition: 'background 0.15s', display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}
       title={typeof children === 'string' ? children : undefined}
     >
       {icon}

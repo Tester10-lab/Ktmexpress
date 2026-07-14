@@ -84,7 +84,14 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 // ─── Performance Middleware ───────────────────────────────────────────────────
-app.use(compression());
+app.use(compression({
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
