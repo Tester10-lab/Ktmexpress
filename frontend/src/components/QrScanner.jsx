@@ -58,7 +58,7 @@ const QrScanner = ({ onScanSuccess, onClose }) => {
           
           // Check for torch support after starting
           const track = html5QrCode.current.getRunningTrackCameraCapabilities();
-          if (track && track.hasTorch()) {
+          if (track && (track.torch || (typeof track.hasTorch === 'function' && track.hasTorch()))) {
             setTorchSupported(true);
           }
         } else {
@@ -66,7 +66,9 @@ const QrScanner = ({ onScanSuccess, onClose }) => {
         }
       } catch (err) {
         console.error("Camera initialization error:", err);
-        if (isMounted) setHasCamera(false);
+        if (isMounted && err.name !== 'AbortError' && !err.message?.includes('AbortError')) {
+          setHasCamera(false);
+        }
       }
     };
 
