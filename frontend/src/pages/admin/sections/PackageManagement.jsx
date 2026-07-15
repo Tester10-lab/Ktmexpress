@@ -148,6 +148,7 @@ const AdminPackages = () => {
       amount: Number(editPkg.amount),
       weight: Number(editPkg.weight),
       deliveryDate: editPkg.deliveryDate || null,
+      status: editPkg.status,
       reason: editReason
     };
 
@@ -455,7 +456,7 @@ const AdminPackages = () => {
                     <input type="text" className="input-field" required value={editPkg.address} onChange={e => setEditPkg({ ...editPkg, address: e.target.value })} />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-5">
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Amount (COD) <span className="text-red-500">*</span></label>
                     <div className="relative">
@@ -470,6 +471,20 @@ const AdminPackages = () => {
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Date</label>
                     <input type="date" className="input-field" value={editPkg.deliveryDate || ''} onChange={e => setEditPkg({ ...editPkg, deliveryDate: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Status</label>
+                    <select className="input-field" value={editPkg.status || ''} onChange={e => setEditPkg({ ...editPkg, status: e.target.value })}>
+                      <option value="Pending">Pending</option>
+                      <option value="In Warehouse">In Warehouse</option>
+                      <option value="Sorted">Sorted</option>
+                      <option value="Out for Delivery">Out for Delivery</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Returned">Returned</option>
+                      <option value="Cancelled">Cancelled</option>
+                      <option value="Exchanged">Exchanged</option>
+                      <option value="Hold">Hold</option>
+                    </select>
                   </div>
                 </div>
                 

@@ -592,7 +592,7 @@ export const getAllPackagesAdmin = async (req, res) => {
 export const updatePackageAdmin = async (req, res) => {
   try {
     const { id } = req.params;
-    const { customerName, customerPhone, address, city, amount, weight, deliveryDate } = req.body;
+    const { customerName, customerPhone, address, city, amount, weight, deliveryDate, status } = req.body;
 
     const pkg = await Package.findById(id);
     if (!pkg) {
@@ -647,6 +647,11 @@ export const updatePackageAdmin = async (req, res) => {
         updates.push('Delivery Date'); 
         pkg.deliveryDate = deliveryDate ? new Date(deliveryDate) : null; 
       }
+    }
+    if (status && status !== pkg.status) {
+      changes.push({ field: 'Status', before: pkg.status, after: status });
+      updates.push('Status');
+      pkg.status = status;
     }
 
     if (updates.length > 0) {
