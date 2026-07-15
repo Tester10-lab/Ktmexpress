@@ -1725,10 +1725,46 @@ const BranchDirectory = () => {
 // ─── Vendor Dashboard Shell ───────────────────────────────────────────────
 const VendorDashboard = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]);
+  
   const title = Object.entries(titleMap).sort((a,b)=>b[0].length-a[0].length).find(([p])=>location.pathname===p || (p!=='/vendor'&&location.pathname.startsWith(p)))?.[1] || 'Vendor';
 
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await api.get('/vendor/packages?limit=50');
+        const pkgs = res.data.data || [];
+        
+        const notifs = pkgs
+          .filter(p => ['Returned', 'Postponed', 'Delivered', 'Cancelled'].includes(p.status))
+          .map(p => ({
+            id: p._id,
+            title: `Order ${p.status}`,
+            message: `${p.trackingCode} - ${p.customerName}`,
+            time: new Date(p.updatedAt || p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon: p.status === 'Delivered' ? '✅' : p.status === 'Returned' ? '↩️' : p.status === 'Postponed' ? '⏳' : '❌',
+            path: '/vendor/packages'
+          }));
+          
+        setNotifications(notifs.slice(0, 10));
+      } catch (err) {
+        console.error('Failed to fetch vendor notifications', err);
+      }
+    };
+
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotificationClick = (n) => {
+    if (n.path) navigate(n.path);
+  };
+
   return (
-    <AppShell navLinks={navLinks} currentTitle={title} roleBadge="Vendor Portal">
+    <AppShell navLinks={navLinks} currentTitle={title} roleBadge="Vendor Portal" notifications={notifications} onNotificationClick={handleNotificationClick}>
       <Routes>
         <Route path="/" element={<VendorHome />} />
         <Route path="/packages" element={<PackageList />} />
