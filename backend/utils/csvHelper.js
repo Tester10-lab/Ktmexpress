@@ -137,11 +137,11 @@ export const processCsvImport = async (filePath, vendorId, creatorName) => {
               vendorReceivable: Math.max(0, amount - finalDeliveryCharge),
               vendorId,
               ...labelUrls,
-              status: 'In Warehouse',
+              status: 'Pending',
               timeline: [{
                 time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-                status: 'In Warehouse',
-                message: 'Package arrived at warehouse.',
+                status: 'Pending',
+                message: 'Package created. Needs pickup request.',
                 user: creatorName,
               }],
               // store original row index for mapping DB errors back
