@@ -1595,18 +1595,50 @@ const CodHandovers = () => {
 const DispatcherDashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [pendingPickups, setPendingPickups] = useState([]);
+  const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await api.get('/dispatcher/pickups');
-        const pickups = res.data.data || [];
-        const pending = pickups.filter(p => p.status === 'pending');
-        setPendingPickups(pending);
+        const notifs = [];
         
+        // 1. Pending Pickups
+        const pRes = await api.get('/dispatcher/pickups');
+        const pickups = pRes.data.data || [];
+        const pendingPickups = pickups.filter(p => p.status === 'pending');
+        
+        pendingPickups.forEach(p => {
+          notifs.push({
+            id: `pickup_${p._id}`,
+            title: 'New Pickup Request',
+            message: `${(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
+            time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon: '🚚',
+            path: '/dispatcher/tasks'
+          });
+        });
+
+        // 2. Unassigned Deliveries (In Warehouse)
+        const dRes = await api.get('/dispatcher/packages?status=all');
+        const pkgs = dRes.data.data || [];
+        const unassignedPkgs = pkgs.filter(p => p.status === 'In Warehouse' && !p.riderId);
+        
+        unassignedPkgs.forEach(p => {
+          notifs.push({
+            id: `pkg_${p._id}`,
+            title: 'Ready for Delivery',
+            message: `${p.trackingCode} is in warehouse and needs a rider.`,
+            time: p.updatedAt ? new Date(p.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon: '📦',
+            path: '/dispatcher/tasks'
+          });
+        });
+
+        setNotifications(notifs.slice(0, 15));
       } catch (e) {
-        console.error('Failed to fetch notifications:', e.message || e.message);
+        console.error('Failed to fetch notifications:', e.message || e);
       }
     };
     
@@ -1614,16 +1646,6 @@ const DispatcherDashboard = () => {
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
   }, []);
-
-  const notifications = pendingPickups.map(p => ({
-    id: p._id,
-    title: 'New Pickup Request',
-    message: `${(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'A vendor'} requested a pickup for ${p.packageId?.trackingCode || 'a package'}.`,
-    time: p.requestedAt ? new Date(p.requestedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
-    read: false,
-    icon: '🚚',
-    path: '/dispatcher/tasks'
-  }));
 
   const handleNotificationClick = (n) => {
     if (n.path) navigate(n.path);
