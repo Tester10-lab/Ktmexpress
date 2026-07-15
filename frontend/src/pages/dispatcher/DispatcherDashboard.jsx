@@ -336,6 +336,8 @@ const PickupRequests = () => {
   }, {}));
   const assigned = pickups.filter(p => p.status === 'assigned');
 
+  const selectStyle = { padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, width: '100%', minWidth: '120px' };
+
   const GroupedPickupTable = ({ groups, title, color }) => (
     <div style={cardStyle}>
       <div style={cardHeaderStyle}>
