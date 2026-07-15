@@ -1733,22 +1733,28 @@ const VendorDashboard = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await api.get('/vendor/packages?limit=50');
-        const pkgs = res.data.data || [];
+        // Fetch recent active deliveries and history (returned/delivered)
+        const [delRes, histRes] = await Promise.all([
+          api.get('/vendor/packages?status=deliveries&limit=10'),
+          api.get('/vendor/packages?status=history&limit=10')
+        ]);
+        
+        const activePkgs = delRes.data.data || [];
+        const histPkgs = histRes.data.data || [];
+        const pkgs = [...activePkgs, ...histPkgs].sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
         
         const notifs = pkgs
-          .filter(p => ['Returned', 'Postponed', 'Delivered', 'Cancelled'].includes(p.status))
           .map(p => ({
             id: p._id,
             title: `Order ${p.status}`,
             message: `${p.trackingCode} - ${p.customerName}`,
             time: new Date(p.updatedAt || p.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             read: false,
-            icon: p.status === 'Delivered' ? '✅' : p.status === 'Returned' ? '↩️' : p.status === 'Postponed' ? '⏳' : '❌',
+            icon: p.status === 'Delivered' ? '✅' : p.status === 'Returned' ? '↩️' : p.status === 'Cancelled' ? '❌' : p.status === 'Out for Delivery' ? '🚚' : '📦',
             path: '/vendor/packages'
           }));
           
-        setNotifications(notifs.slice(0, 10));
+        setNotifications(notifs.slice(0, 15));
       } catch (err) {
         console.error('Failed to fetch vendor notifications', err);
       }
