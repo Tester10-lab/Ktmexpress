@@ -47,15 +47,15 @@ const TaskCard = React.memo(({ pkg, isPickup, selectedPickups, selectedDeliverie
   const isActiveDelivery = !isPickup && ['Out for Delivery'].includes(pkg.status);
 
   return (
-    <div className={`bg-white rounded-2xl border ${isPendingPickup || isActiveDelivery ? 'border-brand-200 shadow-md ring-1 ring-brand-100' : 'border-slate-200 shadow-sm opacity-80'} p-5 transition-all duration-300 hover:shadow-lg`}>
+    <div className={`bg-white rounded-2xl border p-5 transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-0.5 ${isPendingPickup || isActiveDelivery ? 'border-slate-900 shadow-sm' : 'border-slate-200 opacity-90'}`}>
       <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
         
         <div className="flex items-center gap-4">
           {isPendingPickup && (
-            <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-brand-600 focus:ring-brand-500 cursor-pointer" checked={selectedPickups.includes(pkg._id)} onChange={() => toggleSelect(pkg._id)} />
+            <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer" checked={selectedPickups.includes(pkg._id)} onChange={() => toggleSelect(pkg._id)} />
           )}
           {isActiveDelivery && (
-            <input type="checkbox" className="w-6 h-6 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" checked={selectedDeliveries.includes(pkg._id)} onChange={() => toggleSelectDelivery(pkg._id)} />
+            <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer" checked={selectedDeliveries.includes(pkg._id)} onChange={() => toggleSelectDelivery(pkg._id)} />
           )}
         </div>
 

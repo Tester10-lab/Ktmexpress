@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import { useSettings } from '../../store/SettingsContext';
 import brandLogo from '../../assets/logo.png';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -34,15 +36,15 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#F3F4F6] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50 relative overflow-hidden">
       
-      <div className="w-full max-w-md neumorphic-panel p-10 sm:p-12 relative z-10 animate-fadeInUp">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm p-10 sm:p-12 relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-300">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-6">
             {logoUrl ? (
-              <img src={logoUrl} alt="Company Logo" className="h-16 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
+              <img src={logoUrl} alt="Company Logo" className="h-12 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
             ) : (
-              <img src={brandLogo} alt="ktmexpress Logo" className="h-16 object-contain" />
+              <img src={brandLogo} alt="ktmexpress Logo" className="h-12 object-contain" />
             )}
           </div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Welcome Back</h1>
@@ -50,64 +52,56 @@ const Login = () => {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-xl animate-scaleIn">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-xl">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-slate-700">Email Address</label>
-            <input
-              type="email"
-              placeholder="name@ktmexpress.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="name@ktmexpress.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
+
+          <div className="relative">
+            <Input
+              label="Password"
+              type={showPass ? 'text' : 'password'}
+              placeholder="Enter your password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
               required
-              autoComplete="email"
-              className="input-field"
+              autoComplete="current-password"
+              className="pr-12"
             />
+            <button
+              type="button"
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-4 top-[34px] text-slate-400 hover:text-slate-600 focus:outline-none"
+            >
+              {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-slate-700">Password</label>
-            <div className="relative">
-              <input
-                type={showPass ? 'text' : 'password'}
-                placeholder="Enter your password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="input-field pr-12"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
-              >
-                {showPass ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-
-          <button
+          <Button
             type="submit"
+            variant="primary"
+            className="w-full mt-2"
             disabled={loading}
-            className="btn-primary w-full mt-4"
+            isLoading={loading}
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Signing in...
-              </>
-            ) : (
+            {!loading && (
               <>
                 Enter Workspace
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4 ml-2" />
               </>
             )}
-          </button>
+          </Button>
         </form>
 
         <div className="mt-12 text-center border-t border-slate-100 pt-6">

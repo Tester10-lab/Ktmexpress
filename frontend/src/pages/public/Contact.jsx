@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Phone, Mail, MapPin, Send, MessageCircle, Info } from 'lucide-react';
 import PublicNav from '../../components/PublicNav';
 import PublicFooter from '../../components/PublicFooter';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 
 const Contact = () => {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
@@ -15,51 +18,37 @@ const Contact = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#f8fafc', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: -200, left: -100, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%)', zIndex: 0 }} />
-      <div style={{ position: 'absolute', bottom: -200, right: -150, width: 700, height: 700, borderRadius: '50%', background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)', zIndex: 0 }} />
-      
+    <div className="min-h-screen flex flex-col bg-slate-50 relative overflow-hidden">
       <PublicNav active="/contact" />
 
-      <main style={{ flex: 1, padding: '80px 24px', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{ textAlign: 'center', marginBottom: 56 }}>
-          <h1 style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(2.5rem, 5vw, 3.5rem)', fontWeight: 800, background: 'linear-gradient(135deg, #0f172a 0%, #3b82f6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 16 }}>Let's Connect</h1>
-          <p style={{ color: '#475569', fontSize: '1.1rem', maxWidth: 500, margin: '0 auto', lineHeight: 1.6 }}>We're here to help you scale your logistics. Drop us a line and our experts will get back to you.</p>
+      <main className="flex-1 px-6 py-20 relative z-10 flex flex-col items-center">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight mb-4">Let's Connect</h1>
+          <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">We're here to help you scale your logistics. Drop us a line and our experts will get back to you.</p>
         </div>
 
-        <div style={{ maxWidth: 1100, width: '100%', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 32, alignItems: 'stretch' }}>
-          {/* Premium Contact Info Card */}
-          <div style={{ 
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)', 
-            borderRadius: '24px', 
-            padding: '48px 40px', 
-            color: '#fff',
-            boxShadow: '0 25px 50px -12px rgba(30, 58, 138, 0.4)',
-            position: 'relative',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{ position: 'absolute', bottom: -50, right: -50, width: 250, height: 250, background: 'rgba(255,255,255,0.08)', borderRadius: '50%', filter: 'blur(30px)' }} />
-            <div style={{ position: 'absolute', top: -30, left: -30, width: 150, height: 150, background: 'rgba(59,130,246,0.3)', borderRadius: '50%', filter: 'blur(40px)' }} />
-            
-            <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
-              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.75rem', marginBottom: 12, fontWeight: 700 }}>Contact Information</h3>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '1rem', marginBottom: 40, lineHeight: 1.6 }}>Fill out the form and our team will get back to you within 24 hours.</p>
+        <div className="w-full max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
+          {/* Contact Info Card */}
+          <div className="bg-slate-900 text-white rounded-2xl p-10 flex flex-col relative overflow-hidden shadow-xl">
+            <div className="relative z-10 flex-1">
+              <h3 className="text-2xl font-bold mb-3">Contact Information</h3>
+              <p className="text-slate-400 mb-10 leading-relaxed">Fill out the form and our team will get back to you within 24 hours.</p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 28, marginBottom: 48 }}>
+              <div className="space-y-8 mb-12">
                 {[
-                  { icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.44a2 2 0 0 1 1.99-2.18h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.07 6.07l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>, title: '9861252198', sub: 'Mon–Sun, 9am–6pm' },
-                  { icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>, title: 'ishannpn@gmail.com', sub: 'Send us an email anytime!' },
-                  { icon: <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>, title: 'kuleshwor', sub: 'Kathmandu', link: 'https://maps.google.com/?q=Kuleshwor,+Kathmandu,+Nepal' },
+                  { icon: <Phone className="w-5 h-5" />, title: '9861252198', sub: 'Mon–Sun, 9am–6pm' },
+                  { icon: <Mail className="w-5 h-5" />, title: 'ishannpn@gmail.com', sub: 'Send us an email anytime!' },
+                  { icon: <MapPin className="w-5 h-5" />, title: 'kuleshwor', sub: 'Kathmandu', link: 'https://maps.google.com/?q=Kuleshwor,+Kathmandu,+Nepal' },
                 ].map((c, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                    <div style={{ flexShrink: 0, marginTop: 2, padding: 12, background: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}>{c.icon}</div>
+                  <div key={i} className="flex gap-4 items-start">
+                    <div className="shrink-0 p-3 bg-white/10 rounded-xl text-white">
+                      {c.icon}
+                    </div>
                     <div>
-                      <p style={{ fontWeight: 600, fontSize: '1.05rem', marginBottom: 4 }}>{c.title}</p>
-                      <p style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.6)' }}>
+                      <p className="font-semibold text-lg mb-1">{c.title}</p>
+                      <p className="text-sm text-slate-400">
                         {c.sub}
-                        {c.link && <span> &bull; <a href={c.link} target="_blank" rel="noopener noreferrer" style={{ color: '#fff', textDecoration: 'underline' }}>View on Map</a></span>}
+                        {c.link && <span> &bull; <a href={c.link} target="_blank" rel="noopener noreferrer" className="text-white hover:underline">View on Map</a></span>}
                       </p>
                     </div>
                   </div>
@@ -67,55 +56,64 @@ const Contact = () => {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'relative', zIndex: 1 }}>
-              <a href="https://wa.me/9779861252198" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#25D366', color: '#fff', padding: '14px 20px', borderRadius: '12px', fontWeight: 700, fontSize: '1rem', textDecoration: 'none', fontFamily: 'var(--font-heading)', transition: 'all 0.2s ease', boxShadow: '0 8px 16px rgba(37, 211, 102, 0.2)' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <div className="flex flex-col gap-3 relative z-10">
+              <a href="https://wa.me/9779861252198" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-[#25D366] text-white py-3 px-5 rounded-xl font-bold hover:bg-[#20bd5a] transition-colors">
+                <MessageCircle className="w-5 h-5" />
                 Chat on WhatsApp
               </a>
-              <a href="viber://chat?number=9779861252198" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#7360F2', color: '#fff', padding: '14px 20px', borderRadius: '12px', fontWeight: 700, fontSize: '1rem', textDecoration: 'none', fontFamily: 'var(--font-heading)', transition: 'all 0.2s ease', boxShadow: '0 8px 16px rgba(115, 96, 242, 0.2)' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              <a href="viber://chat?number=9779861252198" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 bg-[#7360F2] text-white py-3 px-5 rounded-xl font-bold hover:bg-[#6452d9] transition-colors">
+                <MessageCircle className="w-5 h-5" />
                 Chat on Viber
               </a>
             </div>
           </div>
 
-          {/* Premium Contact Form */}
-          <div style={{ 
-            background: 'rgba(255, 255, 255, 0.8)', 
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 1)',
-            borderRadius: '24px', 
-            padding: '48px 40px', 
-            boxShadow: '0 20px 40px rgba(0,0,0,0.04)' 
-          }}>
-            <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', marginBottom: 8, fontWeight: 700, color: '#0f172a' }}>Send us a Message</h3>
-            <p style={{ color: '#64748b', fontSize: '0.95rem', marginBottom: 32 }}>We usually reply within 24 hours.</p>
+          {/* Contact Form */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-10 shadow-sm">
+            <h3 className="text-2xl font-bold text-slate-900 mb-2">Send us a Message</h3>
+            <p className="text-slate-500 text-sm mb-8">We usually reply within 24 hours.</p>
             
             {sent && (
-              <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderLeft: '4px solid #10b981', borderRadius: '12px', padding: '16px 20px', color: '#059669', marginBottom: 24, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl p-4 mb-6 font-medium flex items-center gap-3">
+                <Send className="w-5 h-5" />
                 Message sent successfully!
               </div>
             )}
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Your Name</label>
-                  <input type="text" style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '1rem', outline: 'none', transition: 'all 0.2s' }} placeholder="John Doe" required value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#cbd5e1'} />
-                </div>
-                <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Email Address</label>
-                  <input type="email" style={{ padding: '14px 16px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '1rem', outline: 'none', transition: 'all 0.2s' }} placeholder="john@example.com" required value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#cbd5e1'} />
-                </div>
+            
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <Input
+                  label="Your Name"
+                  type="text"
+                  placeholder="John Doe"
+                  required
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                />
+                <Input
+                  label="Email Address"
+                  type="email"
+                  placeholder="john@example.com"
+                  required
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Message</label>
-                <textarea rows="5" style={{ padding: '16px', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '1rem', outline: 'none', resize: 'vertical', transition: 'all 0.2s' }} placeholder="How can we help you?" required value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))} onFocus={e => e.target.style.borderColor = '#3b82f6'} onBlur={e => e.target.style.borderColor = '#cbd5e1'} />
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Message <span className="text-red-500">*</span></label>
+                <textarea 
+                  rows="5" 
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:border-slate-400 focus:ring-slate-400 transition-all duration-150 resize-y"
+                  placeholder="How can we help you?" 
+                  required 
+                  value={form.message} 
+                  onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+                />
               </div>
-              <button type="submit" style={{ background: 'linear-gradient(135deg, #3b82f6 0%, #4f46e5 100%)', color: '#fff', border: 'none', padding: '16px', borderRadius: '12px', fontSize: '1.05rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8, boxShadow: '0 10px 20px rgba(59, 130, 246, 0.25)', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <Button type="submit" variant="primary" className="w-full py-3 h-auto">
+                <Send className="w-4 h-4 mr-2" />
                 Send Message
-              </button>
+              </Button>
             </form>
           </div>
         </div>
