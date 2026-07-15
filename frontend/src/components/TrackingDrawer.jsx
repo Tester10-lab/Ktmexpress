@@ -14,7 +14,7 @@ const statusColors = {
 };
 
 const TrackingDrawer = () => {
-  const { trackingCode, closeTracking } = useTrackingDrawer();
+  const { trackingCode, shopData, openTracking, closeTracking } = useTrackingDrawer();
   const { user } = useAuth();
   const { showToast } = useToast();
   
@@ -60,7 +60,7 @@ const TrackingDrawer = () => {
       {/* Backdrop */}
       <div 
         className={`fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] transition-opacity duration-300 ${
-          trackingCode && !isClosing ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          (trackingCode || shopData) && !isClosing ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={handleClose}
       />
@@ -68,13 +68,13 @@ const TrackingDrawer = () => {
       {/* Drawer */}
       <div 
         className={`fixed top-0 right-0 h-full w-full max-w-md bg-white shadow-2xl z-[101] transform transition-transform duration-300 ease-in-out flex flex-col ${
-          trackingCode && !isClosing ? 'translate-x-0' : 'translate-x-full'
+          (trackingCode || shopData) && !isClosing ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Package className="w-5 h-5 text-brand-600" />
-            Tracking Details
+            {shopData ? 'Shop Pickup Requests' : 'Tracking Details'}
           </h2>
           <button onClick={handleClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
             <X className="w-5 h-5" />
@@ -82,7 +82,33 @@ const TrackingDrawer = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {loading ? (
+          {shopData ? (
+            <div className="p-6 space-y-4">
+              <div className="bg-brand-50 border border-brand-200 text-brand-700 rounded-xl p-4">
+                <p className="font-bold text-sm">{shopData.packages.length} Pending Packages for {shopData.shopName}</p>
+              </div>
+              <div className="space-y-3">
+                {shopData.packages.map((pkg, idx) => (
+                  <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                    <div className="flex justify-between items-start mb-2">
+                      <button 
+                        onClick={() => openTracking(pkg.packageId?.trackingCode || pkg.trackingCode)}
+                        className="text-sm font-bold font-mono text-brand-600 hover:underline">
+                        {pkg.packageId?.trackingCode || pkg.trackingCode}
+                      </button>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {pkg.status}
+                      </span>
+                    </div>
+                    <div className="text-sm text-slate-700">
+                      <p className="font-medium">{pkg.packageId?.customerName || pkg.customerName}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{pkg.packageId?.address || pkg.address}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
               <p>Loading package details...</p>

@@ -33,7 +33,7 @@ function statusBadge(status) {
 }
 
 const AdminDispatcher = () => {
-  const { openTracking } = useTrackingDrawer();
+  const { openTracking, openShopTracking } = useTrackingDrawer();
   const [stats, setStats] = useState({});
   const [pickups, setPickups] = useState([]);
   const [warehousePackages, setWarehousePackages] = useState([]);
@@ -139,6 +139,18 @@ const AdminDispatcher = () => {
     finally { setActionLoading(s => ({ ...s, [`p_${pickupId}`]: false })); }
   };
 
+  const assignShopPickups = async (shopId, pickupIds) => {
+    const riderId = assignMap[shopId];
+    if (!riderId) return showToast('Select a rider first', 'warning');
+    setActionLoading(s => ({ ...s, [`p_${shopId}`]: true }));
+    try {
+      await Promise.all(pickupIds.map(pickupId => api.put('/dispatcher/assign-pickup', { pickupId, riderId })));
+      showToast('Rider assigned for all pickups!', 'success');
+      fetchAll(true);
+    } catch (e) { showToast(e.message || 'Failed', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [`p_${shopId}`]: false })); }
+  };
+
   const confirmWarehouse = async (packageId) => {
     setActionLoading(s => ({ ...s, [`w_${packageId}`]: true }));
     try {
@@ -172,6 +184,15 @@ const AdminDispatcher = () => {
   };
 
   const pendingPickups = pickups.filter(p => p.status === 'pending');
+  const pendingGroups = Object.values(pendingPickups.reduce((acc, p) => {
+    const shopId = p.vendorId?._id || 'unknown';
+    if (!acc[shopId]) acc[shopId] = { shopId, shopName: p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—', packages: [], oldestDate: p.requestedAt, pickupIds: [] };
+    acc[shopId].packages.push(p);
+    acc[shopId].pickupIds.push(p._id);
+    if (new Date(p.requestedAt) < new Date(acc[shopId].oldestDate)) acc[shopId].oldestDate = p.requestedAt;
+    return acc;
+  }, {}));
+
   const assignedPickups = pickups.filter(p => p.status === 'assigned');
 
   const tabs = [
@@ -236,43 +257,37 @@ const AdminDispatcher = () => {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs border-y border-slate-100">
                   <tr>
-                    <th className="px-6 py-3">Tracking</th>
-                    <th className="px-6 py-3">Vendor</th>
-                    <th className="px-6 py-3">Customer</th>
-                    <th className="px-6 py-3">Address</th>
-                    <th className="px-6 py-3">Assign Rider</th>
-                    <th className="px-6 py-3 text-right">Action</th>
+                    {['Shop Name', 'Total Pending', 'Oldest Requested At', 'Assign Rider', 'Action'].map(h => <th key={h} className="px-6 py-4">{h}</th>)}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {pendingPickups.length === 0 ? <tr><td colSpan="6" className="px-6 py-12 text-center text-slate-500">No pending pickups.</td></tr>
-                    : pendingPickups.map(p => (
-                    <tr key={p._id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4"><TrackingLink code={p.packageId?.trackingCode} /></td>
+                  {pendingGroups.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No pending pickups.</td></tr>
+                  : pendingGroups.map(g => (
+                    <tr key={g.shopId} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-900">
                           <button 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShopTracking(g.shopName, g.packages); }} 
                             style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                             onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
                             onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
-                            title="View Package Details"
+                            title="View Packages"
                           >
-                            {p.vendorId?.vendorMeta?.shopName || '—'}
+                            {g.shopName} ({g.packages.length})
                           </button>
-                        </td>
-                      <td className="px-6 py-4 text-slate-700 font-medium">{p.packageId?.customerName || '—'}</td>
-                      <td className="px-6 py-4 text-slate-500 max-w-[160px] truncate">{p.packageId?.address || '—'}</td>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-900">{g.packages.length} Packages</td>
+                      <td className="px-6 py-4 text-slate-500">{g.oldestDate ? new Date(g.oldestDate).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
                       <td className="px-6 py-4">
-                        <select className="input-field py-1.5 text-xs w-40" value={assignMap[p._id] || ''} onChange={e => setAssignMap(m => ({ ...m, [p._id]: e.target.value }))}>
+                        <select className="input-field py-1.5 text-xs w-40" value={assignMap[g.shopId] || ''} onChange={e => setAssignMap(m => ({ ...m, [g.shopId]: e.target.value }))}>
                           <option value="">Select Rider</option>
                           {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
                         </select>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="btn-primary btn-sm px-4" onClick={() => assignPickup(p._id)} disabled={actionLoading[`p_${p._id}`]}>
-                          {actionLoading[`p_${p._id}`] ? '...' : 'Assign'}
+                        <button className="btn-primary btn-sm px-4" onClick={() => assignShopPickups(g.shopId, g.pickupIds)} disabled={actionLoading[`p_${g.shopId}`]}>
+                          {actionLoading[`p_${g.shopId}`] ? '...' : 'Assign'}
                         </button>
                       </td>
                     </tr>

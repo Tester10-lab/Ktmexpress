@@ -220,7 +220,7 @@ const DispatcherHome = () => {
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
 const PickupRequests = () => {
-  const { openTracking } = useTrackingDrawer();
+  const { openTracking, openShopTracking } = useTrackingDrawer();
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -258,6 +258,18 @@ const PickupRequests = () => {
       fetchData(true);
     } catch (e) { showToast(e.message || 'Failed to assign', 'error'); }
     finally { setActionLoading(s => ({ ...s, [pickupId]: null })); }
+  };
+
+  const assignShopPickups = async (shopId, pickupIds) => {
+    const riderId = assignMap[shopId];
+    if (!riderId) return showToast('Please select a rider first', 'warning');
+    setActionLoading(s => ({ ...s, [shopId]: 'assigning' }));
+    try {
+      await Promise.all(pickupIds.map(pickupId => api.put('/dispatcher/assign-pickup', { pickupId, riderId })));
+      showToast('Rider assigned for all pickups!', 'success');
+      fetchData(true);
+    } catch (e) { showToast(e.message || 'Failed to assign some pickups', 'error'); }
+    finally { setActionLoading(s => ({ ...s, [shopId]: null })); }
   };
 
   const confirmWarehouse = async (packageId, pickupId) => {
@@ -314,7 +326,72 @@ const PickupRequests = () => {
   };
 
   const pending = pickups.filter(p => p.status === 'pending');
+  const pendingGroups = Object.values(pending.reduce((acc, p) => {
+    const shopId = p.vendorId?._id || 'unknown';
+    if (!acc[shopId]) acc[shopId] = { shopId, shopName: p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—', packages: [], oldestDate: p.requestedAt, pickupIds: [] };
+    acc[shopId].packages.push(p);
+    acc[shopId].pickupIds.push(p._id);
+    if (new Date(p.requestedAt) < new Date(acc[shopId].oldestDate)) acc[shopId].oldestDate = p.requestedAt;
+    return acc;
+  }, {}));
   const assigned = pickups.filter(p => p.status === 'assigned');
+
+  const GroupedPickupTable = ({ groups, title, color }) => (
+    <div style={cardStyle}>
+      <div style={cardHeaderStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }}></span>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{title}</h3>
+          <span style={{ background: color + '20', color, borderRadius: 20, padding: '2px 10px', fontSize: 12, fontWeight: 700 }}>{groups.length} Shops</span>
+        </div>
+        <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh</ActionBtn>
+      </div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              {['Shop Name', 'Total Pending', 'Oldest Requested At', 'Assign Rider', 'Action'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? <tr><td colSpan="5"><Spinner /></td></tr>
+              : groups.length === 0 ? <tr><td colSpan="5"><EmptyState message={`No ${title.toLowerCase()}.`} /></td></tr>
+              : groups.map(g => {
+                const aLoading = actionLoading[g.shopId];
+                return (
+                  <tr key={g.shopId} className="hover:bg-slate-50 transition-colors">
+                    <td style={tdStyle}>
+                      <button 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openShopTracking(g.shopName, g.packages); }} 
+                        style={{ fontWeight: 600, color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                        onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                        title="View Packages"
+                      >
+                        {g.shopName} ({g.packages.length})
+                      </button>
+                    </td>
+                    <td style={{...tdStyle, fontWeight: 'bold'}}>{g.packages.length} Packages</td>
+                    <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{g.oldestDate ? new Date(g.oldestDate).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
+                    <td style={tdStyle}>
+                      <select style={selectStyle} value={assignMap[g.shopId] || ''} onChange={e => setAssignMap(m => ({ ...m, [g.shopId]: e.target.value }))}>
+                        <option value="">Select Rider</option>
+                        {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                      </select>
+                    </td>
+                    <td style={tdStyle}>
+                      <ActionBtn onClick={() => assignShopPickups(g.shopId, g.pickupIds)} disabled={!assignMap[g.shopId] || aLoading}>
+                        {aLoading === 'assigning' ? 'Assigning...' : 'Assign'}
+                      </ActionBtn>
+                    </td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 
   const PickupTable = ({ items, title, color, showCheckboxes = false, selectedIds = [], onSelectAll, onSelect }) => (
     <div style={cardStyle}>
@@ -464,14 +541,10 @@ const PickupRequests = () => {
         </div>
       )}
 
-      <PickupTable 
-        items={pending} 
+      <GroupedPickupTable 
+        groups={pendingGroups} 
         title="Pending Pickup Requests" 
         color="#f59e0b" 
-        showCheckboxes={true} 
-        selectedIds={selected} 
-        onSelectAll={(e, items) => handleSelectAll(e, items, setSelected)} 
-        onSelect={(id) => handleSelect(id, setSelected)} 
       />
       <PickupTable 
         items={assigned} 
