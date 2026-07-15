@@ -117,7 +117,6 @@ const packageSchema = new mongoose.Schema(
     deliveryVerificationStatus: {
       type: String,
       enum: VERIFICATION_STATUSES,
-      default: 'Pending',
     },
     codVerificationStatus: {
       type: String,

@@ -10,7 +10,7 @@ export const VerificationStatusBadge = ({ status }) => {
   };
   return (
     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${styles[status] || 'bg-slate-100 text-slate-850'}`}>
-      {status || 'Pending'}
+      {status === 'Pending' ? 'VERIFICATION REQUESTED' : (status || 'Pending')}
     </span>
   );
 };
