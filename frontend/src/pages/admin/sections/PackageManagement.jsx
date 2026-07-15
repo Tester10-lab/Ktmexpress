@@ -483,7 +483,7 @@ const AdminPackages = () => {
                       <option value="Returned">Returned</option>
                       <option value="Cancelled">Cancelled</option>
                       <option value="Exchanged">Exchanged</option>
-                      <option value="Hold">Hold</option>
+                      <option value="Postponed">Hold (Postponed)</option>
                     </select>
                   </div>
                 </div>
