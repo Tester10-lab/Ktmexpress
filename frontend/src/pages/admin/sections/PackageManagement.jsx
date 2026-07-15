@@ -3,7 +3,6 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../../api/axios';
 import MetricCard from '../../../components/MetricCard';
 import { useToast } from '../../../store/ToastContext';
-import { useSocket } from '../../../hooks/useSocket';
 import ScanStation from '../../../components/ScanStation';
 import Pagination from '../../../components/Pagination';
 import TrackingLink from '../../../components/TrackingLink';
@@ -56,7 +55,6 @@ const AdminPackages = () => {
   const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
   const { showToast } = useToast();
-  const socket = useSocket();
 
   const [editModal, setEditModal] = useState(false);
   const [editPkg, setEditPkg] = useState(null);
@@ -134,15 +132,6 @@ const AdminPackages = () => {
   useEffect(() => { fetchPackages(); }, [page, limit]);
   useEffect(() => { fetchVendors(); fetchRiders(); }, []);
   
-  useEffect(() => {
-    if (!socket) return;
-    const handleCreated = () => {
-      fetchPackages(true);
-    };
-    socket.on('package:created', handleCreated);
-    return () => socket.off('package:created', handleCreated);
-  }, [socket]);
-
   const openEdit = (pkg) => {
     setEditPkg({ ...pkg, deliveryDate: pkg.deliveryDate ? new Date(pkg.deliveryDate).toISOString().split('T')[0] : '' });
     setEditReason('');

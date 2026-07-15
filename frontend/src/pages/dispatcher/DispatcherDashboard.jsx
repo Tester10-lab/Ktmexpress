@@ -8,7 +8,6 @@ import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
 import TrackingLink from '../../components/TrackingLink';
-import { useSocket } from '../../hooks/useSocket';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
@@ -109,7 +108,6 @@ const DispatcherHome = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const { showToast } = useToast();
   const navigate = useNavigate();
-  const socket = useSocket();
 
   const handleScanSuccess = async (trackingCode) => {
     try {
@@ -139,13 +137,6 @@ const DispatcherHome = () => {
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
   }, [fetchAll]);
-
-  useEffect(() => {
-    if (!socket) return;
-    const handleCreated = () => fetchAll();
-    socket.on('package:created', handleCreated);
-    return () => socket.off('package:created', handleCreated);
-  }, [socket, fetchAll]);
 
   if (loading) return <Spinner />;
 

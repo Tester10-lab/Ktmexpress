@@ -6,7 +6,6 @@ import { useAuth } from '../store/AuthContext';
 import useNotificationSound from '../hooks/useNotificationSound';
 import { useZoom } from '../hooks/useZoom';
 import { useSwipeGesture } from '../hooks/useSwipeGesture';
-import { useSocket } from '../hooks/useSocket';
 import ZoomBar from '../components/ZoomBar';
 import { useToast } from '../store/ToastContext';
 import { useSettings } from '../store/SettingsContext';
@@ -23,7 +22,6 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
 
   const { playNotification, playAlert } = useNotificationSound();
   useZoom();
-  useSocket();
 
   const openSidebar = useCallback(() => setMobileOpen(true), []);
   const closeSidebar = useCallback(() => setMobileOpen(false), []);
