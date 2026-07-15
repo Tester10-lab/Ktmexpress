@@ -6,6 +6,7 @@ import { useToast } from '../../../store/ToastContext';
 import ScanStation from '../../../components/ScanStation';
 import Pagination from '../../../components/Pagination';
 import TrackingLink from '../../../components/TrackingLink';
+import { useTrackingDrawer } from '../../../store/TrackingDrawerContext';
 import { 
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
@@ -32,6 +33,7 @@ function statusBadge(status) {
 }
 
 const AdminDispatcher = () => {
+  const { openTracking } = useTrackingDrawer();
   const [stats, setStats] = useState({});
   const [pickups, setPickups] = useState([]);
   const [warehousePackages, setWarehousePackages] = useState([]);
@@ -249,7 +251,17 @@ const AdminDispatcher = () => {
                     : pendingPickups.map(p => (
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4"><TrackingLink code={p.packageId?.trackingCode} /></td>
-                      <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900">
+                          <button 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                            style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                            title="View Package Details"
+                          >
+                            {p.vendorId?.vendorMeta?.shopName || '—'}
+                          </button>
+                        </td>
                       <td className="px-6 py-4 text-slate-700 font-medium">{p.packageId?.customerName || '—'}</td>
                       <td className="px-6 py-4 text-slate-500 max-w-[160px] truncate">{p.packageId?.address || '—'}</td>
                       <td className="px-6 py-4">
@@ -290,7 +302,17 @@ const AdminDispatcher = () => {
                     {assignedPickups.map(p => (
                       <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4"><TrackingLink code={p.packageId?.trackingCode} /></td>
-                        <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900">
+                          <button 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                            style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                            title="View Package Details"
+                          >
+                            {p.vendorId?.vendorMeta?.shopName || '—'}
+                          </button>
+                        </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {p.assignedRiderId?.name || 'Assigned'}
@@ -336,7 +358,17 @@ const AdminDispatcher = () => {
                   : warehousePackages.map(p => (
                   <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">
+                          <button 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                            style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                            title="View Package Details"
+                          >
+                            {p.vendorId?.vendorMeta?.shopName || '—'}
+                          </button>
+                        </td>
                     <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                     <td className="px-6 py-4 text-slate-500">{p.city || p.address || '—'}</td>
                     <td className="px-6 py-4 font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
@@ -384,7 +416,17 @@ const AdminDispatcher = () => {
                   : returnPackages.map(p => (
                   <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
+                    <td className="px-6 py-4 font-bold text-slate-900">
+                          <button 
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                            style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                            title="View Package Details"
+                          >
+                            {p.vendorId?.vendorMeta?.shopName || '—'}
+                          </button>
+                        </td>
                     <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
                     <td className="px-6 py-4">{statusBadge(p.status)}</td>
                     <td className="px-6 py-4 text-center">

@@ -8,6 +8,7 @@ import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
 import TrackingLink from '../../components/TrackingLink';
+import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
@@ -219,6 +220,7 @@ const DispatcherHome = () => {
 
 // ─── 2. Pickup Requests ───────────────────────────────────────────────────
 const PickupRequests = () => {
+  const { openTracking } = useTrackingDrawer();
   const [pickups, setPickups] = useState([]);
   const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -356,7 +358,17 @@ const PickupRequests = () => {
                       </td>
                     )}
                     <td style={tdStyle}><TrackingLink code={p.packageId?.trackingCode} /></td>
-                    <td style={tdStyle}><div style={{ fontWeight: 600 }}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</div></td>
+                    <td style={tdStyle}>
+                      <button 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                        style={{ fontWeight: 600, color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                        onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                        onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                        title="View Package Details"
+                      >
+                        {p.vendorId?.vendorMeta?.shopName || '—'}
+                      </button>
+                    </td>
                     <td style={tdStyle}>{p.packageId?.customerName || '—'}</td>
                     <td style={{ ...tdStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280', fontSize: 12 }}>{p.packageId?.address || '—'}</td>
                     <td style={{ ...tdStyle, color: '#6b7280', fontSize: 12 }}>{p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-NP', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</td>
