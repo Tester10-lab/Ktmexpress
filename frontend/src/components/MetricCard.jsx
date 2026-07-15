@@ -1,24 +1,27 @@
 import React from 'react';
 
-const colorMap = {
-  primary: 'text-brand-600',
-  success: 'text-emerald-500',
-  warning: 'text-amber-500',
-  danger:  'text-red-500',
-  info:    'text-sky-500',
-  purple:  'text-purple-500',
+const hexMap = {
+  primary: '#3b82f6', // blue
+  success: '#10b981', // emerald
+  warning: '#f59e0b', // amber
+  danger:  '#ef4444', // red
+  info:    '#06b6d4', // cyan
+  purple:  '#8b5cf6', // purple
 };
 
 const MetricCard = ({ title, value, icon, color = 'primary' }) => {
-  const c = colorMap[color] || colorMap.primary;
+  const hex = hexMap[color] || hexMap.primary;
+
   return (
-    <div className="card-premium p-4 sm:p-6 flex items-center justify-between group cursor-default min-w-0">
-      <div className="min-w-0 flex-1">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 break-words" title={title}>{title}</h3>
-        <p className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-slate-700 tracking-tight leading-tight break-words" title={String(value)}>{value}</p>
+    <div className="cursor-default hover:shadow-md transition-shadow h-full flex flex-col justify-between" style={{ background: '#fff', borderRadius: 12, border: `1px solid ${hex}25`, padding: '18px 20px', boxShadow: `0 2px 8px ${hex}10` }}>
+      <div style={{ fontSize: 28, marginBottom: 8, color: hex }} className="[&>svg]:w-7 [&>svg]:h-7 [&>svg]:text-current [&>svg]:opacity-80">
+        {icon}
       </div>
-      <div className={`w-12 h-12 sm:w-16 sm:h-16 neumorphic-circle flex-shrink-0 ml-3 ${c}`}>
-        <span className="[&>svg]:w-6 [&>svg]:h-6 sm:[&>svg]:w-8 sm:[&>svg]:h-8">{icon}</span>
+      <div style={{ fontSize: 28, fontWeight: 800, color: hex, lineHeight: 1 }} className="truncate" title={String(value)}>
+        {value}
+      </div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }} className="truncate" title={title}>
+        {title}
       </div>
     </div>
   );
