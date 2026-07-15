@@ -1,3 +1,4 @@
+import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import CodHandover from '../models/CodHandover.js';
 import mongoose from 'mongoose';
@@ -91,7 +92,7 @@ export const updateDeliveryStatus = async (req, res) => {
           comments: comment || '',
           submittedAt: new Date()
         };
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Delivered',
           message: `Delivery completed. Collected Rs. ${cashCollected || pkg.amount} COD.`,
@@ -113,7 +114,7 @@ export const updateDeliveryStatus = async (req, res) => {
           newDate: newDate ? new Date(newDate) : null,
           submittedAt: new Date()
         };
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Postponed',
           message: `Delivery postponed. Reason: ${comment}. New date: ${newDate || 'TBD'}.`,
@@ -128,7 +129,7 @@ export const updateDeliveryStatus = async (req, res) => {
       case 'cancel':
         pkg.status = 'Cancelled';
         pkg.comments = comment || '';
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Cancelled',
           message: `Delivery failed: ${comment}`,
@@ -139,7 +140,7 @@ export const updateDeliveryStatus = async (req, res) => {
       case 'return':
         pkg.status = 'Returned';
         pkg.comments = comment || '';
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Returned',
           message: `Package marked for return. Reason: ${comment}`,
@@ -150,7 +151,7 @@ export const updateDeliveryStatus = async (req, res) => {
       case 'exchange':
         pkg.status = 'Exchanged';
         pkg.comments = comment || '';
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Exchanged',
           message: `Package marked for exchange. Reason: ${comment}`,
@@ -160,7 +161,7 @@ export const updateDeliveryStatus = async (req, res) => {
 
       case 'pickup_complete':
         pkg.status = 'Picked Up';
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Picked Up',
           message: `Rider ${req.user.name} picked up package from vendor`,
@@ -261,7 +262,7 @@ export const bulkPickup = async (req, res) => {
     const updated = [];
     for (const pkg of packages) {
       pkg.status = 'Picked Up';
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: ts,
         status: 'Picked Up',
         message: `Rider ${req.user.name} picked up package from vendor (Bulk)`,

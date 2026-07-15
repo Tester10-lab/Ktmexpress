@@ -1,3 +1,4 @@
+import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import mongoose from 'mongoose';
 import Package from '../models/Package.js';
 import PickupRequest from '../models/PickupRequest.js';
@@ -168,7 +169,7 @@ export const createPickupRequest = async (req, res) => {
     const now = nowStr();
     for (const pkg of packages) {
       pkg.status = 'Pick Up Requested';
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: now,
         status: 'Pick Up Requested',
         message: 'Vendor requested courier pickup',
@@ -313,7 +314,7 @@ export const updatePackage = async (req, res) => {
     if (updates.length > 0) {
       const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
       for (const change of changes) {
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: pkg.status,
           message: `Vendor updated ${change.field}: ${change.before} -> ${change.after}`,
@@ -421,7 +422,7 @@ export const requestReturn = async (req, res) => {
     }
 
     pkg.status = 'Returned to Vendor';
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: new Date().toISOString().replace('T', ' ').substring(0, 16),
       status: 'Returned to Vendor',
       message: 'Vendor requested return of package',

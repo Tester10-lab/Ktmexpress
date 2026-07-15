@@ -1,3 +1,4 @@
+import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import ScanEvent from '../models/ScanEvent.js';
 import logger from '../utils/logger.js';
@@ -89,7 +90,7 @@ export const scanPackage = async (req, res) => {
 
     // Update package status + append timeline entry
     pkg.status = toStatus;
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time:        ts,
       status:      toStatus,
       message:     notes || `Package scanned by ${ROLE_LABELS[role] || role}${location ? ` at ${location}` : ''}`,
@@ -180,7 +181,7 @@ export const bulkScan = async (req, res) => {
         });
 
         pkg.status = toStatus;
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time:        ts,
           status:      toStatus,
           message:     notes || `Bulk scan by ${ROLE_LABELS[role] || role}${location ? ` at ${location}` : ''}`,

@@ -1,3 +1,4 @@
+import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
 import PickupRequest from '../models/PickupRequest.js';
@@ -53,7 +54,7 @@ export const assignRiderToPickup = async (req, res) => {
     const pkg = await Package.findById(pickup.packageId);
     if (pkg) {
       pkg.riderId = riderId;
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: nowStr(),
         status: 'Pickup Assigned',
         message: `Rider ${rider.name} assigned for pickup`,
@@ -92,7 +93,7 @@ export const confirmWarehouseArrival = async (req, res) => {
     }
 
     pkg.status = 'In Warehouse';
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: nowStr(),
       status: 'Arrived in Warehouse',
       message: 'Inbound scanned at central hub',
@@ -134,7 +135,7 @@ export const assignRiderForDelivery = async (req, res) => {
 
     pkg.riderId = riderId;
     pkg.status = 'Out for Delivery';
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: nowStr(),
       status: 'Sent to Delivery',
       message: `Assigned to Rider ${rider.name} for delivery route`,
@@ -180,7 +181,7 @@ export const bulkAssignPackages = async (req, res) => {
     for (const pkg of packages) {
       pkg.riderId = riderId;
       pkg.status = 'Out for Delivery';
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: nowStr(),
         status: 'Sent to Delivery',
         message: `Bulk assigned to Rider ${rider.name}`,
@@ -216,7 +217,7 @@ export const confirmReturn = async (req, res) => {
 
     if (type === 'rider') {
       pkg.rtvSignoff.riderReturned = true;
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: nowStr(),
         status: 'Rider Return Confirmed',
         message: 'Dispatcher confirmed physical return from rider',
@@ -225,7 +226,7 @@ export const confirmReturn = async (req, res) => {
     } else if (type === 'vendor') {
       pkg.rtvSignoff.vendorReceived = true;
       pkg.status = 'Returned to Vendor';
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: nowStr(),
         status: 'Returned to Vendor',
         message: 'Package returned to vendor. RTV complete.',
@@ -260,7 +261,7 @@ export const bulkVendorHandover = async (req, res) => {
 
       pkg.rtvSignoff.vendorReceived = true;
       pkg.status = 'Returned to Vendor';
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: nowStr(),
         status: 'Returned to Vendor',
         message: 'Package returned to vendor. RTV complete.',

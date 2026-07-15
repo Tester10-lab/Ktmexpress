@@ -1,3 +1,4 @@
+import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
 import ScanEvent from '../models/ScanEvent.js';
@@ -144,7 +145,7 @@ export const updatePackage = async (req, res) => {
 
     if (changes.length > 0) {
       for (const change of changes) {
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: ts,
           status: 'Admin Override',
           message: `Admin updated ${change.field}: ${change.before} -> ${change.after}${reason ? `. Reason: ${reason}` : ''}`,
@@ -153,7 +154,7 @@ export const updatePackage = async (req, res) => {
         });
       }
     } else if (reason) {
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: ts,
         status: 'Admin Override',
         message: `Package details updated by admin. Reason: ${reason}`,
@@ -344,7 +345,7 @@ export const requestVerification = async (req, res) => {
     });
 
     const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: ts,
       status: 'Verification Requested',
       message: `Verification requested by ${req.user.role}. Reason: ${reason} (Priority: ${priority})`,

@@ -10,6 +10,7 @@ import eventBus from '../services/eventBus.js';
 import fs from 'fs';
 import csv from 'csv-parser';
 import bcrypt from 'bcryptjs';
+import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee, getGlobalSettings } from '../services/pricingService.js';
@@ -194,7 +195,7 @@ export const verifyCOD = async (req, res) => {
     pkg.codVerified = true;
     pkg.verifiedAt = new Date();
     pkg.settlementStatus = 'Verified';
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: new Date().toISOString().replace('T', ' ').substring(0, 16),
       status: pkg.status,
       message: 'COD verified by admin',
@@ -235,7 +236,7 @@ export const markVendorPaid = async (req, res) => {
       pkg.paidAt = now;
       pkg.settlementStatus = 'Settled';
       pkg.isSettling = false;
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: currentStr,
         status: pkg.status,
         message: `Vendor paid Rs. ${pkg.vendorReceivable}${reference ? ` (Ref: ${reference})` : ''}`,
@@ -649,16 +650,14 @@ export const updatePackageAdmin = async (req, res) => {
     }
 
     if (updates.length > 0) {
-      const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
-      for (const change of changes) {
-        pkg.timeline.push({
-          time: ts,
-          status: pkg.status,
-          message: `Admin updated ${change.field}: ${change.before} -> ${change.after}${req.body.reason ? `. Reason: ${req.body.reason}` : ''}`,
-          user: req.user.name,
-          changes: [change]
-        });
-      }
+      appendTimelineEvent(pkg, {
+        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        status: pkg.status,
+        message: 'Package details updated by admin' + (req.body.reason ? '. Reason: ' + req.body.reason : ''),
+        user: req.user.name,
+        role: 'Admin',
+        changes
+      });
       await pkg.save();
       dashboardCache.timestamp = 0;
     }
@@ -678,7 +677,7 @@ export const deletePackageAdmin = async (req, res) => {
     }
 
     pkg.deletedAt = new Date();
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: new Date().toISOString().replace('T', ' ').substring(0, 16),
       status: pkg.status,
       message: 'Package deleted by admin',
@@ -874,7 +873,7 @@ export const requestPickupAdmin = async (req, res) => {
     const now = nowStr();
     for (const pkg of packages) {
       pkg.status = 'Pick Up Requested';
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: now,
         status: 'Pick Up Requested',
         message: 'Admin requested courier pickup on behalf of vendor',
@@ -1169,7 +1168,7 @@ export const savePackageVerificationDraft = async (req, res) => {
       savedBy: req.user._id,
     };
 
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: new Date().toISOString().replace('T', ' ').substring(0, 16),
       status: pkg.status,
       message: `Admin ${req.user.name} saved a verification draft.`,
@@ -1314,7 +1313,7 @@ export const verifyPackageAdmin = async (req, res) => {
     // Timeline Log
     if (timelineChanges.length > 0) {
       for (const change of timelineChanges) {
-        pkg.timeline.push({
+        appendTimelineEvent(pkg, {
           time: nowStr,
           status: status,
           message: `Admin verified & updated ${change.field}: ${change.before} -> ${change.after}. Reason: ${reason}.`,
@@ -1325,7 +1324,7 @@ export const verifyPackageAdmin = async (req, res) => {
         });
       }
     } else {
-      pkg.timeline.push({
+      appendTimelineEvent(pkg, {
         time: nowStr,
         status: status,
         message: `Package verified by admin ${req.user.name}. Reason: ${reason}.`,
@@ -1440,7 +1439,7 @@ export const reopenPackageAdmin = async (req, res) => {
     pkg.verificationStartedAt = now;
 
     // Timeline Log
-    pkg.timeline.push({
+    appendTimelineEvent(pkg, {
       time: nowStr,
       status: pkg.status,
       message: `Package verification reopened by Super Admin ${req.user.name}.`,
@@ -1587,15 +1586,29 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
       pkg.verificationDraft = null;
 
       // Timeline Log
-      pkg.timeline.push({
-        time: nowStr,
-        status: status,
-        message: `Package bulk verified by admin ${req.user.name}.`,
-        user: req.user.name,
-        role: req.user.role,
-        type: 'VERIFIED',
-        changes: timelineChanges,
-      });
+      if (timelineChanges.length > 0) {
+        for (const change of timelineChanges) {
+          appendTimelineEvent(pkg, {
+            time: nowStr,
+            status: status,
+            message: `Admin bulk verified & updated ${change.field}: ${change.before} -> ${change.after}`,
+            user: req.user.name,
+            role: req.user.role,
+            type: 'VERIFIED',
+            changes: [change],
+          });
+        }
+      } else {
+        appendTimelineEvent(pkg, {
+          time: nowStr,
+          status: status,
+          message: `Package bulk verified by admin ${req.user.name}.`,
+          user: req.user.name,
+          role: req.user.role,
+          type: 'VERIFIED',
+          changes: [],
+        });
+      }
 
       // Audit Log
       pkg.verificationAudit.push({
