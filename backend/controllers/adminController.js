@@ -930,7 +930,7 @@ export const uploadCsvForVendor = async (req, res) => {
   const creatorName = req.user.name || 'Admin';
 
   try {
-    const result = await processCsvImport(req.file.path, vendorId, creatorName);
+    const result = await processCsvImport(req.file.path, vendorId, creatorName, true);
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     
     // Result object has { success, importedCount, failedCount, failedRows, message, data }

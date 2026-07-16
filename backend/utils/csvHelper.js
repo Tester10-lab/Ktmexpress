@@ -24,7 +24,7 @@ function buildLowerRow(row) {
   return lowerRow;
 }
 
-export const processCsvImport = async (filePath, vendorId, creatorName) => {
+export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin = false) => {
   const MAX_ROWS = 500;
   const results = [];
   
@@ -122,6 +122,9 @@ export const processCsvImport = async (filePath, vendorId, creatorName) => {
             const trackingCode = trackingCodes[i];
             const labelUrls = generateLabelUrls(trackingCode);
 
+            const initialStatus = isAdmin ? 'In Warehouse' : 'Pending';
+            const initialMessage = isAdmin ? 'Package arrived at warehouse.' : 'Package created. Needs pickup request.';
+
             packageDocs.push({
               trackingCode,
               invoiceId: invoiceId || generateInvoiceId(),
@@ -137,11 +140,11 @@ export const processCsvImport = async (filePath, vendorId, creatorName) => {
               vendorReceivable: Math.max(0, amount - finalDeliveryCharge),
               vendorId,
               ...labelUrls,
-              status: 'Pending',
+              status: initialStatus,
               timeline: [{
                 time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-                status: 'Pending',
-                message: 'Package created. Needs pickup request.',
+                status: initialStatus,
+                message: initialMessage,
                 user: creatorName,
               }],
               // store original row index for mapping DB errors back
