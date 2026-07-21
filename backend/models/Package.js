@@ -227,6 +227,12 @@ const packageSchema = new mongoose.Schema(
       default: '',
     },
     timeline: [TimelineEntrySchema],
+    comments: [{
+      text: { type: String, required: true },
+      user: { type: String, default: 'User' },
+      role: { type: String, default: '' },
+      createdAt: { type: Date, default: Date.now }
+    }],
     rtvSignoff: {
       riderReturned: { type: Boolean, default: false },
       vendorReceived: { type: Boolean, default: false },

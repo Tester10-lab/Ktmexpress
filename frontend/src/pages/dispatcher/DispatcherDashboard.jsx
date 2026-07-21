@@ -10,6 +10,7 @@ import useNotificationSound from '../../hooks/useNotificationSound';
 import TrackingLink from '../../components/TrackingLink';
 import SearchPanel from '../../components/SearchPanel';
 import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
+import PackageTimeline from '../../components/PackageTimeline';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
@@ -1484,19 +1485,8 @@ const ActiveRiders = () => {
                                   {isTimelineExpanded && (
                                     <tr>
                                       <td colSpan="6" style={{ ...tdStyle, background: '#f9fafb' }}>
-                                        <div style={{ paddingLeft: 16, borderLeft: '2px solid #3b82f6' }}>
-                                          <div style={{ fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 6 }}>Package Timeline Log</div>
-                                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 150, overflowY: 'auto' }}>
-                                            {p.timeline.map((t, idx) => (
-                                              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#374151' }}>
-                                                <div>
-                                                  <span style={{ fontWeight: 700 }}>[{t.status}]</span> {t.message}
-                                                  {t.user && <span style={{ fontSize: 9, color: '#9ca3af' }}> (by {t.user})</span>}
-                                                </div>
-                                                <div style={{ fontSize: 9, color: '#9ca3af', marginLeft: 16, whiteSpace: 'nowrap' }}>{t.time}</div>
-                                              </div>
-                                            ))}
-                                          </div>
+                                        <div style={{ padding: '8px 12px' }}>
+                                          <PackageTimeline pkg={p} onCommentAdded={() => fetchPackageLogs(true)} />
                                         </div>
                                       </td>
                                     </tr>

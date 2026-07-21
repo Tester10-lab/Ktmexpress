@@ -7,12 +7,16 @@ import {
   updatePackage,
   trackPackage,
   confirmWarehouseArrival,
-  requestVerification
+  requestVerification,
+  addPackageComment
  } from '../controllers/packageController.js';
 import { warehouseArrivalLimiter } from '../middleware/rateLimiter.js';
 
 // All routes require auth
 router.use(auth);
+
+// Package Comments (Admin/Dispatcher/Vendor/Rider)
+router.post('/:id/comments', roleGuard('admin', 'dispatcher', 'vendor', 'rider'), addPackageComment);
 
 // Request Verification (Admin/Dispatcher/Vendor/Rider)
 router.post('/:id/request-verification', roleGuard('admin', 'dispatcher', 'vendor', 'rider'), requestVerification);

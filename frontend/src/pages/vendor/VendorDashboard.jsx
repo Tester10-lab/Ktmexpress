@@ -8,6 +8,7 @@ import QrScanner from '../../components/QrScanner';
 import TrackingLink from '../../components/TrackingLink';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
+import PackageTimeline from '../../components/PackageTimeline';
 import { useDeliveryCharge } from '../../hooks/useDeliveryCharge';
 import {
   LayoutDashboard, Package, ShoppingBag, UploadCloud, 
@@ -731,54 +732,13 @@ const PackageList = () => {
                 </div>
               </div>
 
-              {/* Notes */}
-              {(viewPackageDetails.comments || viewPackageDetails.timeline?.length > 0) && (
-                <div>
-                  {viewPackageDetails.comments && (
-                    <div className="mb-6">
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Special Instructions</h4>
-                      <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 text-amber-800 text-sm font-medium">
-                        {viewPackageDetails.comments}
-                      </div>
-                    </div>
-                  )}
-                  {viewPackageDetails.timeline?.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Timeline</h4>
-                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm relative">
-                        {viewPackageDetails.timeline.map((t, idx) => (
-                          <div key={idx} className={`flex gap-4 relative ${idx === viewPackageDetails.timeline.length - 1 ? '' : 'mb-6'}`}>
-                            {idx !== viewPackageDetails.timeline.length-1 && <div className="absolute left-1.5 top-6 bottom-[-24px] w-0.5 bg-slate-200"></div>}
-                            <div className="w-3.5 h-3.5 rounded-full bg-brand-500 mt-1.5 shrink-0 relative z-10 border-2 border-white shadow-sm"></div>
-                            <div>
-                              <div className="font-bold text-slate-900 text-sm">{t.status}</div>
-                              <div className="text-xs text-slate-500 mt-0.5">{new Date(t.time).toLocaleString()} • <span className="font-medium text-slate-600">{t.user || 'System'}</span></div>
-                              {t.message && <div className="text-sm text-slate-700 mt-1.5 bg-slate-50 p-2 rounded border border-slate-100">{t.message}</div>}
-                              
-                              {/* Render Audit Changes if present */}
-                              {t.changes && t.changes.length > 0 && (
-                                <div className="mt-2 bg-white border border-slate-100 p-2 rounded-lg">
-                                  <div className="text-xs font-bold text-slate-500 uppercase mb-1">Edited Fields</div>
-                                  <ul className="space-y-1">
-                                    {t.changes.map((c, i) => (
-                                      <li key={i} className="text-xs flex items-center gap-2 flex-wrap">
-                                        <span className="font-mono bg-slate-100 px-1 rounded text-slate-600">{c.field}</span>
-                                        <span className="line-through text-red-500">{String(c.before)}</span>
-                                        <span className="text-slate-400">→</span>
-                                        <span className="text-emerald-600 font-medium">{String(c.after)}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Package Timeline & Comment Section */}
+              <div className="pt-2">
+                <PackageTimeline 
+                  pkg={viewPackageDetails} 
+                  onCommentAdded={(updatedPkg) => setViewPackageDetails(updatedPkg)} 
+                />
+              </div>
               
               {/* QR Code & Barcode */}
               <div>

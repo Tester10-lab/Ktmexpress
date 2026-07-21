@@ -5,6 +5,7 @@ import api from '../api/axios';
 import { X, MapPin, Loader2, Package, Phone, Truck, CreditCard } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../store/ToastContext';
+import PackageTimeline from './PackageTimeline';
 
 const statusColors = {
   Delivered: 'bg-emerald-100 text-emerald-700 border-emerald-200',
@@ -207,47 +208,11 @@ const TrackingDrawer = () => {
                 </div>
               </div>
 
-              {/* Timeline */}
-              {pkg.timeline?.length > 0 && (
-                <div className="space-y-4 pt-2">
-                  <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Timeline</h4>
-                  <div className="space-y-0">
-                    {[...pkg.timeline].reverse().map((event, idx, arr) => (
-                      <div key={idx} className="flex gap-4 pb-5 relative group">
-                        <div className="flex flex-col items-center shrink-0">
-                          <div className={`w-3 h-3 rounded-full border-2 mt-1 z-10 ${
-                            idx === 0 
-                              ? 'bg-brand-500 border-brand-500 ring-4 ring-brand-50' 
-                              : 'bg-white border-slate-300'
-                          }`} />
-                          {idx < arr.length - 1 && (
-                            <div className="w-0.5 h-full bg-slate-100 absolute top-4 bottom-0" />
-                          )}
-                        </div>
-                        <div className="flex-1 pb-1">
-                          <div className="flex justify-between items-start gap-2 mb-0.5">
-                            <span className={`font-bold text-sm ${idx === 0 ? 'text-slate-900' : 'text-slate-600'}`}>{event.status}</span>
-                            <span className="text-xs font-medium text-slate-400 whitespace-nowrap">{new Date(event.time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                          </div>
-                          {event.message && <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{event.message}</p>}
-                          {event.changes && event.changes.length > 0 && (
-                            <ul className="mt-2 space-y-1 border-l-2 border-slate-100 pl-2">
-                              {event.changes.map((c, i) => (
-                                <li key={i} className="text-[11px] flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium">{c.field}</span>
-                                  <span className="line-through text-red-500">{String(c.before)}</span>
-                                  <span className="text-slate-400">→</span>
-                                  <span className="text-emerald-600 font-medium">{String(c.after)}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Package Timeline & Comment Section */}
+              <PackageTimeline 
+                pkg={pkg} 
+                onCommentAdded={(updatedPkg) => setPkg(updatedPkg)} 
+              />
             </div>
           ) : (
             <div className="p-6 text-center text-slate-500">

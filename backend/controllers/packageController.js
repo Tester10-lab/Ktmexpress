@@ -371,3 +371,62 @@ export const requestVerification = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// POST /api/packages/:id/comments — Add a user comment to package timeline
+export const addPackageComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { comment } = req.body;
+
+    if (!comment || !comment.trim()) {
+      return res.status(400).json({ success: false, message: 'Comment text is required.' });
+    }
+
+    const pkg = await Package.findById(id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    const senderRole = req.user.role ? (req.user.role.charAt(0).toUpperCase() + req.user.role.slice(1)) : 'User';
+    const senderName = req.user.vendorMeta?.shopName || req.user.name || 'User';
+
+    // Append to timeline as Comment event
+    appendTimelineEvent(pkg, {
+      status: 'Comment',
+      message: comment.trim(),
+      user: senderName,
+      role: senderRole,
+      type: 'Comment'
+    });
+
+    if (!pkg.comments) pkg.comments = [];
+    pkg.comments.push({
+      text: comment.trim(),
+      user: senderName,
+      role: senderRole,
+      createdAt: new Date()
+    });
+
+    await pkg.save();
+
+    // Broadcast live event via Socket.IO
+    if (req.io) {
+      const commentPayload = {
+        packageId: pkg._id,
+        trackingCode: pkg.trackingCode,
+        comment: comment.trim(),
+        user: senderName,
+        role: senderRole,
+        time: new Date().toISOString()
+      };
+
+      if (pkg.vendorId) req.io.to(`user_${pkg.vendorId}`).emit('package:comment', commentPayload);
+      if (pkg.riderId) req.io.to(`user_${pkg.riderId}`).emit('package:comment', commentPayload);
+      req.io.to('role_admin').to('role_dispatcher').emit('package:comment', commentPayload);
+    }
+
+    res.json({ success: true, data: pkg, message: 'Comment posted to timeline successfully.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
