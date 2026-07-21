@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
@@ -367,12 +368,207 @@ export const requestVerification = async (req, res) => {
     }
 
     res.json({ success: true, message: 'Verification requested successfully.', data: pkg });
+        changes,
+        trackingCode: pkg.trackingCode
+      });
+    }
+
+    res.json({ success: true, data: pkg });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// POST /api/packages/:id/comments — Add a user comment to package timeline
+
+// GET /api/packages/track/:trackingCode
+export const trackPackage = async (req, res) => {
+  try {
+    const rawCode = req.params.trackingCode || '';
+    const trackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
+
+    if (!trackingCode || trackingCode.length < 5) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code.' });
+    }
+
+    const pkg = await Package.findOne({ trackingCode })
+      .populate('vendorId', 'name')
+      .populate('riderId', 'name')
+      .lean();
+
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+    }
+
+    // Role-based visibility isolation for vendors
+    if (req.user.role === 'vendor' && pkg.vendorId._id.toString() !== req.user.id) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+    }
+
+    res.json({ success: true, data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/packages/:trackingCode/warehouse-arrival
+export const confirmWarehouseArrival = async (req, res) => {
+  try {
+    const rawCode = req.params.trackingCode || '';
+    const upperTrackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
+
+    if (!upperTrackingCode || upperTrackingCode.length < 5) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code.' });
+    }
+    
+    // Check if already in warehouse first (for idempotent success)
+    const existing = await Package.findOne({ trackingCode: upperTrackingCode });
+    
+    if (!existing) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code ${upperTrackingCode}.` });
+    }
+
+    if (existing.status === 'In Warehouse') {
+      const lastEntry = existing.timeline.slice().reverse().find(entry => entry.status === 'In Warehouse');
+      const scannerName = lastEntry ? lastEntry.user : 'staff';
+      const scanTime = lastEntry ? new Date(lastEntry.time).toLocaleString() : 'recently';
+      return res.json({ 
+        success: true, 
+        message: `Already confirmed by ${scannerName} at ${scanTime}.`,
+        data: existing 
+      });
+    }
+
+    // Atomic update, conditioning on valid predecessor statuses
+    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const validPredecessors = VALID_PREDECESSORS['In Warehouse'].dispatcher;
+
+    const updatedPkg = await Package.findOneAndUpdate(
+      { 
+        trackingCode: upperTrackingCode,
+        status: { $in: validPredecessors }
+      },
+      {
+        $set: { status: 'In Warehouse' },
+        $push: {
+          timeline: {
+            time: ts,
+            status: 'In Warehouse',
+            message: `Package arrived at warehouse. Confirmed by ${req.user.role}.`,
+            user: req.user.name,
+            role: req.user.role,
+            scannedBy: req.user.id
+          }
+        }
+      },
+      { new: true }
+    );
+
+    if (!updatedPkg) {
+      // It exists but wasn't updated because status wasn't in validPredecessors
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot transition package to 'In Warehouse'. Current status is '${existing.status}'.` 
+      });
+    }
+
+    // Create a global ScanEvent audit record
+    await ScanEvent.create({
+      packageId: updatedPkg._id,
+      trackingCode: upperTrackingCode,
+      scannedBy: req.user.id,
+      scannerName: req.user.name,
+      scannerRole: req.user.role,
+      action: 'Confirm Warehouse Arrival',
+      fromStatus: existing.status,
+      toStatus: 'In Warehouse',
+      notes: 'Scanned via QR Scanner module at warehouse arrival',
+      isAdminOverride: req.user.role === 'admin'
+    });
+
+    // Emit live event to dispatchers and admins
+    if (req.io) {
+      req.io.to('role_dispatcher').to('role_admin').emit('package:warehouseArrived', updatedPkg);
+    }
+
+    res.json({ success: true, data: updatedPkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/packages/:id/request-verification
+export const requestVerification = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ success: false, message: 'Reason for verification is required.' });
+    }
+
+    const pkg = await Package.findById(id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    // Allowed if package is complete but not verified
+    if (pkg.deliveryVerificationStatus === 'Verified') {
+      return res.status(400).json({ success: false, message: 'Package is already verified.' });
+    }
+    if (pkg.deliveryVerificationStatus === 'Pending') {
+      return res.status(400).json({ success: false, message: 'Package is already pending verification.' });
+    }
+
+    let priority = 'Low';
+    if (['COD amount mismatch', 'Customer dispute', 'Damaged package'].includes(reason)) priority = 'High';
+    else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(reason)) priority = 'Medium';
+
+    const prevVerificationStatus = pkg.deliveryVerificationStatus || null;
+
+    pkg.deliveryVerificationStatus = 'Pending';
+    pkg.activeVerificationPriority = priority;
+    if (!pkg.verificationStartedAt) {
+      pkg.verificationStartedAt = new Date();
+    }
+
+    pkg.verificationRequests.push({
+      requestedBy: req.user.id,
+      requestedByName: req.user.name,
+      requestedRole: req.user.role,
+      reason,
+      priority,
+      status: 'Pending'
+    });
+
+    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    appendTimelineEvent(pkg, {
+      time: ts,
+      status: 'Verification Requested',
+      message: `Verification requested by ${req.user.role}. Reason: ${reason} (Priority: ${priority})`,
+      user: req.user.name,
+      changes: [
+        { field: 'deliveryVerificationStatus', before: prevVerificationStatus, after: 'Pending' }
+      ]
+    });
+
+    await pkg.save();
+
+    // Notify admins
+    if (req.io) {
+      req.io.to('admins').emit('notification', {
+        title: 'Verification Requested',
+        message: `Verification requested for package ${pkg.trackingCode} by ${req.user.name}.`,
+        type: 'warning'
+      });
+    }
+
+    res.json({ success: true, message: 'Verification requested successfully.', data: pkg });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/packages/:id/comments — Add a user comment to package
 export const addPackageComment = async (req, res) => {
   try {
     const { id } = req.params;
@@ -382,7 +578,10 @@ export const addPackageComment = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Comment text is required.' });
     }
 
-    const pkg = await Package.findById(id);
+    const pkg = mongoose.Types.ObjectId.isValid(id)
+      ? await Package.findById(id)
+      : await Package.findOne({ trackingCode: id });
+
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
@@ -409,6 +608,11 @@ export const addPackageComment = async (req, res) => {
 
     await pkg.save();
 
+    const updatedPkg = await Package.findById(pkg._id)
+      .populate('vendorId', 'name email vendorMeta')
+      .populate('riderId', 'name contact')
+      .lean();
+
     // Broadcast live event via Socket.IO
     if (req.io) {
       const commentPayload = {
@@ -425,7 +629,7 @@ export const addPackageComment = async (req, res) => {
       req.io.to('role_admin').to('role_dispatcher').emit('package:comment', commentPayload);
     }
 
-    res.json({ success: true, data: pkg, message: 'Comment posted to timeline successfully.' });
+    res.json({ success: true, data: updatedPkg, message: 'Comment posted successfully.' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
