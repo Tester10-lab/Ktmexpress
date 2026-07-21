@@ -5,6 +5,7 @@ import MetricCard from '../../components/MetricCard';
 import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import TrackingLink from '../../components/TrackingLink';
+import SearchPanel from '../../components/SearchPanel';
 import { 
   Package, Truck, Wallet, History, MapPin, Navigation, 
   CheckCircle2, XCircle, Clock, Search, AlertCircle, X,
@@ -138,6 +139,7 @@ const MyDeliveries = () => {
   const [form, setForm] = useState({comment:'',cashCollected:'',newDate:''});
   const [selectedPickups, setSelectedPickups] = useState([]);
   const [selectedDeliveries, setSelectedDeliveries] = useState([]);
+  const [search, setSearch] = useState('');
   
   // UI State for Filters
   const [activeTab, setActiveTab] = useState('deliveries'); // 'deliveries' or 'pickups'
@@ -149,9 +151,10 @@ const MyDeliveries = () => {
   const fetchAll = React.useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
+      const queryStr = search ? `&search=${encodeURIComponent(search)}` : '';
       const [d, p] = await Promise.all([
-        api.get('/rider/deliveries?type=delivery'), 
-        api.get('/rider/deliveries?type=pickup')
+        api.get(`/rider/deliveries?type=delivery${queryStr}`), 
+        api.get(`/rider/deliveries?type=pickup${queryStr}`)
       ]);
       setDeliveries(d.data.data||[]);
       setPickups(p.data.data||[]);
@@ -162,9 +165,12 @@ const MyDeliveries = () => {
     } finally { 
       setLoading(false); 
     }
-  }, [showToast]);
+  }, [showToast, search]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => { 
+    const t = setTimeout(() => fetchAll(), 400); 
+    return () => clearTimeout(t);
+  }, [fetchAll]);
 
   const openModal = React.useCallback((pkg, action) => { 
     setActionModal({open:true,pkg,action}); 
@@ -274,6 +280,13 @@ const MyDeliveries = () => {
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Task Overview</h2>
           <p className="text-sm text-slate-500 mt-1">Manage your pending deliveries and pickups</p>
+        </div>
+        <div className="w-full sm:w-72">
+          <SearchPanel 
+            value={search} 
+            onChange={setSearch} 
+            placeholder="Search tracking, phone, vendor, etc..." 
+          />
         </div>
       </div>
 

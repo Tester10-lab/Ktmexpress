@@ -11,9 +11,10 @@ import { nowStr } from '../utils/helpers.js';
 export const getMyDeliveries = async (req, res) => {
   try {
     const riderId = new mongoose.Types.ObjectId(req.user._id);
-    const { type, status } = req.query; // 'pickup' or 'delivery' or 'all'
+    const { type, status, search } = req.query; // 'pickup' or 'delivery' or 'all'
 
     let filter = { riderId };
+    let andConditions = [];
 
     if (status && status !== 'all') {
       filter.status = status;
@@ -22,18 +23,45 @@ export const getMyDeliveries = async (req, res) => {
     } else if (type === 'delivery') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      filter.$or = [
-        { status: { $in: ['Out for Delivery', 'Postponed'] } },
-        { 
-          status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged'] },
-          $or: [
-            { deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] } },
-            { updatedAt: { $gte: today } }
-          ]
-        }
-      ];
+      andConditions.push({
+        $or: [
+          { status: { $in: ['Out for Delivery', 'Postponed'] } },
+          { 
+            status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged'] },
+            $or: [
+              { deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] } },
+              { updatedAt: { $gte: today } }
+            ]
+          }
+        ]
+      });
     } else if (type === 'active_delivery') {
       filter.status = { $in: ['Out for Delivery', 'Postponed'] };
+    }
+
+    if (search) {
+      const matchingVendors = await User.find({
+        role: 'vendor',
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+        ]
+      }).select('_id').lean();
+      const vendorIds = matchingVendors.map(v => v._id);
+
+      andConditions.push({
+        $or: [
+          { trackingCode: { $regex: search, $options: 'i' } },
+          { customerName: { $regex: search, $options: 'i' } },
+          { invoiceId: { $regex: search, $options: 'i' } },
+          { customerPhone: { $regex: search, $options: 'i' } },
+          { vendorId: { $in: vendorIds } }
+        ]
+      });
+    }
+
+    if (andConditions.length > 0) {
+      filter.$and = andConditions;
     }
 
     const packages = await Package.find(filter)

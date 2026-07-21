@@ -8,6 +8,7 @@ import api from '../../api/axios';
 import { useToast } from '../../store/ToastContext';
 import useNotificationSound from '../../hooks/useNotificationSound';
 import TrackingLink from '../../components/TrackingLink';
+import SearchPanel from '../../components/SearchPanel';
 import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
@@ -617,9 +618,16 @@ const InboundScan = () => {
   };
 
   // Filter and group by vendor
-  const filtered = packages.filter(p =>
-    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || p.customerName.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = packages.filter(p => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    const vendorName = (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase();
+    return p.trackingCode?.toLowerCase().includes(s) || 
+           p.customerName?.toLowerCase().includes(s) || 
+           p.customerPhone?.toLowerCase().includes(s) || 
+           p.invoiceId?.toLowerCase().includes(s) || 
+           vendorName.includes(s);
+  });
 
   const grouped = filtered.reduce((acc, pkg) => {
     const vid = pkg.vendorId?._id || 'unknown';
@@ -675,13 +683,13 @@ const InboundScan = () => {
     <div>
       {/* Search + Stats Bar */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search tracking or customer..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ flex: '1 1 240px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-        />
+        <div style={{ flex: '1 1 240px' }}>
+          <SearchPanel 
+            value={search} 
+            onChange={setSearch} 
+            placeholder="Search tracking, name, phone, vendor, invoice..." 
+          />
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           {[
             { label: 'Pick Up Requested', color: '#f59e0b', count: packages.filter(p => p.status === 'Pick Up Requested').length },
@@ -834,9 +842,16 @@ const Routing = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const filtered = packages.filter(p =>
-    !search || p.trackingCode.toLowerCase().includes(search.toLowerCase()) || ((p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = packages.filter(p => {
+    if (!search) return true;
+    const s = search.toLowerCase();
+    const vendorName = (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase();
+    return p.trackingCode?.toLowerCase().includes(s) || 
+           p.customerName?.toLowerCase().includes(s) || 
+           p.customerPhone?.toLowerCase().includes(s) || 
+           p.invoiceId?.toLowerCase().includes(s) || 
+           vendorName.includes(s);
+  });
 
   const handleSelectAll = e => setSelected(e.target.checked ? filtered.map(p => p._id) : []);
   const handleSelect = id => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -861,13 +876,13 @@ const Routing = () => {
     <div>
       {/* Toolbar */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
-        <input
-          type="text"
-          placeholder="Search tracking or vendor..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ flex: '1 1 200px', border: '1px solid #e5e7eb', borderRadius: 8, padding: '8px 14px', fontSize: 13, outline: 'none' }}
-        />
+        <div style={{ flex: '1 1 200px' }}>
+          <SearchPanel 
+            value={search} 
+            onChange={setSearch} 
+            placeholder="Search tracking, name, phone, vendor, invoice..." 
+          />
+        </div>
         <select
           value={riderId}
           onChange={e => setRiderId(e.target.value)}

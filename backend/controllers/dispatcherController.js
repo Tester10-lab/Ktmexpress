@@ -390,6 +390,8 @@ export const getAllPackagesForDispatcher = async (req, res) => {
       filter.$or = [
         { trackingCode: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
+        { invoiceId: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } },
         { vendorId: { $in: vendorIds } }
       ];
     }

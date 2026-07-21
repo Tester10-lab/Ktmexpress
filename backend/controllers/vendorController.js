@@ -110,6 +110,7 @@ export const getVendorPackages = async (req, res) => {
         { trackingCode: { $regex: search, $options: 'i' } },
         { customerName: { $regex: search, $options: 'i' } },
         { invoiceId: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } },
       ];
     }
     if (startDate || endDate) {
