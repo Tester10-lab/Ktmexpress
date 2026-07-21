@@ -17,6 +17,9 @@ router.get('/deliveries', getMyDeliveries);
 router.put('/update-status', updateDeliveryStatus);
 router.put('/bulk-pickup', bulkPickup);
 router.get('/summary', getRiderSummary);
+import { addPackageComment } from '../controllers/packageController.js';
+
 router.post('/cod-handover', submitCodHandover);
+router.post('/packages/:id/comments', addPackageComment);
 
 export default router;

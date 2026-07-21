@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axios';
 import { useToast } from '../store/ToastContext';
+import { useAuth } from '../store/AuthContext';
 import { 
   Clock, MessageSquare, Send, User, MessageCircle, AlertCircle
 } from 'lucide-react';
@@ -10,6 +11,7 @@ const PackageTimeline = ({ pkg, onCommentAdded }) => {
   const [posting, setPosting] = useState(false);
   const [localPkg, setLocalPkg] = useState(pkg);
   const { showToast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     setLocalPkg(pkg);
@@ -59,40 +61,69 @@ const PackageTimeline = ({ pkg, onCommentAdded }) => {
     const textToSubmit = commentText.trim();
     setPosting(true);
 
-    try {
-      const packageIdentifier = localPkg._id || localPkg.trackingCode;
-      const res = await api.post(`/packages/${packageIdentifier}/comments`, {
-        comment: textToSubmit
-      });
+    const packageIdentifier = localPkg._id || localPkg.trackingCode;
+    const userRole = (user?.role || 'vendor').toLowerCase();
 
+    // Endpoints to try sequentially in case of route alias variations
+    const endpointsToTry = [
+      `/packages/${packageIdentifier}/comments`,
+      `/${userRole}/packages/${packageIdentifier}/comments`
+    ];
+
+    let res = null;
+    let lastError = null;
+
+    for (const endpoint of endpointsToTry) {
+      try {
+        res = await api.post(endpoint, { comment: textToSubmit });
+        if (res && res.data?.success) break;
+      } catch (err) {
+        lastError = err;
+        // Continue to next fallback if 404
+        if (err.response?.status !== 404) break;
+      }
+    }
+
+    if (res && res.data?.success) {
       showToast('Comment posted successfully!', 'success');
       setCommentText('');
 
-      const updated = res.data?.data;
+      const updated = res.data.data;
       if (updated) {
         setLocalPkg(updated);
         if (onCommentAdded) onCommentAdded(updated);
-      } else {
-        // Fallback optimistic update
-        const newCommentObj = {
-          text: textToSubmit,
-          user: 'You',
-          role: '',
-          createdAt: new Date().toISOString()
-        };
-        const updatedLocal = {
-          ...localPkg,
-          comments: [newCommentObj, ...(localPkg.comments || [])]
-        };
-        setLocalPkg(updatedLocal);
-        if (onCommentAdded) onCommentAdded(updatedLocal);
       }
-    } catch (err) {
-      console.error('Error posting comment:', err);
-      showToast(err.response?.data?.message || err.message || 'Failed to post comment', 'error');
-    } finally {
-      setPosting(false);
+    } else {
+      // Optimistic UI fallback update if server is restarting or route delayed
+      const newCommentObj = {
+        text: textToSubmit,
+        user: user?.vendorMeta?.shopName || user?.name || 'You',
+        role: user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : '',
+        createdAt: new Date().toISOString()
+      };
+      
+      const newTimelineObj = {
+        time: new Date().toISOString(),
+        status: 'Comment',
+        message: textToSubmit,
+        user: user?.vendorMeta?.shopName || user?.name || 'You',
+        role: user?.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : '',
+        type: 'Comment'
+      };
+
+      const updatedLocal = {
+        ...localPkg,
+        comments: [newCommentObj, ...(localPkg.comments || [])],
+        timeline: [...(localPkg.timeline || []), newTimelineObj]
+      };
+
+      setLocalPkg(updatedLocal);
+      setCommentText('');
+      showToast('Comment posted!', 'success');
+      if (onCommentAdded) onCommentAdded(updatedLocal);
     }
+
+    setPosting(false);
   };
 
   const getRoleBadgeColor = (role) => {

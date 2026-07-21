@@ -6,6 +6,7 @@ import { auditAction } from '../middleware/auditMiddleware.js';
 import { authorize } from '../middleware/permissionMiddleware.js';
 import { verifyRateLimiter, bulkVerifyRateLimiter, reopenRateLimiter } from '../middleware/rateLimitMiddleware.js';
 import multer from 'multer';
+import { addPackageComment } from '../controllers/packageController.js';
 import { 
   getDashboardStats,
   getFinancialAnalytics,
@@ -146,6 +147,9 @@ router.put('/settlements/:id', authorize('canVerifyPackages'), updateSettlement)
 router.post('/settlements/verify-cod/:packageId', authorize('canVerifyPackages'), verifyCOD);
 router.post('/settlements/mark-paid', authorize('canVerifyPackages'), markVendorPaid);
 router.get('/settlements/export', exportSettlements);
+
+// Package Comments
+router.post('/packages/:id/comments', addPackageComment);
 
 // Operational & Financial Verification endpoints
 router.put('/packages/:id/verification-draft', authorize('canEditVerification'), savePackageVerificationDraft);

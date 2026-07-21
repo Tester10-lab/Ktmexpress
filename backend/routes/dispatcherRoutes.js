@@ -35,7 +35,9 @@ router.put('/confirm-return', confirmReturn);
 router.put('/bulk-vendor-handover', bulkVendorHandover);
 router.get('/cod-handovers', getCodHandovers);
 router.put('/cod-handovers/:id/verify', verifyCodHandover);
-router.get('/riders/:id/history', getRiderHistory);
+import { addPackageComment } from '../controllers/packageController.js';
+
+router.post('/packages/:id/comments', addPackageComment);
 
 export default router;
 

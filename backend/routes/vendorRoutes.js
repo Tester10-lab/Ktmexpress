@@ -22,6 +22,7 @@ import {
   updateStock
  } from '../controllers/vendorController.js';
 import multer from 'multer';
+import { addPackageComment } from '../controllers/packageController.js';
 
 // Multer config for CSV uploads - hardened with fileFilter and limits
 const upload = multer({
@@ -49,7 +50,7 @@ router.post('/packages/bulk', bulkCreatePackages);
 router.post('/packages/upload-csv', upload.single('file'), uploadCsv);
 router.post('/pickup-request', createPickupRequest);
 router.put('/packages/:id/return', requestReturn);
-router.post('/packages/:id/comments', addComment);
+router.post('/packages/:id/comments', addPackageComment);
 router.get('/finance', getFinance);
 
 // Settlements
