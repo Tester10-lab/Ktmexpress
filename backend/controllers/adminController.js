@@ -16,6 +16,7 @@ import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee, getGlobalSettings } from '../services/pricingService.js';
 import { processCsvImport } from '../utils/csvHelper.js';
 import { PACKAGE_STATUS } from '../constants/packageStatus.js';
+import { buildDailyExcelWorkbook } from '../utils/excelExport.js';
 
 // ─── Simple In-Memory Cache (30s TTL) ──────────────────────────────────────
 let dashboardCache = { data: null, timestamp: 0 };
@@ -36,6 +37,7 @@ export const getDashboardStats = async (req, res) => {
     const sevenDaysAgo = new Date(now); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     // ── Main Package KPI Aggregation (single $facet) ──
+
     const [pkgStats] = await Package.aggregate([
       { $match: { deletedAt: null } },
       {
@@ -1672,4 +1674,48 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
   }
 };
 
+// GET /api/admin/export/daily-excel
+export const exportDailyExcel = async (req, res) => {
+  try {
+    const { date, startDate, endDate, vendor, status } = req.query;
 
+    const filter = { deletedAt: null };
+
+    if (date) {
+      const targetDate = new Date(date);
+      const startOfDay = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
+      const endOfDay = new Date(new Date(targetDate).setHours(23, 59, 59, 999));
+      filter.createdAt = { $gte: startOfDay, $lte: endOfDay };
+    } else if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(`${startDate}T00:00:00+05:45`);
+      if (endDate) filter.createdAt.$lte = new Date(`${endDate}T23:59:59+05:45`);
+    }
+
+    if (vendor) filter.vendorId = new mongoose.Types.ObjectId(vendor);
+    if (status && status !== 'all') filter.status = status;
+
+    const packages = await Package.find(filter)
+      .populate('vendorId', 'name vendorMeta')
+      .populate('riderId', 'name')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const expenseFilter = { deletedAt: null };
+    if (filter.createdAt) expenseFilter.date = filter.createdAt;
+    const expenses = await Expense.find(expenseFilter).lean();
+
+    const dateLabel = date || (startDate && endDate ? `${startDate} to ${endDate}` : 'Production Database (All)');
+    const workbook = await buildDailyExcelWorkbook({ packages, expenses, dateStr: dateLabel });
+
+    const fileName = `ktmexpress_daily_export_${date || new Date().toISOString().split('T')[0]}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

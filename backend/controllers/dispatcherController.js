@@ -278,6 +278,74 @@ export const bulkVendorHandover = async (req, res) => {
   }
 };
 
+// PUT /api/dispatcher/bulk-status-update
+export const bulkStatusUpdate = async (req, res) => {
+  try {
+    const { packageIds, status } = req.body;
+
+    const validStatuses = ['In Warehouse', 'Out for Delivery', 'Delivered'];
+    if (!packageIds?.length) {
+      return res.status(400).json({ success: false, message: 'No packages selected.' });
+    }
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+      });
+    }
+
+    const packages = await Package.find({ _id: { $in: packageIds } });
+    if (!packages.length) {
+      return res.status(404).json({ success: false, message: 'No matching packages found.' });
+    }
+
+    const updatedTrackingCodes = [];
+
+    for (const pkg of packages) {
+      pkg.status = status;
+
+      let timelineStatus = status;
+      let timelineMsg = `Status changed to "${status}" via bulk dispatcher action`;
+
+      if (status === 'In Warehouse') {
+        timelineStatus = 'Arrived in Warehouse';
+        timelineMsg = `Bulk status update to In Warehouse`;
+      } else if (status === 'Out for Delivery') {
+        timelineStatus = 'Out for Delivery';
+        timelineMsg = `Bulk status update to Out for Delivery (Dispatched)`;
+      } else if (status === 'Delivered') {
+        timelineStatus = 'Delivered';
+        timelineMsg = `Bulk status update to Delivered`;
+      }
+
+      appendTimelineEvent(pkg, {
+        time: nowStr(),
+        status: timelineStatus,
+        message: timelineMsg,
+        user: req.user.name || 'Dispatcher',
+      });
+
+      await pkg.save();
+      updatedTrackingCodes.push(pkg.trackingCode);
+
+      if (['In Warehouse', 'Delivered'].includes(status)) {
+        await PickupRequest.updateMany(
+          { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
+          { status: 'completed', completedAt: new Date() }
+        );
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Updated ${updatedTrackingCodes.length} package(s) to ${status}`,
+      data: { count: updatedTrackingCodes.length, trackingCodes: updatedTrackingCodes },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/dispatcher/dashboard
 export const getDispatcherDashboard = async (req, res) => {
   try {

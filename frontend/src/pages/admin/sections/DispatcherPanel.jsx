@@ -44,7 +44,24 @@ const AdminDispatcher = () => {
   const [deliveryRiderMap, setDeliveryRiderMap] = useState({});
   const [actionLoading, setActionLoading] = useState({});
   const [activeTab, setActiveTab] = useState('overview');
+  const [selected, setSelected] = useState([]);
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const { showToast } = useToast();
+
+  const handleBulkStatusChange = async (targetStatus) => {
+    if (!selected.length) return showToast('Select at least one package', 'warning');
+    setBulkStatusLoading(true);
+    try {
+      const res = await api.put('/dispatcher/bulk-status-update', { packageIds: selected, status: targetStatus });
+      showToast(`✓ ${res.data?.data?.count || selected.length} package(s) updated to "${targetStatus}"!`, 'success');
+      setSelected([]);
+      fetchAll(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Bulk status update failed', 'error');
+    } finally {
+      setBulkStatusLoading(false);
+    }
+  };
 
   const [selectedRider, setSelectedRider] = useState(null);
   const [riderHistory, setRiderHistory] = useState(null);
@@ -350,58 +367,106 @@ const AdminDispatcher = () => {
 
       {/* Warehouse Tab */}
       {activeTab === 'warehouse' && (
-        <div className="card-premium overflow-hidden animate-fadeInUp">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-            <h3 className="font-bold text-slate-800 text-lg">Warehouse Packages</h3>
-            <p className="text-sm text-slate-500">{warehousePackages.length} package(s) ready for delivery assignment</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-3">Tracking</th>
-                  <th className="px-6 py-3">Vendor</th>
-                  <th className="px-6 py-3">Customer</th>
-                  <th className="px-6 py-3">Destination</th>
-                  <th className="px-6 py-3">COD</th>
-                  <th className="px-6 py-3">Assign Rider</th>
-                  <th className="px-6 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {warehousePackages.length === 0 ? <tr><td colSpan="7" className="px-6 py-12 text-center text-slate-500">No packages in warehouse.</td></tr>
-                  : warehousePackages.map(p => (
-                  <tr key={p._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
-                    <td className="px-6 py-4 font-bold text-slate-900">
-                          <button 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
-                            style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-                            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
-                            title="View Package Details"
-                          >
-                            {p.vendorId?.vendorMeta?.shopName || '—'}
-                          </button>
-                        </td>
-                    <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
-                    <td className="px-6 py-4 text-slate-500">{p.city || p.address || '—'}</td>
-                    <td className="px-6 py-4 font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
-                    <td className="px-6 py-4">
-                      <select className="input-field py-1.5 text-xs w-40" value={deliveryRiderMap[p._id] || ''} onChange={e => setDeliveryRiderMap(m => ({ ...m, [p._id]: e.target.value }))}>
-                        <option value="">Select Rider</option>
-                        {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="btn-primary btn-sm px-4 flex items-center justify-end gap-1.5 ml-auto" onClick={() => assignDelivery(p._id)} disabled={actionLoading[`d_${p._id}`]}>
-                        {actionLoading[`d_${p._id}`] ? '...' : <><Truck className="w-4 h-4" /> Send</>}
-                      </button>
-                    </td>
+        <div className="space-y-4 animate-fadeInUp">
+          {selected.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 px-5 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-xs font-bold text-blue-800">
+                {selected.length} package(s) selected
+              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={() => handleBulkStatusChange('In Warehouse')}
+                  disabled={bulkStatusLoading}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  🏬 Return to Warehouse
+                </button>
+                <button
+                  onClick={() => handleBulkStatusChange('Out for Delivery')}
+                  disabled={bulkStatusLoading}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  🚀 Dispatched
+                </button>
+                <button
+                  onClick={() => handleBulkStatusChange('Delivered')}
+                  disabled={bulkStatusLoading}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  ✅ Delivered
+                </button>
+                <button onClick={() => setSelected([])} className="text-xs text-slate-500 hover:text-slate-700 ml-2">Clear</button>
+              </div>
+            </div>
+          )}
+
+          <div className="card-premium overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-bold text-slate-800 text-lg">Warehouse Packages</h3>
+              <p className="text-sm text-slate-500">{warehousePackages.length} package(s) ready for delivery assignment</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={warehousePackages.length > 0 && warehousePackages.every(p => selected.includes(p._id))}
+                        onChange={e => setSelected(e.target.checked ? warehousePackages.map(p => p._id) : [])}
+                      />
+                    </th>
+                    <th className="px-6 py-3">Tracking</th>
+                    <th className="px-6 py-3">Vendor</th>
+                    <th className="px-6 py-3">Customer</th>
+                    <th className="px-6 py-3">Destination</th>
+                    <th className="px-6 py-3">COD</th>
+                    <th className="px-6 py-3">Assign Rider</th>
+                    <th className="px-6 py-3 text-right">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {warehousePackages.length === 0 ? <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-500">No packages in warehouse.</td></tr>
+                    : warehousePackages.map(p => (
+                    <tr key={p._id} className={`hover:bg-slate-50 transition-colors ${selected.includes(p._id) ? 'bg-blue-50/50' : ''}`}>
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(p._id)}
+                          onChange={() => setSelected(s => s.includes(p._id) ? s.filter(id => id !== p._id) : [...s, p._id])}
+                        />
+                      </td>
+                      <td className="px-6 py-4"><TrackingLink code={p.trackingCode} /></td>
+                      <td className="px-6 py-4 font-bold text-slate-900">
+                            <button 
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
+                              style={{ color: '#2563eb', textDecoration: 'none', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                              onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                              onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                              title="View Package Details"
+                            >
+                              {p.vendorId?.vendorMeta?.shopName || '—'}
+                            </button>
+                          </td>
+                      <td className="px-6 py-4 font-medium text-slate-800">{p.customerName}</td>
+                      <td className="px-6 py-4 text-slate-500">{p.city || p.address || '—'}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
+                      <td className="px-6 py-4">
+                        <select className="input-field py-1.5 text-xs w-40" value={deliveryRiderMap[p._id] || ''} onChange={e => setDeliveryRiderMap(m => ({ ...m, [p._id]: e.target.value }))}>
+                          <option value="">Select Rider</option>
+                          {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button className="btn-primary btn-sm px-4 flex items-center justify-end gap-1.5 ml-auto" onClick={() => assignDelivery(p._id)} disabled={actionLoading[`d_${p._id}`]}>
+                          {actionLoading[`d_${p._id}`] ? '...' : <><Truck className="w-4 h-4" /> Send</>}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

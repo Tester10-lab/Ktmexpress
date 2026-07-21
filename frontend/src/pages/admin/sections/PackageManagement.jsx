@@ -225,6 +225,34 @@ const AdminPackages = () => {
     finally { setCsvUploading(false); }
   };
 
+  const handleExportDailyExcel = async () => {
+    try {
+      showToast('Generating 2-Sheet Excel export...', 'info');
+      const q = new URLSearchParams();
+      if (startDate) q.append('startDate', startDate);
+      if (endDate) q.append('endDate', endDate);
+      if (vendor) q.append('vendor', vendor);
+      if (statusFilter) q.append('status', statusFilter);
+
+      const response = await api.get(`/admin/export/daily-excel?${q.toString()}`, {
+        responseType: 'blob'
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = `ktmexpress_daily_export_${startDate || new Date().toISOString().split('T')[0]}.xlsx`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('Daily Excel file downloaded successfully!', 'success');
+    } catch (err) {
+      showToast('Failed to export Excel file: ' + (err.message || 'Error'), 'error');
+    }
+  };
+
   const toggleSelect = (id) => {
     setSelected(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
   };
@@ -272,8 +300,12 @@ const AdminPackages = () => {
           <button className="btn-outline py-2 flex items-center gap-2" onClick={() => setCsvModal(true)}>
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> CSV Upload
           </button>
+          <button className="btn-outline py-2 flex items-center gap-2 text-emerald-700 hover:bg-emerald-50 border-emerald-200" onClick={handleExportDailyExcel} title="Export 2-Sheet Daily Excel Report">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Daily Excel
+          </button>
         </div>
         </div>
+
 
         {/* Advanced Filters */}
         {showFilters && (

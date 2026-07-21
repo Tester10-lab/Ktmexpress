@@ -573,7 +573,23 @@ const InboundScan = () => {
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [riderId, setRiderId] = useState('');
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const { showToast } = useToast();
+
+  const bulkSetStatus = async (targetStatus) => {
+    if (!selected.length) return showToast('No packages selected', 'warning');
+    setBulkStatusLoading(true);
+    try {
+      const res = await api.put('/dispatcher/bulk-status-update', { packageIds: selected, status: targetStatus });
+      showToast(`✓ ${res.data?.data?.count || selected.length} package(s) updated to "${targetStatus}"!`, 'success');
+      setSelected([]);
+      fetchData(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Bulk status update failed', 'error');
+    } finally {
+      setBulkStatusLoading(false);
+    }
+  };
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -685,10 +701,19 @@ const InboundScan = () => {
           <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
             {selected.length} package(s) selected
           </span>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <ActionBtn onClick={() => bulkSetStatus('In Warehouse')} disabled={bulkStatusLoading} variant="warning" size="sm">
+              🏬 Return to Warehouse
+            </ActionBtn>
+            <ActionBtn onClick={() => bulkSetStatus('Out for Delivery')} disabled={bulkStatusLoading} variant="primary" size="sm">
+              🚀 Dispatched
+            </ActionBtn>
+            <ActionBtn onClick={() => bulkSetStatus('Delivered')} disabled={bulkStatusLoading} variant="success" size="sm">
+              ✅ Delivered
+            </ActionBtn>
             {hasUnconfirmed && (
-              <ActionBtn onClick={bulkConfirmArrival} disabled={bulkConfirming} variant="success" size="sm">
-                {bulkConfirming ? '...' : '✓ Confirm Arrival at Warehouse'}
+              <ActionBtn onClick={bulkConfirmArrival} disabled={bulkConfirming} variant="ghost" size="sm">
+                {bulkConfirming ? '...' : '✓ Confirm Arrival'}
               </ActionBtn>
             )}
             {hasInWarehouse && (
@@ -702,11 +727,11 @@ const InboundScan = () => {
                   {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
                 </select>
                 <ActionBtn onClick={bulkSendForDelivery} disabled={bulkAssigning || !riderId} variant="primary" size="sm">
-                  {bulkAssigning ? '...' : '🚀 Send for Delivery'}
+                  {bulkAssigning ? '...' : 'Assign Rider'}
                 </ActionBtn>
               </>
             )}
-            <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+            <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>Clear</button>
           </div>
         </div>
       )}
@@ -776,7 +801,23 @@ const Routing = () => {
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [search, setSearch] = useState('');
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const { showToast } = useToast();
+
+  const bulkSetStatus = async (targetStatus) => {
+    if (!selected.length) return showToast('No packages selected', 'warning');
+    setBulkStatusLoading(true);
+    try {
+      const res = await api.put('/dispatcher/bulk-status-update', { packageIds: selected, status: targetStatus });
+      showToast(`✓ ${res.data?.data?.count || selected.length} package(s) updated to "${targetStatus}"!`, 'success');
+      setSelected([]);
+      fetchData(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Bulk status update failed', 'error');
+    } finally {
+      setBulkStatusLoading(false);
+    }
+  };
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -846,14 +887,25 @@ const Routing = () => {
         <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
       </div>
 
-      {/* Selection Info */}
+      {/* Selection Info + Bulk Actions */}
       {selected.length > 0 && (
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
             {selected.length} package(s) selected
-            {selectedRider ? ` → Assigning to ${selectedRider.name}` : ' — pick a rider'}
+            {selectedRider ? ` → Assigning to ${selectedRider.name}` : ''}
           </span>
-          <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>Clear</button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <ActionBtn onClick={() => bulkSetStatus('In Warehouse')} disabled={bulkStatusLoading} variant="warning" size="sm">
+              🏬 Return to Warehouse
+            </ActionBtn>
+            <ActionBtn onClick={() => bulkSetStatus('Out for Delivery')} disabled={bulkStatusLoading} variant="primary" size="sm">
+              🚀 Dispatched
+            </ActionBtn>
+            <ActionBtn onClick={() => bulkSetStatus('Delivered')} disabled={bulkStatusLoading} variant="success" size="sm">
+              ✅ Delivered
+            </ActionBtn>
+            <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>Clear</button>
+          </div>
         </div>
       )}
 

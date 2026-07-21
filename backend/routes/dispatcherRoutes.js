@@ -15,7 +15,8 @@ import {
   getCodHandovers,
   verifyCodHandover,
   getRiderHistory,
-  bulkVendorHandover
+  bulkVendorHandover,
+  bulkStatusUpdate
 } from '../controllers/dispatcherController.js';
 
 // All routes require auth + dispatcher or admin role
@@ -29,6 +30,7 @@ router.put('/assign-pickup', assignRiderToPickup);
 router.put('/confirm-warehouse', confirmWarehouseArrival);
 router.put('/assign-delivery', assignRiderForDelivery);
 router.put('/bulk-assign', bulkAssignPackages);
+router.put('/bulk-status-update', bulkStatusUpdate);
 router.put('/confirm-return', confirmReturn);
 router.put('/bulk-vendor-handover', bulkVendorHandover);
 router.get('/cod-handovers', getCodHandovers);

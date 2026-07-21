@@ -34,8 +34,10 @@ import {
   savePackageVerificationDraft,
   verifyPackageAdmin,
   reopenPackageAdmin,
-  bulkVerifyPackagesAdmin
+  bulkVerifyPackagesAdmin,
+  exportDailyExcel
 } from '../controllers/adminController.js';
+
 import {
   getGlobalPricingSettings,
   updateGlobalPricingSettings,
@@ -147,4 +149,8 @@ router.post('/packages/:id/verify-action', verifyRateLimiter, authorize('canVeri
 router.post('/packages/:id/reopen', reopenRateLimiter, authorize('canReopenVerification'), reopenPackageAdmin);
 router.post('/packages/bulk-verify', bulkVerifyRateLimiter, authorize('canVerifyPackages'), bulkVerifyPackagesAdmin);
 
+// Daily Excel Export (2 sheets in 1 .xlsx file)
+router.get('/export/daily-excel', exportDailyExcel);
+
 export default router;
+
