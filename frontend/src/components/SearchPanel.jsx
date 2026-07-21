@@ -5,7 +5,9 @@ export default function SearchPanel({ placeholder = "Search by tracking ID, name
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      onSearch(searchTerm);
+      if (typeof onSearch === 'function') {
+        onSearch(searchTerm);
+      }
     }, delay);
 
     return () => {

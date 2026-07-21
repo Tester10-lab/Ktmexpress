@@ -18,6 +18,7 @@ import {
   bulkVendorHandover,
   bulkStatusUpdate
 } from '../controllers/dispatcherController.js';
+import { addPackageComment } from '../controllers/packageController.js';
 
 // All routes require auth + dispatcher or admin role
 router.use(auth, roleGuard('dispatcher', 'admin'));
@@ -35,8 +36,7 @@ router.put('/confirm-return', confirmReturn);
 router.put('/bulk-vendor-handover', bulkVendorHandover);
 router.get('/cod-handovers', getCodHandovers);
 router.put('/cod-handovers/:id/verify', verifyCodHandover);
-import { addPackageComment } from '../controllers/packageController.js';
-
+router.get('/riders/:id/history', getRiderHistory);
 router.post('/packages/:id/comments', addPackageComment);
 
 export default router;
