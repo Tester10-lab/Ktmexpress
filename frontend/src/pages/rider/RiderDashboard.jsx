@@ -558,30 +558,37 @@ const CODWallet = () => {
           
           <div className="relative z-10 flex justify-between items-start">
             <div>
-              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">Cash COD Wallet</p>
-              <h3 className="text-4xl sm:text-5xl font-black tracking-tight mt-2">Rs. {stats.totalCOD??0}</h3>
+              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">Net Cash to Handover</p>
+              <h3 className="text-4xl sm:text-5xl font-black tracking-tight mt-2">Rs. {(stats.totalCOD || 0).toLocaleString()}</h3>
+              {stats.totalExpenses > 0 && (
+                <div className="mt-2 inline-flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg text-xs text-brand-100 font-medium border border-white/10">
+                  <span>Gross COD: <strong>Rs. {(stats.grossCOD || 0).toLocaleString()}</strong></span>
+                  <span>•</span>
+                  <span>Expenses: <strong className="text-amber-300">- Rs. {(stats.totalExpenses || 0).toLocaleString()}</strong></span>
+                </div>
+              )}
             </div>
             <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner">
               <Wallet className="w-6 h-6 text-white" />
             </div>
           </div>
           
-            <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <p className="text-sm text-brand-50 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0"/> 
-                Total Cash-On-Delivery collected. Must be deposited at the hub.
-              </p>
-              {unreconciledPkgs.length > 0 && (
-                <button 
-                  onClick={handleHandover}
-                  disabled={submitting}
-                  className="whitespace-nowrap px-4 py-2 bg-white text-brand-700 hover:bg-brand-50 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50"
-                >
-                  {submitting ? 'Submitting...' : `Handover Rs. ${stats.totalCOD??0}`}
-                </button>
-              )}
-            </div>
+          <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <p className="text-xs text-brand-50 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0"/> 
+              Net COD to hand over = Delivered Cash collected minus approved daily expenses.
+            </p>
+            {unreconciledPkgs.length > 0 && (
+              <button 
+                onClick={handleHandover}
+                disabled={submitting}
+                className="whitespace-nowrap px-4 py-2 bg-white text-brand-700 hover:bg-brand-50 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50"
+              >
+                {submitting ? 'Submitting...' : `Handover Rs. ${(stats.totalCOD || 0).toLocaleString()}`}
+              </button>
+            )}
           </div>
+        </div>
 
         {/* Target Card */}
         <div className="card-premium p-6 flex flex-col justify-center">

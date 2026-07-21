@@ -84,7 +84,9 @@ const AdminCodHandovers = () => {
               <tr>
                 <th className="px-6 py-4">Date</th>
                 <th className="px-6 py-4">Rider</th>
-                <th className="px-6 py-4">Amount</th>
+                <th className="px-6 py-4 text-right">Gross COD</th>
+                <th className="px-6 py-4 text-right">Rider Expenses</th>
+                <th className="px-6 py-4 text-right">Net Cash Handover</th>
                 <th className="px-6 py-4">Packages</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Action</th>
@@ -92,7 +94,7 @@ const AdminCodHandovers = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {handovers.length === 0 ? (
-                <tr><td colSpan="6" className="text-center py-12 text-slate-500">No COD handovers found.</td></tr>
+                <tr><td colSpan="8" className="text-center py-12 text-slate-500">No COD handovers found.</td></tr>
               ) : (
                 handovers.map(h => (
                   <tr key={h._id} className="hover:bg-slate-50">
@@ -104,7 +106,15 @@ const AdminCodHandovers = () => {
                       <div className="font-bold">{h.riderId?.name}</div>
                       <div className="text-xs text-slate-500">{h.riderId?.contact || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 font-black text-slate-900">Rs. {h.amount}</td>
+                    <td className="px-6 py-4 text-right font-medium text-slate-800">
+                      Rs. {(h.grossCOD || h.amount || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right font-medium text-amber-600">
+                      - Rs. {(h.expenseDeduction || 0).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right font-black text-brand-700 text-base">
+                      Rs. {(h.amount || 0).toLocaleString()}
+                    </td>
                     <td className="px-6 py-4">
                       <span className="bg-slate-100 px-2 py-1 rounded-lg text-xs font-bold">{h.packageIds?.length || 0}</span>
                     </td>

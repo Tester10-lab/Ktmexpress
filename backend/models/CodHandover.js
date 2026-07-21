@@ -12,6 +12,14 @@ const codHandoverSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    grossCOD: {
+      type: Number,
+      default: 0,
+    },
+    expenseDeduction: {
+      type: Number,
+      default: 0,
+    },
     packageIds: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Package',

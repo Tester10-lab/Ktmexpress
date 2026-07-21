@@ -1,6 +1,7 @@
 import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import CodHandover from '../models/CodHandover.js';
+import Expense from '../models/Expense.js';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { canTransition } from '../services/packageTransitions.js';
@@ -251,17 +252,39 @@ export const getRiderSummary = async (req, res) => {
       },
     ]);
 
+    // Calculate rider's approved/pending expenses for today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const expensesList = await Expense.find({
+      riderId: req.user._id,
+      status: { $in: ['Approved', 'Pending'] },
+      deletedAt: null,
+      date: { $gte: todayStart }
+    }).select('amount').lean();
+    const todayExpenses = expensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
+
     const delivered = result.delivered[0]?.count || 0;
     const pending = result.pending[0]?.count || 0;
     const postponed = result.postponed[0]?.count || 0;
     const cancelled = result.cancelled[0]?.count || 0;
     const deliveredThisMonth = result.deliveredThisMonth[0]?.count || 0;
-    const totalCOD = result.totalCOD[0]?.total || 0;
+    const grossCOD = result.totalCOD[0]?.total || 0;
+    const netCOD = Math.max(0, grossCOD - todayExpenses);
     const monthlyTarget = req.user.riderMeta?.monthlyTarget || 0;
 
     res.json({
       success: true,
-      data: { delivered, pending, postponed, cancelled, totalCOD, deliveredThisMonth, monthlyTarget },
+      data: { 
+        delivered, 
+        pending, 
+        postponed, 
+        cancelled, 
+        totalCOD: netCOD, 
+        grossCOD, 
+        totalExpenses: todayExpenses, 
+        deliveredThisMonth, 
+        monthlyTarget 
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -335,11 +358,26 @@ export const submitCodHandover = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid packages selected or already reconciled.' });
     }
 
-    const amount = packages.reduce((sum, pkg) => sum + pkg.amount, 0);
+    const grossCOD = packages.reduce((sum, pkg) => sum + (pkg.amount || 0), 0);
+
+    // Fetch rider expenses for today
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const expensesList = await Expense.find({
+      riderId: req.user._id,
+      status: { $in: ['Approved', 'Pending'] },
+      deletedAt: null,
+      date: { $gte: todayStart }
+    }).select('amount').lean();
+    const expenseDeduction = expensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+    const netHandoverAmount = Math.max(0, grossCOD - expenseDeduction);
 
     const handover = await CodHandover.create({
       riderId,
-      amount,
+      amount: netHandoverAmount,
+      grossCOD,
+      expenseDeduction,
       packageIds,
       status: 'Pending Verification',
     });

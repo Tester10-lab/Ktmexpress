@@ -1686,7 +1686,9 @@ const CodHandovers = () => {
               <tr>
                 <th style={thStyle}>Date</th>
                 <th style={thStyle}>Rider</th>
-                <th style={thStyle}>Amount</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Gross COD</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Rider Expenses</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Net Cash Handover</th>
                 <th style={thStyle}>Packages</th>
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Action</th>
@@ -1694,7 +1696,7 @@ const CodHandovers = () => {
             </thead>
             <tbody>
               {handovers.length === 0 ? (
-                <tr><td colSpan="6"><EmptyState message="No COD handovers found." /></td></tr>
+                <tr><td colSpan="8"><EmptyState message="No COD handovers found." /></td></tr>
               ) : (
                 handovers.map(h => (
                   <tr key={h._id}>
@@ -1706,7 +1708,17 @@ const CodHandovers = () => {
                       <div style={{ fontWeight: 600 }}>{h.riderId?.name}</div>
                       <div style={{ fontSize: 11, color: '#6b7280' }}>{h.riderId?.contact || '-'}</div>
                     </td>
-                    <td style={tdStyle}><span style={{ fontWeight: 800, color: '#111827' }}>Rs. {h.amount}</span></td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#374151' }}>
+                      Rs. {(h.grossCOD || h.amount || 0).toLocaleString()}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>
+                      - Rs. {(h.expenseDeduction || 0).toLocaleString()}
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>
+                      <span style={{ fontWeight: 800, color: '#166534', fontSize: 15 }}>
+                        Rs. {(h.amount || 0).toLocaleString()}
+                      </span>
+                    </td>
                     <td style={tdStyle}><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>{h.packageIds?.length || 0}</span></td>
                     <td style={tdStyle}>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${h.status === 'Verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : h.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
