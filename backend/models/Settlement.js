@@ -10,9 +10,13 @@ const settlementSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  paidAmount: {
+    type: Number,
+    default: 0,
+  },
   status: {
     type: String,
-    enum: ['Pending', 'Approved', 'Rejected'],
+    enum: ['Pending', 'Approved', 'Partially Paid', 'Rejected'],
     default: 'Pending',
   },
   deletedAt: {

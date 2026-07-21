@@ -26,6 +26,8 @@ import {
   updateExpenseStatus,
   getSettlements,
   updateSettlement,
+  directVendorPayout,
+  getVendorBalances,
   requestPickupAdmin,
   verifyCOD,
   markVendorPaid,
@@ -138,6 +140,8 @@ router.post('/reconcile/:riderId', reconcileRiderCOD);
 router.get('/expenses', getAllExpenses);
 router.put('/expenses/:id/status', updateExpenseStatus);
 router.get('/settlements', getSettlements);
+router.get('/settlements/vendor-balances', getVendorBalances);
+router.post('/settlements/direct-payout', authorize('canVerifyPackages'), directVendorPayout);
 router.put('/settlements/:id', authorize('canVerifyPackages'), updateSettlement);
 router.post('/settlements/verify-cod/:packageId', authorize('canVerifyPackages'), verifyCOD);
 router.post('/settlements/mark-paid', authorize('canVerifyPackages'), markVendorPaid);

@@ -1075,25 +1075,66 @@ export const getSettlements = async (req, res) => {
 // PUT /api/admin/settlements/:id
 export const updateSettlement = async (req, res) => {
   try {
-    const { status, adminNotes } = req.body;
+    const { status, adminNotes, reference, paymentMethod, paidAmount } = req.body;
     const settlement = await Settlement.findById(req.params.id);
     
     if (!settlement) {
       return res.status(404).json({ success: false, message: 'Settlement not found.' });
     }
 
-    settlement.status = status || settlement.status;
-    settlement.adminNotes = adminNotes || settlement.adminNotes;
-    await settlement.save();
+    const packages = await Package.find({ _id: { $in: settlement.packageIds } });
+    
+    let targetPaidAmount = Number(paidAmount);
+    if (isNaN(targetPaidAmount) || targetPaidAmount <= 0) {
+      targetPaidAmount = settlement.requestedAmount;
+    }
 
-    // If approved, update associated packages to vendorPaid = true and release lock
-    if (settlement.status === 'Approved') {
-      await Package.updateMany(
-        { _id: { $in: settlement.packageIds } },
-        { $set: { vendorPaid: true, isSettling: false } }
-      );
-    } else if (settlement.status === 'Rejected') {
-      // If rejected, unlock the packages so they can be requestable in another settlement
+    if (status === 'Approved' || status === 'Partially Paid') {
+      const now = new Date();
+      let runningSum = 0;
+      const paidPkgIds = [];
+      const remainingPkgIds = [];
+
+      for (const pkg of packages) {
+        const netReceivable = (pkg.amount || 0) - (pkg.deliveryCharge || 0);
+        if (runningSum + netReceivable <= targetPaidAmount || paidPkgIds.length === 0) {
+          runningSum += netReceivable;
+          paidPkgIds.push(pkg._id);
+        } else {
+          remainingPkgIds.push(pkg._id);
+        }
+      }
+
+      // Update paid packages
+      if (paidPkgIds.length > 0) {
+        await Package.updateMany(
+          { _id: { $in: paidPkgIds } },
+          { $set: { vendorPaid: true, paidAt: now, settlementStatus: 'Settled', isSettling: false } }
+        );
+      }
+
+      // Unlock remaining packages so vendor can request them in next settlement
+      if (remainingPkgIds.length > 0) {
+        await Package.updateMany(
+          { _id: { $in: remainingPkgIds } },
+          { $set: { isSettling: false, vendorPaid: false } }
+        );
+      }
+
+      settlement.status = remainingPkgIds.length > 0 ? 'Partially Paid' : 'Approved';
+      settlement.paidAmount = runningSum;
+      settlement.paidAt = now;
+      settlement.reference = reference || settlement.reference || '';
+      settlement.paymentMethod = paymentMethod || settlement.paymentMethod || 'Bank Transfer';
+      settlement.adminNotes = adminNotes || settlement.adminNotes || '';
+      await settlement.save();
+
+    } else if (status === 'Rejected') {
+      settlement.status = 'Rejected';
+      settlement.adminNotes = adminNotes || settlement.adminNotes || '';
+      await settlement.save();
+
+      // Unlock all packages
       await Package.updateMany(
         { _id: { $in: settlement.packageIds } },
         { $set: { isSettling: false } }
@@ -1101,6 +1142,120 @@ export const updateSettlement = async (req, res) => {
     }
 
     res.json({ success: true, data: settlement });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST /api/admin/settlements/direct-payout
+export const directVendorPayout = async (req, res) => {
+  try {
+    const { vendorId, amount, paymentMethod, reference, adminNotes } = req.body;
+    if (!vendorId || !amount || Number(amount) <= 0) {
+      return res.status(400).json({ success: false, message: 'Vendor ID and a valid payment amount are required.' });
+    }
+
+    const targetAmount = Number(amount);
+
+    // Find delivered, unpaid, and not currently settling packages for this vendor
+    const eligiblePackages = await Package.find({
+      vendorId,
+      status: 'Delivered',
+      vendorPaid: { $ne: true },
+      isSettling: { $ne: true }
+    }).sort({ createdAt: 1 });
+
+    if (eligiblePackages.length === 0) {
+      return res.status(400).json({ success: false, message: 'No unpaid delivered packages found for this vendor.' });
+    }
+
+    let runningSum = 0;
+    const packagesToPay = [];
+
+    for (const pkg of eligiblePackages) {
+      const netReceivable = (pkg.amount || 0) - (pkg.deliveryCharge || 0);
+      if (runningSum + netReceivable <= targetAmount || packagesToPay.length === 0) {
+        runningSum += netReceivable;
+        packagesToPay.push(pkg);
+      } else {
+        break;
+      }
+    }
+
+    const packageIds = packagesToPay.map(p => p._id);
+    const now = new Date();
+
+    // Mark packages as paid
+    await Package.updateMany(
+      { _id: { $in: packageIds } },
+      { $set: { vendorPaid: true, paidAt: now, settlementStatus: 'Settled', isSettling: false } }
+    );
+
+    // Create completed Settlement record
+    const settlement = await Settlement.create({
+      vendorId,
+      requestedAmount: runningSum,
+      paidAmount: runningSum,
+      status: 'Approved',
+      packageIds,
+      paidAt: now,
+      reference: reference || '',
+      paymentMethod: paymentMethod || 'Bank Transfer',
+      adminNotes: adminNotes || 'Direct Payout by Admin'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Successfully paid Rs. ${runningSum} for ${packageIds.length} package(s).`,
+      data: settlement
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/admin/settlements/vendor-balances
+export const getVendorBalances = async (req, res) => {
+  try {
+    const vendors = await User.find({ role: 'vendor' }).select('name email vendorMeta').lean();
+    
+    // Get all delivered unpaid packages
+    const unpaidPackages = await Package.find({
+      status: 'Delivered',
+      vendorPaid: { $ne: true }
+    }).select('vendorId amount deliveryCharge codVerified isSettling createdAt').lean();
+
+    const vendorMap = {};
+    vendors.forEach(v => {
+      vendorMap[v._id.toString()] = {
+        vendorId: v._id,
+        name: v.name,
+        email: v.email,
+        shopName: v.vendorMeta?.shopName || v.name,
+        bankName: v.vendorMeta?.bankName || 'N/A',
+        accountNumber: v.vendorMeta?.accountNumber || 'N/A',
+        branch: v.vendorMeta?.branch || 'N/A',
+        accountHolder: v.vendorMeta?.accountHolder || v.name,
+        phone: v.vendorMeta?.phone || '',
+        pendingCount: 0,
+        totalCOD: 0,
+        totalDeliveryCharge: 0,
+        netPayable: 0
+      };
+    });
+
+    unpaidPackages.forEach(p => {
+      const vid = p.vendorId ? p.vendorId.toString() : null;
+      if (vid && vendorMap[vid]) {
+        vendorMap[vid].pendingCount += 1;
+        vendorMap[vid].totalCOD += (p.amount || 0);
+        vendorMap[vid].totalDeliveryCharge += (p.deliveryCharge || 0);
+        vendorMap[vid].netPayable += ((p.amount || 0) - (p.deliveryCharge || 0));
+      }
+    });
+
+    const result = Object.values(vendorMap).filter(v => v.pendingCount > 0);
+    res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
