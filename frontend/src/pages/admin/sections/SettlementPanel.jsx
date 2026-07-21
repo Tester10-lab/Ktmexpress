@@ -48,7 +48,7 @@ const AdminSettlements = () => {
   // Fetch Direct Packages
   const fetchPackages = useCallback((silent = false) => {
     if (!silent) setPkgLoading(true);
-    const q = new URLSearchParams({ page: pkgPage, limit, status: 'history' });
+    const q = new URLSearchParams({ page: pkgPage, limit, status: 'Delivered' });
     
     api.get(`/admin/packages?${q.toString()}`)
       .then(r => {

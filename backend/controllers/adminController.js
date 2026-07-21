@@ -529,7 +529,13 @@ export const getAllPackagesAdmin = async (req, res) => {
   try {
     const { status, verificationStatus, vendor, rider, trackingCode, customer, startDate, endDate, search, page = 1, limit = 50 } = req.query;
     const filter = {};
-    if (status && status !== 'all') filter.status = status;
+    if (status && status !== 'all') {
+      if (status === 'history') {
+        filter.status = { $in: ['Delivered', 'Returned', 'Cancelled', 'Exchanged', 'Returned to Vendor'] };
+      } else {
+        filter.status = status;
+      }
+    }
     if (verificationStatus && verificationStatus !== 'all') filter.deliveryVerificationStatus = verificationStatus;
     if (vendor) filter.vendorId = vendor;
     if (rider) filter.riderId = rider;
