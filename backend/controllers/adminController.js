@@ -1129,6 +1129,17 @@ export const updateSettlement = async (req, res) => {
       settlement.adminNotes = adminNotes || settlement.adminNotes || '';
       await settlement.save();
 
+      // Send real-time notification to Vendor
+      if (req.io && settlement.vendorId) {
+        const vId = settlement.vendorId._id || settlement.vendorId;
+        req.io.to(`user_${vId}`).emit('notification', {
+          title: settlement.status === 'Approved' ? 'Settlement Payout Approved' : 'Partial Settlement Paid',
+          message: `Your settlement payout of Rs. ${runningSum.toLocaleString()} has been processed via ${settlement.paymentMethod} (Ref: ${settlement.reference || 'N/A'}).`,
+          type: 'success',
+          timestamp: new Date()
+        });
+      }
+
     } else if (status === 'Rejected') {
       settlement.status = 'Rejected';
       settlement.adminNotes = adminNotes || settlement.adminNotes || '';
@@ -1139,6 +1150,17 @@ export const updateSettlement = async (req, res) => {
         { _id: { $in: settlement.packageIds } },
         { $set: { isSettling: false } }
       );
+
+      // Send real-time rejection notification to Vendor
+      if (req.io && settlement.vendorId) {
+        const vId = settlement.vendorId._id || settlement.vendorId;
+        req.io.to(`user_${vId}`).emit('notification', {
+          title: 'Settlement Request Rejected',
+          message: `Your settlement request for Rs. ${settlement.requestedAmount.toLocaleString()} was rejected: ${adminNotes || 'Contact Admin'}.`,
+          type: 'danger',
+          timestamp: new Date()
+        });
+      }
     }
 
     res.json({ success: true, data: settlement });
@@ -1157,12 +1179,11 @@ export const directVendorPayout = async (req, res) => {
 
     const targetAmount = Number(amount);
 
-    // Find delivered, unpaid, and not currently settling packages for this vendor
+    // Find all delivered, unpaid packages for this vendor
     const eligiblePackages = await Package.find({
       vendorId,
-      status: 'Delivered',
-      vendorPaid: { $ne: true },
-      isSettling: { $ne: true }
+      status: { $regex: /^delivered$/i },
+      vendorPaid: { $ne: true }
     }).sort({ createdAt: 1 });
 
     if (eligiblePackages.length === 0) {
@@ -1204,9 +1225,19 @@ export const directVendorPayout = async (req, res) => {
       adminNotes: adminNotes || 'Direct Payout by Admin'
     });
 
+    // Send real-time notification to Vendor
+    if (req.io) {
+      req.io.to(`user_${vendorId}`).emit('notification', {
+        title: 'Payout Received',
+        message: `Admin has processed a payout of Rs. ${runningSum.toLocaleString()} for ${packagesToPay.length} delivered package(s) via ${paymentMethod || 'Bank Transfer'} (Ref: ${reference || 'N/A'}).`,
+        type: 'success',
+        timestamp: new Date()
+      });
+    }
+
     res.status(201).json({
       success: true,
-      message: `Successfully paid Rs. ${runningSum} for ${packageIds.length} package(s).`,
+      message: `Successfully paid Rs. ${runningSum.toLocaleString()} for ${packageIds.length} package(s).`,
       data: settlement
     });
   } catch (error) {
@@ -1217,41 +1248,42 @@ export const directVendorPayout = async (req, res) => {
 // GET /api/admin/settlements/vendor-balances
 export const getVendorBalances = async (req, res) => {
   try {
-    const vendors = await User.find({ role: 'vendor' }).select('name email vendorMeta').lean();
-    
-    // Get all delivered unpaid packages
+    // Aggregate directly from delivered unpaid packages
     const unpaidPackages = await Package.find({
-      status: 'Delivered',
+      status: { $regex: /^delivered$/i },
       vendorPaid: { $ne: true }
-    }).select('vendorId amount deliveryCharge codVerified isSettling createdAt').lean();
+    }).populate('vendorId', 'name email vendorMeta').lean();
 
     const vendorMap = {};
-    vendors.forEach(v => {
-      vendorMap[v._id.toString()] = {
-        vendorId: v._id,
-        name: v.name,
-        email: v.email,
-        shopName: v.vendorMeta?.shopName || v.name,
-        bankName: v.vendorMeta?.bankName || 'N/A',
-        accountNumber: v.vendorMeta?.accountNumber || 'N/A',
-        branch: v.vendorMeta?.branch || 'N/A',
-        accountHolder: v.vendorMeta?.accountHolder || v.name,
-        phone: v.vendorMeta?.phone || '',
-        pendingCount: 0,
-        totalCOD: 0,
-        totalDeliveryCharge: 0,
-        netPayable: 0
-      };
-    });
 
     unpaidPackages.forEach(p => {
-      const vid = p.vendorId ? p.vendorId.toString() : null;
-      if (vid && vendorMap[vid]) {
-        vendorMap[vid].pendingCount += 1;
-        vendorMap[vid].totalCOD += (p.amount || 0);
-        vendorMap[vid].totalDeliveryCharge += (p.deliveryCharge || 0);
-        vendorMap[vid].netPayable += ((p.amount || 0) - (p.deliveryCharge || 0));
+      const v = p.vendorId;
+      if (!v) return;
+      const vid = v._id ? v._id.toString() : v.toString();
+
+      if (!vendorMap[vid]) {
+        const vMeta = v.vendorMeta || {};
+        vendorMap[vid] = {
+          vendorId: vid,
+          name: v.name || 'Vendor',
+          email: v.email || '',
+          shopName: vMeta.shopName || v.name || 'Vendor Shop',
+          bankName: vMeta.bankName || 'N/A',
+          accountNumber: vMeta.accountNumber || 'N/A',
+          branch: vMeta.branch || 'N/A',
+          accountHolder: vMeta.accountHolder || v.name || 'N/A',
+          phone: vMeta.phone || '',
+          pendingCount: 0,
+          totalCOD: 0,
+          totalDeliveryCharge: 0,
+          netPayable: 0
+        };
       }
+
+      vendorMap[vid].pendingCount += 1;
+      vendorMap[vid].totalCOD += (p.amount || 0);
+      vendorMap[vid].totalDeliveryCharge += (p.deliveryCharge || 0);
+      vendorMap[vid].netPayable += ((p.amount || 0) - (p.deliveryCharge || 0));
     });
 
     const result = Object.values(vendorMap).filter(v => v.pendingCount > 0);
