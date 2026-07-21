@@ -1791,7 +1791,18 @@ const DispatcherDashboard = () => {
     
     fetchNotifications();
     const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+
+    const handleNewNotif = (e) => {
+      if (e.detail) {
+        setNotifications(prev => [e.detail, ...prev]);
+      }
+    };
+    window.addEventListener('app_notification', handleNewNotif);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('app_notification', handleNewNotif);
+    };
   }, []);
 
   const handleNotificationClick = (n) => {

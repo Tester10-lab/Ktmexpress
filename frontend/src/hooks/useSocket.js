@@ -32,6 +32,7 @@ export function useSocket() {
           showToast(data.message || data.title || 'New Notification', 'info');
           if (data.type === 'alert') playAlert();
           else playNotification();
+          window.dispatchEvent(new CustomEvent('app_notification', { detail: data }));
         });
 
         setSocket(socketInstance);

@@ -613,20 +613,55 @@ export const addPackageComment = async (req, res) => {
       .populate('riderId', 'name contact')
       .lean();
 
-    // Broadcast live event via Socket.IO
+    // Broadcast real-time notification to all relevant roles/users
     if (req.io) {
-      const commentPayload = {
+      const notifPayload = {
+        id: `comment_${pkg._id}_${Date.now()}`,
+        title: `New Comment on ${pkg.trackingCode}`,
+        message: `${senderName} (${senderRole}): "${comment.trim()}"`,
+        type: 'info',
+        module: 'Packages',
+        packageId: pkg._id,
+        trackingCode: pkg.trackingCode,
+        user: senderName,
+        role: senderRole,
+        createdAt: new Date().toISOString(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        icon: '💬',
+        read: false
+      };
+
+      const senderIdStr = (req.user._id || req.user.id || '').toString();
+
+      // Notify vendor if not sender
+      if (pkg.vendorId && pkg.vendorId.toString() !== senderIdStr) {
+        req.io.to(`user_${pkg.vendorId}`).emit('notification', notifPayload);
+      }
+
+      // Notify rider if assigned and not sender
+      if (pkg.riderId && pkg.riderId.toString() !== senderIdStr) {
+        req.io.to(`user_${pkg.riderId}`).emit('notification', notifPayload);
+      }
+
+      // Notify admins if not sender
+      if (req.user.role !== 'admin') {
+        req.io.to('role_admin').emit('notification', notifPayload);
+      }
+
+      // Notify dispatchers if not sender
+      if (req.user.role !== 'dispatcher') {
+        req.io.to('role_dispatcher').emit('notification', notifPayload);
+      }
+
+      // Emit package:comment event for live timeline refresh
+      req.io.to(`user_${pkg.vendorId}`).to(`user_${pkg.riderId}`).to('role_admin').to('role_dispatcher').emit('package:comment', {
         packageId: pkg._id,
         trackingCode: pkg.trackingCode,
         comment: comment.trim(),
         user: senderName,
         role: senderRole,
         time: new Date().toISOString()
-      };
-
-      if (pkg.vendorId) req.io.to(`user_${pkg.vendorId}`).emit('package:comment', commentPayload);
-      if (pkg.riderId) req.io.to(`user_${pkg.riderId}`).emit('package:comment', commentPayload);
-      req.io.to('role_admin').to('role_dispatcher').emit('package:comment', commentPayload);
+      });
     }
 
     res.json({ success: true, data: updatedPkg, message: 'Comment posted successfully.' });
