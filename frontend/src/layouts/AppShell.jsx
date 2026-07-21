@@ -12,6 +12,8 @@ import { useSettings } from '../store/SettingsContext';
 import { Button } from '../components/ui/Button';
 import { MobileBottomNav } from '../components/ui/MobileBottomNav';
 
+import NotificationsDropdown from '../components/NotificationsDropdown';
+
 const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications = [], onNotificationClick }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -139,34 +141,11 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden origin-top-right animate-in fade-in zoom-in-95 duration-150 z-50">
-                  <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                    <span className="font-semibold text-sm text-slate-900">Notifications</span>
-                    {unreadCount > 0 && <span className="bg-slate-200 text-slate-800 text-[10px] font-medium px-2 py-0.5 rounded-full">{unreadCount} new</span>}
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto">
-                    {notifications.length === 0 ? (
-                      <div className="p-8 text-center text-slate-500 text-sm">No new notifications</div>
-                    ) : (
-                      <div className="divide-y divide-slate-100">
-                        {notifications.map(n => (
-                          <div
-                            key={n.id}
-                            className={`p-4 cursor-pointer transition-colors flex gap-4 ${n.read ? 'bg-white hover:bg-slate-50 opacity-70' : 'bg-slate-50 hover:bg-slate-100'}`}
-                            onClick={() => { setNotificationsOpen(false); if (onNotificationClick) onNotificationClick(n); }}
-                          >
-                            <div className="text-xl shrink-0">{n.icon || '🔔'}</div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900 mb-0.5">{n.title}</p>
-                              <p className="text-xs text-slate-500 line-clamp-2">{n.message}</p>
-                              {n.time && <p className="text-[10px] text-slate-400 mt-1">{n.time}</p>}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <NotificationsDropdown
+                  notifications={notifications}
+                  onNotificationClick={onNotificationClick}
+                  onClose={() => setNotificationsOpen(false)}
+                />
               )}
             </div>
           </div>
