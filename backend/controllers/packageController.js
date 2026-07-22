@@ -332,64 +332,72 @@ export const requestVerification = async (req, res) => {
     else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(cleanReason)) priority = 'Medium';
 
     const prevVerificationStatus = pkg.deliveryVerificationStatus || null;
-
-    pkg.deliveryVerificationStatus = 'Pending';
-    pkg.activeVerificationPriority = priority;
-    if (!pkg.verificationStartedAt) {
-      pkg.verificationStartedAt = new Date();
-    }
-
-    if (!Array.isArray(pkg.verificationRequests)) {
-      pkg.verificationRequests = [];
-    }
+    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
 
     const rawUserId = req.user?._id || req.user?.id;
     const userId = rawUserId && mongoose.Types.ObjectId.isValid(rawUserId) ? rawUserId : null;
     const userName = req.user?.name || 'User';
     const userRole = req.user?.role || 'user';
 
-    pkg.verificationRequests.push({
-      requestedBy: userId,
-      requestedByName: userName,
-      requestedRole: userRole,
-      reason: cleanReason,
-      priority,
-      status: 'Pending'
-    });
+    const updateQuery = {
+      $set: {
+        deliveryVerificationStatus: 'Pending',
+        activeVerificationPriority: priority,
+      },
+      $push: {
+        verificationRequests: {
+          requestedBy: userId,
+          requestedByName: userName,
+          requestedRole: userRole,
+          reason: cleanReason,
+          priority,
+          status: 'Pending',
+          requestedAt: new Date()
+        },
+        timeline: {
+          time: ts,
+          status: 'Verification Requested',
+          message: `Verification requested by ${userRole}. Reason: ${cleanReason} (Priority: ${priority})`,
+          user: userName,
+          role: userRole,
+          type: 'System',
+          location: '',
+          changes: [
+            { field: 'deliveryVerificationStatus', before: prevVerificationStatus, after: 'Pending' }
+          ]
+        }
+      }
+    };
 
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
-    appendTimelineEvent(pkg, {
-      time: ts,
-      status: 'Verification Requested',
-      message: `Verification requested by ${userRole}. Reason: ${cleanReason} (Priority: ${priority})`,
-      user: userName,
-      role: userRole,
-      changes: [
-        { field: 'deliveryVerificationStatus', before: prevVerificationStatus, after: 'Pending' }
-      ]
-    });
+    if (!pkg.verificationStartedAt) {
+      updateQuery.$set.verificationStartedAt = new Date();
+    }
 
-    await pkg.save({ validateModifiedOnly: true });
+    const updatedPkg = await Package.findByIdAndUpdate(
+      pkg._id,
+      updateQuery,
+      { new: true, runValidators: false }
+    );
 
     // Notify admins and dispatchers
     if (req.io) {
       try {
         req.io.to('role_admin').to('role_dispatcher').emit('notification', {
           title: 'Verification Requested',
-          message: `Verification requested for package ${pkg.trackingCode} by ${userName}.`,
+          message: `Verification requested for package ${updatedPkg.trackingCode} by ${userName}.`,
           type: 'warning',
-          packageId: pkg._id,
-          trackingCode: pkg.trackingCode
+          packageId: updatedPkg._id,
+          trackingCode: updatedPkg.trackingCode
         });
       } catch (ioErr) {
         console.error('Socket emission error:', ioErr);
       }
     }
 
-    res.json({ success: true, message: 'Verification requested successfully.', data: pkg });
+    res.json({ success: true, message: 'Verification requested successfully.', data: updatedPkg });
   } catch (error) {
     console.error('Error in requestVerification:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: error.message || 'Internal server error.' });
   }
 };
 
