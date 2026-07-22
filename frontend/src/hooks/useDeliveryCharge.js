@@ -1,12 +1,13 @@
 /**
- * useDeliveryCharge — Auto-fetches the delivery charge from admin-configured rules.
+ * useDeliveryCharge — Auto-fetches the delivery charge from admin-configured rules or pricing engine.
  *
- * Triggers when fromBranch, toBranch, AND weight are all set.
- * Debounces weight input by 500ms to avoid excessive API calls.
+ * Triggers when fromBranch, toBranch, AND weight are set.
+ * Debounces weight input by 300ms to avoid excessive API calls.
  *
  * @param {string} fromBranch
  * @param {string} toBranch
  * @param {number|string} weight
+ * @param {string} [city]
  * @returns {{ charge: number, loading: boolean, error: string|null, ruleDetail: object|null }}
  */
 import { useState, useEffect, useRef } from 'react';
@@ -14,7 +15,7 @@ import api from '../api/axios';
 
 const EMPTY_BRANCH = ['', '--------', null, undefined];
 
-export function useDeliveryCharge(fromBranch, toBranch, weight) {
+export function useDeliveryCharge(fromBranch, toBranch, weight, city = '') {
   const [charge, setCharge]         = useState(null);   // null = not fetched yet
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
@@ -33,15 +34,7 @@ export function useDeliveryCharge(fromBranch, toBranch, weight) {
       return;
     }
 
-    // Validate same-branch immediately
-    if (fromBranch.trim().toLowerCase() === toBranch.trim().toLowerCase()) {
-      setCharge(null);
-      setError('From and To branch cannot be the same');
-      setRuleDetail(null);
-      return;
-    }
-
-    // Debounce 500ms on weight changes
+    // Debounce 300ms on weight / city / branch changes
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
@@ -49,11 +42,12 @@ export function useDeliveryCharge(fromBranch, toBranch, weight) {
       try {
         const w = Number(weight) || 0;
         const res = await api.get('/delivery-charges/calculate', {
-          params: { from: fromBranch, to: toBranch, weight: w },
+          params: { from: fromBranch, to: toBranch, weight: w, city: city || '' },
         });
         if (res.data.success) {
           setCharge(res.data.data.charge);
           setRuleDetail(res.data.data);
+          setError(null);
         } else {
           setCharge(null);
           setError(res.data.message || 'Rate not configured');
@@ -70,10 +64,10 @@ export function useDeliveryCharge(fromBranch, toBranch, weight) {
       } finally {
         setLoading(false);
       }
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(debounceRef.current);
-  }, [fromBranch, toBranch, weight]);
+  }, [fromBranch, toBranch, weight, city]);
 
   return { charge, loading, error, ruleDetail };
 }

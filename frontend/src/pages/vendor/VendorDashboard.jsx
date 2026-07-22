@@ -313,7 +313,8 @@ const PackageList = () => {
   } = useDeliveryCharge(
     createForm.branch,
     createForm.destinationBranch,
-    createForm.weight
+    createForm.weight,
+    createForm.city
   );
 
   // Sync fetched charge into form state

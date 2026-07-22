@@ -1,4 +1,6 @@
 import DeliveryChargeRule from '../models/DeliveryChargeRule.js';
+import GlobalPricingSettings from '../models/GlobalPricingSettings.js';
+import OutsideValleyFee from '../models/OutsideValleyFee.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,7 +21,7 @@ function calculateCharge(rule, weight) {
  */
 export const calculateDeliveryCharge = async (req, res) => {
   try {
-    const { from, to, weight } = req.query;
+    const { from, to, weight, city } = req.query;
 
     if (!from || !to) {
       return res.status(400).json({
@@ -28,40 +30,83 @@ export const calculateDeliveryCharge = async (req, res) => {
       });
     }
 
+    const w = Number(weight) || 0;
+
+    // 1. Same-branch / Local intra-valley delivery (e.g. HEAD OFFICE to HEAD OFFICE or local city)
     if (from.trim().toLowerCase() === to.trim().toLowerCase()) {
-      return res.status(400).json({
-        success: false,
-        message: 'From and To branch cannot be the same',
+      const globalSettings = await GlobalPricingSettings.findById('global');
+      const ktmBaseRate = globalSettings?.ktmBaseRate || 100;
+      const weightSurchargePerKg = globalSettings?.weightSurchargePerKg || 50;
+
+      const extraWeight = Math.max(0, Math.ceil(w - 1));
+      const charge = ktmBaseRate + extraWeight * weightSurchargePerKg;
+
+      return res.json({
+        success: true,
+        data: {
+          charge,
+          baseCharge: ktmBaseRate,
+          perKgCharge: weightSurchargePerKg,
+          weightLimit: 1,
+          fromBranch: from.trim(),
+          toBranch: to.trim(),
+          weight: w,
+          isLocal: true,
+        },
       });
     }
 
+    // 2. Check explicitly configured DeliveryChargeRule
     const rule = await DeliveryChargeRule.findOne({
       fromBranch: { $regex: new RegExp(`^${from.trim()}$`, 'i') },
       toBranch:   { $regex: new RegExp(`^${to.trim()}$`, 'i') },
       isActive: true,
     });
 
-    if (!rule) {
-      return res.status(404).json({
-        success: false,
-        message: 'Delivery rate not set for this route. Contact admin.',
+    if (rule) {
+      const charge = calculateCharge(rule, w);
+      return res.json({
+        success: true,
+        data: {
+          charge,
+          baseCharge: rule.baseCharge,
+          perKgCharge: rule.perKgCharge,
+          weightLimit: rule.weightLimit,
+          fromBranch: rule.fromBranch,
+          toBranch: rule.toBranch,
+          weight: w,
+          ruleId: rule._id,
+        },
       });
     }
 
-    const w = Number(weight) || 0;
-    const charge = calculateCharge(rule, w);
+    // 3. Fallback to OutsideValleyFee city pricing or global defaults if no specific route rule
+    const searchCity = (city || to).trim().toUpperCase();
+    const cityFee = await OutsideValleyFee.findOne({
+      $or: [
+        { city: searchCity },
+        { city: { $regex: new RegExp(`^${searchCity.split(' ')[0]}`, 'i') } }
+      ],
+      isActive: true
+    });
+
+    const globalSettings = await GlobalPricingSettings.findById('global');
+    const baseCharge = cityFee ? cityFee.fee : 200;
+    const perKgCharge = globalSettings?.weightSurchargePerKg || 50;
+    const extraWeight = Math.max(0, Math.ceil(w - 1));
+    const charge = baseCharge + extraWeight * perKgCharge;
 
     return res.json({
       success: true,
       data: {
         charge,
-        baseCharge: rule.baseCharge,
-        perKgCharge: rule.perKgCharge,
-        weightLimit: rule.weightLimit,
-        fromBranch: rule.fromBranch,
-        toBranch: rule.toBranch,
+        baseCharge,
+        perKgCharge,
+        weightLimit: 1,
+        fromBranch: from.trim(),
+        toBranch: to.trim(),
         weight: w,
-        ruleId: rule._id,
+        cityMatched: cityFee ? cityFee.city : null,
       },
     });
   } catch (error) {
