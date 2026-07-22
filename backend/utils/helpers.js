@@ -1,8 +1,12 @@
 import Package from '../models/Package.js';
 
-// Shared timestamp formatter for timeline entries
-export function nowStr() {
-  return new Date().toISOString().replace('T', ' ').substring(0, 16);
+// Shared timestamp formatter for timeline entries in Nepal Standard Time (Asia/Kathmandu, UTC+5:45)
+export function nowStr(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) {
+    return new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Kathmandu' }).slice(0, 16);
+  }
+  return d.toLocaleString('sv-SE', { timeZone: 'Asia/Kathmandu' }).slice(0, 16);
 }
 
 // Generate a unique 7-character alphanumeric tracking code

@@ -246,7 +246,7 @@ export const createPackage = async (req, res) => {
       ...labelUrls,
       status: 'Pending',
       timeline: [{
-        time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+        time: nowStr(),
         status: 'Pending',
         message: 'Package created. Needs pickup request.',
         user: req.user.name,
@@ -314,7 +314,7 @@ export const updatePackage = async (req, res) => {
     }
 
     if (updates.length > 0) {
-      const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      const ts = nowStr();
       for (const change of changes) {
         appendTimelineEvent(pkg, {
           time: ts,
@@ -425,7 +425,7 @@ export const requestReturn = async (req, res) => {
 
     pkg.status = 'Returned to Vendor';
     appendTimelineEvent(pkg, {
-      time: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      time: nowStr(),
       status: 'Returned to Vendor',
       message: 'Vendor requested return of package',
       user: req.user.name,

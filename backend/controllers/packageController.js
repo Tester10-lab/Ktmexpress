@@ -3,7 +3,7 @@ import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
 import ScanEvent from '../models/ScanEvent.js';
-import { uniqueTrackingCode, generateInvoiceId, escapeRegex } from '../utils/helpers.js';
+import { uniqueTrackingCode, generateInvoiceId, escapeRegex, nowStr } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 import { VALID_PREDECESSORS } from '../services/packageTransitions.js';
 
@@ -143,7 +143,7 @@ export const updatePackage = async (req, res) => {
       }
     }
 
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const ts = nowStr();
 
     if (changes.length > 0) {
       for (const change of changes) {
@@ -245,7 +245,7 @@ export const confirmWarehouseArrival = async (req, res) => {
     }
 
     // Atomic update, conditioning on valid predecessor statuses
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const ts = nowStr();
     const validPredecessors = VALID_PREDECESSORS['In Warehouse'].dispatcher;
 
     const updatedPkg = await Package.findOneAndUpdate(
@@ -332,7 +332,7 @@ export const requestVerification = async (req, res) => {
     else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(cleanReason)) priority = 'Medium';
 
     const prevVerificationStatus = pkg.deliveryVerificationStatus || null;
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const ts = nowStr();
 
     const rawUserId = req.user?._id || req.user?.id;
     const userId = rawUserId && mongoose.Types.ObjectId.isValid(rawUserId) ? rawUserId : null;

@@ -2,6 +2,7 @@ import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import ScanEvent from '../models/ScanEvent.js';
 import logger from '../utils/logger.js';
+import { nowStr } from '../utils/helpers.js';
 
 import { canTransition, getDefaultNextStatus, getAllowedActions } from '../services/packageTransitions.js';
 
@@ -69,7 +70,7 @@ export const scanPackage = async (req, res) => {
     }
 
     const fromStatus = pkg.status;
-    const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+    const ts = nowStr();
     const deviceInfo = req.headers['user-agent']?.substring(0, 200) || '';
 
     // Create immutable ScanEvent
@@ -162,7 +163,7 @@ export const bulkScan = async (req, res) => {
         }
 
         const fromStatus = pkg.status;
-        const ts = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const ts = nowStr();
         const deviceInfo = req.headers['user-agent']?.substring(0, 200) || '';
 
         const scanEvent = await ScanEvent.create({

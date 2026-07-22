@@ -1441,7 +1441,7 @@ export const verifyPackageAdmin = async (req, res) => {
     
     const difference = amount - previousAmount;
     const now = new Date();
-    const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
+    const nowStrVal = nowStr(now);
 
     const timelineChanges = [];
 
@@ -1516,7 +1516,7 @@ export const verifyPackageAdmin = async (req, res) => {
     if (timelineChanges.length > 0) {
       for (const change of timelineChanges) {
         appendTimelineEvent(pkg, {
-          time: nowStr,
+          time: nowStrVal,
           status: status,
           message: `Admin verified & updated ${change.field}: ${change.before} -> ${change.after}. Reason: ${reason}.`,
           user: req.user.name,
@@ -1527,7 +1527,7 @@ export const verifyPackageAdmin = async (req, res) => {
       }
     } else {
       appendTimelineEvent(pkg, {
-        time: nowStr,
+        time: nowStrVal,
         status: status,
         message: `Package verified by admin ${req.user.name}. Reason: ${reason}.`,
         user: req.user.name,
@@ -1638,7 +1638,7 @@ export const reopenPackageAdmin = async (req, res) => {
 
     const prevStatus = pkg.deliveryVerificationStatus;
     const now = new Date();
-    const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
+    const nowStrVal = nowStr(now);
 
     pkg.deliveryVerificationStatus = 'Reopened';
     pkg.codVerificationStatus = 'Pending';
@@ -1648,7 +1648,7 @@ export const reopenPackageAdmin = async (req, res) => {
 
     // Timeline Log
     appendTimelineEvent(pkg, {
-      time: nowStr,
+      time: nowStrVal,
       status: pkg.status,
       message: `Package verification reopened by Super Admin ${req.user.name}.`,
       user: req.user.name,
@@ -1717,7 +1717,7 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
 
     const verifiedPackages = [];
     const now = new Date();
-    const nowStr = now.toISOString().replace('T', ' ').substring(0, 16);
+    const nowStrVal = nowStr(now);
 
     const packages = await Package.find({ _id: { $in: packageIds } }).session(session ? session : null);
     
@@ -1797,7 +1797,7 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
       if (timelineChanges.length > 0) {
         for (const change of timelineChanges) {
           appendTimelineEvent(pkg, {
-            time: nowStr,
+            time: nowStrVal,
             status: status,
             message: `Admin bulk verified & updated ${change.field}: ${change.before} -> ${change.after}`,
             user: req.user.name,
@@ -1808,7 +1808,7 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
         }
       } else {
         appendTimelineEvent(pkg, {
-          time: nowStr,
+          time: nowStrVal,
           status: status,
           message: `Package bulk verified by admin ${req.user.name}.`,
           user: req.user.name,
