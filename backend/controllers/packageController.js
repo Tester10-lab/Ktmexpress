@@ -369,17 +369,21 @@ export const requestVerification = async (req, res) => {
       ]
     });
 
-    await pkg.save();
+    await pkg.save({ validateModifiedOnly: true });
 
     // Notify admins and dispatchers
     if (req.io) {
-      req.io.to('role_admin').to('role_dispatcher').emit('notification', {
-        title: 'Verification Requested',
-        message: `Verification requested for package ${pkg.trackingCode} by ${userName}.`,
-        type: 'warning',
-        packageId: pkg._id,
-        trackingCode: pkg.trackingCode
-      });
+      try {
+        req.io.to('role_admin').to('role_dispatcher').emit('notification', {
+          title: 'Verification Requested',
+          message: `Verification requested for package ${pkg.trackingCode} by ${userName}.`,
+          type: 'warning',
+          packageId: pkg._id,
+          trackingCode: pkg.trackingCode
+        });
+      } catch (ioErr) {
+        console.error('Socket emission error:', ioErr);
+      }
     }
 
     res.json({ success: true, message: 'Verification requested successfully.', data: pkg });
