@@ -181,7 +181,12 @@ const MyDeliveries = () => {
     e.preventDefault();
     try {
       if (actionModal.action === 'request_verification') {
-        await api.post(`/packages/${actionModal.pkg._id}/request-verification`, { reason: form.comment });
+        const payloadReason = form.verificationReason === 'Other' ? form.comment : (form.verificationReason || form.comment);
+        if (!payloadReason || !payloadReason.trim()) {
+          showToast('Please select or specify a reason for verification', 'error');
+          return;
+        }
+        await api.post(`/packages/${actionModal.pkg._id}/request-verification`, { reason: payloadReason.trim() });
       } else {
         await api.put('/rider/update-status',{packageId:actionModal.pkg._id,action:actionModal.action,comment:form.comment,cashCollected:Number(form.cashCollected),newDate:form.newDate});
       }

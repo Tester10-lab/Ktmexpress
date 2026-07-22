@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
@@ -307,11 +308,14 @@ export const requestVerification = async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
 
-    if (!reason) {
+    if (!reason || typeof reason !== 'string' || !reason.trim()) {
       return res.status(400).json({ success: false, message: 'Reason for verification is required.' });
     }
 
-    const pkg = await Package.findById(id);
+    const pkg = mongoose.Types.ObjectId.isValid(id)
+      ? await Package.findById(id)
+      : await Package.findOne({ trackingCode: id });
+
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
@@ -324,9 +328,11 @@ export const requestVerification = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Package is already pending verification.' });
     }
 
+    const cleanReason = reason.trim();
+
     let priority = 'Low';
-    if (['COD amount mismatch', 'Customer dispute', 'Damaged package'].includes(reason)) priority = 'High';
-    else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(reason)) priority = 'Medium';
+    if (['COD amount mismatch', 'Customer dispute', 'Damaged package'].includes(cleanReason)) priority = 'High';
+    else if (['Delivery charge correction', 'Wrong package status', 'Exchange issue', 'Return issue'].includes(cleanReason)) priority = 'Medium';
 
     const prevVerificationStatus = pkg.deliveryVerificationStatus || null;
 
@@ -336,11 +342,19 @@ export const requestVerification = async (req, res) => {
       pkg.verificationStartedAt = new Date();
     }
 
+    if (!pkg.verificationRequests) {
+      pkg.verificationRequests = [];
+    }
+
+    const userId = req.user?._id || req.user?.id;
+    const userName = req.user?.name || 'User';
+    const userRole = req.user?.role || 'user';
+
     pkg.verificationRequests.push({
-      requestedBy: req.user.id,
-      requestedByName: req.user.name,
-      requestedRole: req.user.role,
-      reason,
+      requestedBy: userId,
+      requestedByName: userName,
+      requestedRole: userRole,
+      reason: cleanReason,
       priority,
       status: 'Pending'
     });
@@ -349,8 +363,9 @@ export const requestVerification = async (req, res) => {
     appendTimelineEvent(pkg, {
       time: ts,
       status: 'Verification Requested',
-      message: `Verification requested by ${req.user.role}. Reason: ${reason} (Priority: ${priority})`,
-      user: req.user.name,
+      message: `Verification requested by ${userRole}. Reason: ${cleanReason} (Priority: ${priority})`,
+      user: userName,
+      role: userRole,
       changes: [
         { field: 'deliveryVerificationStatus', before: prevVerificationStatus, after: 'Pending' }
       ]
@@ -358,17 +373,20 @@ export const requestVerification = async (req, res) => {
 
     await pkg.save();
 
-    // Notify admins
+    // Notify admins and dispatchers
     if (req.io) {
-      req.io.to('admins').emit('notification', {
+      req.io.to('role_admin').to('role_dispatcher').emit('notification', {
         title: 'Verification Requested',
-        message: `Verification requested for package ${pkg.trackingCode} by ${req.user.name}.`,
-        type: 'warning'
+        message: `Verification requested for package ${pkg.trackingCode} by ${userName}.`,
+        type: 'warning',
+        packageId: pkg._id,
+        trackingCode: pkg.trackingCode
       });
     }
 
     res.json({ success: true, message: 'Verification requested successfully.', data: pkg });
   } catch (error) {
+    console.error('Error in requestVerification:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
