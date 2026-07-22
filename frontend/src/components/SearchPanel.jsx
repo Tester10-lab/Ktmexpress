@@ -1,19 +1,49 @@
 import React, { useState, useEffect } from 'react';
 
-export default function SearchPanel({ placeholder = "Search by tracking ID, name, phone, vendor...", onSearch, delay = 500 }) {
-  const [searchTerm, setSearchTerm] = useState('');
+export default function SearchPanel({ 
+  placeholder = "Search by tracking ID, name, phone, vendor...", 
+  onSearch, 
+  value, 
+  onChange, 
+  delay = 300 
+}) {
+  const isControlled = value !== undefined;
+  const [searchTerm, setSearchTerm] = useState(isControlled ? (value || '') : '');
 
+  // Keep internal searchTerm in sync if controlled prop `value` changes externally
   useEffect(() => {
-    const handler = setTimeout(() => {
-      if (typeof onSearch === 'function') {
-        onSearch(searchTerm);
-      }
-    }, delay);
+    if (isControlled) {
+      setSearchTerm(value || '');
+    }
+  }, [value, isControlled]);
 
-    return () => {
-      clearTimeout(handler);
-    };
+  // Debounced callback for `onSearch` if provided
+  useEffect(() => {
+    if (typeof onSearch === 'function') {
+      const handler = setTimeout(() => {
+        onSearch(searchTerm);
+      }, delay);
+      return () => clearTimeout(handler);
+    }
   }, [searchTerm, onSearch, delay]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setSearchTerm(val);
+    if (typeof onChange === 'function') {
+      onChange(val);
+    }
+  };
+
+  const handleClear = () => {
+    setSearchTerm('');
+    if (typeof onChange === 'function') {
+      onChange('');
+    }
+    if (typeof onSearch === 'function') {
+      onSearch('');
+    }
+  };
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -37,7 +67,7 @@ export default function SearchPanel({ placeholder = "Search by tracking ID, name
           strokeWidth="2" 
           strokeLinecap="round" 
           strokeLinejoin="round"
-          style={{ marginRight: 8 }}
+          style={{ marginRight: 8, flexShrink: 0 }}
         >
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -46,7 +76,7 @@ export default function SearchPanel({ placeholder = "Search by tracking ID, name
           type="text"
           placeholder={placeholder}
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={handleChange}
           style={{ 
             border: 'none', 
             outline: 'none', 
@@ -57,7 +87,8 @@ export default function SearchPanel({ placeholder = "Search by tracking ID, name
         />
         {searchTerm && (
           <button 
-            onClick={() => setSearchTerm('')}
+            type="button"
+            onClick={handleClear}
             style={{ 
               background: 'transparent', 
               border: 'none', 

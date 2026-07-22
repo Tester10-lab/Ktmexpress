@@ -326,7 +326,7 @@ const PackageList = () => {
   const fetchPackages = async (silent = false) => {
     if (!silent) setLoading(true);
     try { 
-      let url = `/vendor/packages?status=${statusFilter}&search=${search}&page=${page}&limit=${limit}`;
+      let url = `/vendor/packages?status=${encodeURIComponent(statusFilter)}&search=${encodeURIComponent(search)}&page=${page}&limit=${limit}`;
       if (startDate) url += `&startDate=${startDate}`;
       if (endDate) url += `&endDate=${endDate}`;
       const r = await api.get(url); 
