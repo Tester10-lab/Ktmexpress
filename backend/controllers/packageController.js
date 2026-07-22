@@ -320,12 +320,9 @@ export const requestVerification = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
-    // Allowed if package is complete but not verified
+    // Allowed if package is not already verified
     if (pkg.deliveryVerificationStatus === 'Verified') {
       return res.status(400).json({ success: false, message: 'Package is already verified.' });
-    }
-    if (pkg.deliveryVerificationStatus === 'Pending') {
-      return res.status(400).json({ success: false, message: 'Package is already pending verification.' });
     }
 
     const cleanReason = reason.trim();
@@ -342,11 +339,12 @@ export const requestVerification = async (req, res) => {
       pkg.verificationStartedAt = new Date();
     }
 
-    if (!pkg.verificationRequests) {
+    if (!Array.isArray(pkg.verificationRequests)) {
       pkg.verificationRequests = [];
     }
 
-    const userId = req.user?._id || req.user?.id;
+    const rawUserId = req.user?._id || req.user?.id;
+    const userId = rawUserId && mongoose.Types.ObjectId.isValid(rawUserId) ? rawUserId : null;
     const userName = req.user?.name || 'User';
     const userRole = req.user?.role || 'user';
 

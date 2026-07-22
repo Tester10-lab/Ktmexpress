@@ -10,9 +10,9 @@ import { SETTLEMENT_STATUSES } from '../constants/settlementStatus.js';
 import { PAYMENT_METHODS } from '../constants/paymentMethod.js';
 
 const verificationRequestSchema = new mongoose.Schema({
-  requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  requestedByName: { type: String, required: true },
-  requestedRole: { type: String, required: true },
+  requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  requestedByName: { type: String, default: 'User' },
+  requestedRole: { type: String, default: 'user' },
   requestedAt: { type: Date, default: Date.now },
   reason: { type: String, required: true },
   priority: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Low' },
