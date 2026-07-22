@@ -51,7 +51,8 @@ import {
   deleteOutsideValleyFee,
   getVendorsPricing,
   updateVendorPricing,
-  previewCalculateFee
+  previewCalculateFee,
+  importExcelPricingController
 } from '../controllers/pricingController.js';
 import {
   getAllDeliveryChargeRules,
@@ -110,6 +111,7 @@ router.delete('/pricing-engine/outside-valley/:id', deleteOutsideValleyFee);
 router.get('/pricing-engine/vendors', getVendorsPricing);
 router.put('/pricing-engine/vendors/:id', updateVendorPricing);
 router.post('/pricing-engine/calculate', previewCalculateFee);
+router.post('/pricing-engine/import-excel', importExcelPricingController);
 
 // --- Delivery Charge Rules (branch-to-branch) ---
 router.get('/delivery-charges', getAllDeliveryChargeRules);

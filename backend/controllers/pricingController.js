@@ -193,3 +193,13 @@ export const previewCalculateFee = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const importExcelPricingController = async (req, res) => {
+  try {
+    const { seedExcelPricing } = await import('../services/excelPricingSeeder.js');
+    const result = await seedExcelPricing(true);
+    res.json({ success: true, message: 'Successfully imported all 95 Outside Valley rates & updated KTM base rate to 100.', data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

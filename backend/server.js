@@ -192,6 +192,10 @@ if (process.env.NODE_ENV !== 'test') {
         logger.info('Default admin user seeded successfully.');
         logger.info('Email: admin@exdexpress.com | Password: admin123');
       }
+
+      // Auto-seed/update master pricing rates from Excel catalog
+      const { seedExcelPricing } = await import('./services/excelPricingSeeder.js');
+      await seedExcelPricing();
     } catch (seedErr) {
       logger.error(`Auto-seeding failed: ${seedErr.message}`);
     }

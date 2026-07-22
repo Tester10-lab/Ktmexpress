@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../../api/axios';
 import { useToast } from '../../../store/ToastContext';
 import Pagination from '../../../components/Pagination';
-import { Search, Plus, Trash2, Edit2, CheckCircle2, XCircle, AlertTriangle, X } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, CheckCircle2, XCircle, AlertTriangle, X, FileSpreadsheet } from 'lucide-react';
 
 const debounce = (func, wait) => {
   let timeout;
@@ -122,6 +122,23 @@ const OutsideValleyFees = ({ onUpdate }) => {
     }
   };
 
+  const [importing, setImporting] = useState(false);
+
+  const handleImportExcelRates = async () => {
+    if (!window.confirm('Import/sync all 95 Outside Valley rates from KDM Express master sheet and set KTM Base Rate to 100?')) return;
+    setImporting(true);
+    try {
+      const res = await api.post('/admin/pricing-engine/import-excel');
+      showToast(res.data.message || 'Successfully imported all 95 rates!', 'success');
+      fetchOvFees(1, '', true);
+      if (typeof onUpdate === 'function') onUpdate();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to import rates', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <>
       <div className="card-premium overflow-hidden flex flex-col h-full">
@@ -136,6 +153,14 @@ const OutsideValleyFees = ({ onUpdate }) => {
               <input type="text" className="input-field py-2 pl-9 w-full sm:w-48 text-sm" placeholder="Search city..." 
                 value={ovSearch} onChange={handleOvSearchChange} />
             </div>
+            <button 
+              className="btn-outline py-2 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-brand-600 border-brand-200 hover:bg-brand-50" 
+              onClick={handleImportExcelRates} 
+              disabled={importing}
+              title="Import all 95 Outside Valley rates and set KTM rate to 100"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> {importing ? 'Importing...' : 'Import KDM Rates (95 Cities)'}
+            </button>
             <button className="btn-primary py-2 flex items-center gap-1.5 whitespace-nowrap" onClick={() => openOvModal()}>
               <Plus className="w-4 h-4" /> Add City
             </button>
