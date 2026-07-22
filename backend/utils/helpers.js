@@ -57,3 +57,9 @@ export function generateInvoiceId() {
   // Use timestamp + random string for uniqueness under concurrent load
   return `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 }
+
+// Escape regex characters from a string
+export function escapeRegex(string) {
+  if (typeof string !== 'string') return string;
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

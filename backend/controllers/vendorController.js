@@ -10,7 +10,7 @@ import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee, getGlobalSettings } from '../services/pricingService.js';
 import { logger } from '../config/logger.js';
 
-import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr } from '../utils/helpers.js';
+import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr, escapeRegex } from '../utils/helpers.js';
 import { processCsvImport } from '../utils/csvHelper.js';
 
 // GET /api/vendor/dashboard
@@ -106,11 +106,12 @@ export const getVendorPackages = async (req, res) => {
       }
     }
     if (search) {
+      const escapedSearch = escapeRegex(search);
       filter.$or = [
-        { trackingCode: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { invoiceId: { $regex: search, $options: 'i' } },
-        { customerPhone: { $regex: search, $options: 'i' } },
+        { trackingCode: { $regex: escapedSearch, $options: 'i' } },
+        { customerName: { $regex: escapedSearch, $options: 'i' } },
+        { invoiceId: { $regex: escapedSearch, $options: 'i' } },
+        { customerPhone: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
     if (startDate || endDate) {

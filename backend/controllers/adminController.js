@@ -11,7 +11,7 @@ import fs from 'fs';
 import csv from 'csv-parser';
 import bcrypt from 'bcryptjs';
 import { appendTimelineEvent } from '../utils/timelineHelper.js';
-import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr } from '../utils/helpers.js';
+import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr, escapeRegex } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 import { calculateDeliveryFee, getGlobalSettings } from '../services/pricingService.js';
 import { processCsvImport } from '../utils/csvHelper.js';
@@ -366,10 +366,11 @@ export const updatePricing = async (req, res) => {
 export const getAllUsers = async (req, res) => {
   try {
     const { page = 1, limit = 20, search, role, status } = req.query;
+
     const filter = {};
+    if (search) filter.name = { $regex: escapeRegex(search), $options: 'i' };
     if (role && role !== 'all') filter.role = role;
     if (status && status !== 'all') filter.status = status;
-    if (search) filter.name = { $regex: search, $options: 'i' };
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -565,11 +566,12 @@ export const getAllPackagesAdmin = async (req, res) => {
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       const matchingVendors = await User.find({
         role: 'vendor',
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+          { name: { $regex: escapedSearch, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: escapedSearch, $options: 'i' } }
         ]
       }).select('_id').lean();
       const vendorIds = matchingVendors.map(v => v._id);
@@ -577,8 +579,8 @@ export const getAllPackagesAdmin = async (req, res) => {
       filter.$and = filter.$and || [];
       filter.$and.push({
         $or: [
-          { trackingCode: { $regex: search, $options: 'i' } },
-          { customerName: { $regex: search, $options: 'i' } },
+          { trackingCode: { $regex: escapedSearch, $options: 'i' } },
+          { customerName: { $regex: escapedSearch, $options: 'i' } },
           { vendorId: { $in: vendorIds } }
         ]
       });

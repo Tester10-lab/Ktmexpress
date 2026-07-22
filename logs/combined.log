@@ -1,0 +1,6 @@
+2026-07-21 10:11:02 [info]: Starting In-Memory MongoDB Server...
+2026-07-21 10:11:06 [info]: In-Memory MongoDB Server started at: mongodb://127.0.0.1:58637/
+2026-07-21 10:11:06 [info]: MongoDB connected: 127.0.0.1
+2026-07-21 10:11:06 [info]: Starting Daily Excel Export job...
+2026-07-21 10:11:06 [info]: Fetched 0 packages and 0 expenses for 2026-07-21.
+2026-07-21 10:11:07 [info]: Daily Excel export generated successfully at: C:\Users\Diplon\Desktop\delivery-system-main\backend\exports\daily_export_2026-07-21.xlsx

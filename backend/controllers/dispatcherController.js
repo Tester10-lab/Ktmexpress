@@ -5,7 +5,7 @@ import PickupRequest from '../models/PickupRequest.js';
 import CodHandover from '../models/CodHandover.js';
 import mongoose from 'mongoose';
 import { canTransition } from '../services/packageTransitions.js';
-import { nowStr } from '../utils/helpers.js';
+import { nowStr, escapeRegex } from '../utils/helpers.js';
 
 // GET /api/dispatcher/pickups
 export const getPickupRequests = async (req, res) => {
@@ -378,20 +378,21 @@ export const getAllPackagesForDispatcher = async (req, res) => {
       filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
     }
     if (search) {
+      const escapedSearch = escapeRegex(search);
       const matchingVendors = await User.find({
         role: 'vendor',
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+          { name: { $regex: escapedSearch, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: escapedSearch, $options: 'i' } }
         ]
       }).select('_id').lean();
       const vendorIds = matchingVendors.map(v => v._id);
 
       filter.$or = [
-        { trackingCode: { $regex: search, $options: 'i' } },
-        { customerName: { $regex: search, $options: 'i' } },
-        { invoiceId: { $regex: search, $options: 'i' } },
-        { customerPhone: { $regex: search, $options: 'i' } },
+        { trackingCode: { $regex: escapedSearch, $options: 'i' } },
+        { customerName: { $regex: escapedSearch, $options: 'i' } },
+        { invoiceId: { $regex: escapedSearch, $options: 'i' } },
+        { customerPhone: { $regex: escapedSearch, $options: 'i' } },
         { vendorId: { $in: vendorIds } }
       ];
     }

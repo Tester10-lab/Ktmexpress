@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { canTransition } from '../services/packageTransitions.js';
 import eventBus from '../services/eventBus.js';
-import { nowStr } from '../utils/helpers.js';
+import { nowStr, escapeRegex } from '../utils/helpers.js';
 
 // GET /api/rider/deliveries
 export const getMyDeliveries = async (req, res) => {
@@ -41,21 +41,22 @@ export const getMyDeliveries = async (req, res) => {
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       const matchingVendors = await User.find({
         role: 'vendor',
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+          { name: { $regex: escapedSearch, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: escapedSearch, $options: 'i' } }
         ]
       }).select('_id').lean();
       const vendorIds = matchingVendors.map(v => v._id);
 
       andConditions.push({
         $or: [
-          { trackingCode: { $regex: search, $options: 'i' } },
-          { customerName: { $regex: search, $options: 'i' } },
-          { invoiceId: { $regex: search, $options: 'i' } },
-          { customerPhone: { $regex: search, $options: 'i' } },
+          { trackingCode: { $regex: escapedSearch, $options: 'i' } },
+          { customerName: { $regex: escapedSearch, $options: 'i' } },
+          { invoiceId: { $regex: escapedSearch, $options: 'i' } },
+          { customerPhone: { $regex: escapedSearch, $options: 'i' } },
           { vendorId: { $in: vendorIds } }
         ]
       });

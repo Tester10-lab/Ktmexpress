@@ -2,7 +2,7 @@ import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
 import ScanEvent from '../models/ScanEvent.js';
-import { uniqueTrackingCode, generateInvoiceId } from '../utils/helpers.js';
+import { uniqueTrackingCode, generateInvoiceId, escapeRegex } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
 import { VALID_PREDECESSORS } from '../services/packageTransitions.js';
 
@@ -37,11 +37,12 @@ export const getAllPackages = async (req, res) => {
     }
 
     if (search) {
+      const escapedSearch = escapeRegex(search);
       const matchingVendors = await User.find({
         role: 'vendor',
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { 'vendorMeta.shopName': { $regex: search, $options: 'i' } }
+          { name: { $regex: escapedSearch, $options: 'i' } },
+          { 'vendorMeta.shopName': { $regex: escapedSearch, $options: 'i' } }
         ]
       }).select('_id').lean();
       const vendorIds = matchingVendors.map(v => v._id);
@@ -49,10 +50,10 @@ export const getAllPackages = async (req, res) => {
       filter.$and = filter.$and || [];
       filter.$and.push({
         $or: [
-          { trackingCode: { $regex: search, $options: 'i' } },
-          { customerName: { $regex: search, $options: 'i' } },
-          { invoiceId: { $regex: search, $options: 'i' } },
-          { address: { $regex: search, $options: 'i' } },
+          { trackingCode: { $regex: escapedSearch, $options: 'i' } },
+          { customerName: { $regex: escapedSearch, $options: 'i' } },
+          { invoiceId: { $regex: escapedSearch, $options: 'i' } },
+          { address: { $regex: escapedSearch, $options: 'i' } },
           { vendorId: { $in: vendorIds } }
         ]
       });
