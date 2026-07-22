@@ -379,16 +379,29 @@ export const requestVerification = async (req, res) => {
       { new: true, runValidators: false }
     );
 
-    // Notify admins and dispatchers
+    // Notify admins, dispatchers, vendor, and rider
     if (req.io) {
       try {
-        req.io.to('role_admin').to('role_dispatcher').emit('notification', {
+        const notifPayload = {
+          id: `verification_req_${updatedPkg._id}_${Date.now()}`,
           title: 'Verification Requested',
-          message: `Verification requested for package ${updatedPkg.trackingCode} by ${userName}.`,
+          message: `Verification requested for package ${updatedPkg.trackingCode} by ${userName} (${userRole}). Reason: "${cleanReason}"`,
           type: 'warning',
           packageId: updatedPkg._id,
-          trackingCode: updatedPkg.trackingCode
-        });
+          trackingCode: updatedPkg.trackingCode,
+          user: userName,
+          role: userRole,
+          createdAt: new Date().toISOString()
+        };
+
+        req.io.to('role_admin').to('role_dispatcher').emit('notification', notifPayload);
+
+        if (updatedPkg.vendorId) {
+          req.io.to(`user_${updatedPkg.vendorId}`).emit('notification', notifPayload);
+        }
+        if (updatedPkg.riderId) {
+          req.io.to(`user_${updatedPkg.riderId}`).emit('notification', notifPayload);
+        }
       } catch (ioErr) {
         console.error('Socket emission error:', ioErr);
       }

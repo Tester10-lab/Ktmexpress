@@ -1579,10 +1579,16 @@ export const verifyPackageAdmin = async (req, res) => {
     }
 
     if (req.io && requesterToNotify) {
-      req.io.to(requesterToNotify.toString()).emit('notification', {
+      req.io.to(`user_${requesterToNotify}`).emit('notification', {
+        id: `verification_res_${pkg._id}_${Date.now()}`,
         title: 'Verification Resolved',
-        message: `Your verification request for package ${pkg.trackingCode} has been resolved by Admin.`,
-        type: 'success'
+        message: `Your verification request for package ${pkg.trackingCode} has been resolved.`,
+        type: 'success',
+        packageId: pkg._id,
+        trackingCode: pkg.trackingCode,
+        user: req.user.name,
+        role: req.user.role,
+        createdAt: new Date().toISOString()
       });
     }
 
