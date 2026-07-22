@@ -45,7 +45,7 @@ export const useVerification = (fetchPackages, showToast) => {
   const handleSaveDraft = async () => {
     if (!currentPkg) return;
     try {
-      await api.put(`/admin/packages/${currentPkg._id}/verification-draft`, form);
+      await api.put(`/packages/${currentPkg._id}/verification-draft`, form);
       showToast('Verification draft saved successfully.', 'success');
       setVerificationModal(false);
       if (fetchPackages) fetchPackages(true);
@@ -61,7 +61,7 @@ export const useVerification = (fetchPackages, showToast) => {
         ...form,
         version: currentPkg.__v,
       };
-      await api.post(`/admin/packages/${currentPkg._id}/verify-action`, payload);
+      await api.post(`/packages/${currentPkg._id}/verify-action`, payload);
       showToast('Package verified successfully.', 'success');
       setVerificationModal(false);
       if (fetchPackages) fetchPackages(true);
@@ -83,7 +83,7 @@ export const useVerification = (fetchPackages, showToast) => {
         reason: 'System correction',
         customRemarks: 'Directly verified from pending'
       };
-      await api.post(`/admin/packages/${pkg._id}/verify-action`, payload);
+      await api.post(`/packages/${pkg._id}/verify-action`, payload);
       showToast('Package verified successfully.', 'success');
       if (fetchPackages) fetchPackages(true);
     } catch (e) {
