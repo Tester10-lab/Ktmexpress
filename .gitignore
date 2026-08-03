@@ -15,6 +15,10 @@ yarn-error.log*
 /backend/coverage/
 /backend/logs/
 /backend/uploads/
+/backend/exports/
+logs/
+*.log
+*.csv
 
 # Frontend build output
 /frontend/dist/

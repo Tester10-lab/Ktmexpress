@@ -15,7 +15,7 @@ const PublicNav = ({ active }) => {
           {logoUrl ? (
             <img src={logoUrl} alt="Logo" className="h-8 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
             ) : (
-              <img src={brandLogo} alt="ktmexpress Logo" className="h-10 object-contain" />
+              <img src={brandLogo} alt="KDM Express Logo" className="h-10 object-contain" />
             )}
         </Link>
         <nav className="hidden md:flex items-center gap-1">

@@ -14,7 +14,7 @@ import brandLogo from '../assets/logo.png';
  *   <button onClick={() => { printRef.current.print(); }}>Print</button>
  */
 
-const COMPANY_NAME = 'ktmexpress';
+const COMPANY_NAME = 'KDM Express';
 const COMPANY_TAGLINE = 'Swift. Safe. Delivered.';
 
 const statusColor = (status) => {

@@ -18,7 +18,7 @@ export const corsOptions = {
     // Also normalize the incoming origin to ensure consistent matching if needed, though standard browsers don't send trailing slashes
     const normalizedOrigin = origin ? origin.trim().replace(/\/$/, '') : origin;
     
-    const vercelProjectName = process.env.VERCEL_PROJECT_NAME || 'ktmexpress';
+    const vercelProjectName = process.env.VERCEL_PROJECT_NAME || 'kdmexpress';
     const isVercelPreviewRegex = new RegExp(`^https:\\/\\/${vercelProjectName}-[a-zA-Z0-9-]+\\.vercel\\.app$`);
     
     if (

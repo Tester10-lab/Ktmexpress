@@ -1,7 +1,7 @@
 {
-  "name": "KTM Express Logistics",
-  "short_name": "KTM Express",
-  "description": "ktmexpress Logistics — End-to-end delivery management for vendors, riders and dispatchers.",
+  "name": "KDM Express Logistics",
+  "short_name": "KDM Express",
+  "description": "KDM Express Logistics — End-to-end delivery management for vendors, riders and dispatchers.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F3F4F6",

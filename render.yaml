@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: ktmexpress-api
+    name: kdmexpress-api
     env: node
     rootDir: backend
     buildCommand: npm install

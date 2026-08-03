@@ -27,25 +27,25 @@ export const runDailyExcelExport = async (targetDateStr = null, outDir = null) =
     logger.info('Starting Daily Excel Export job...');
 
     const todayStr = targetDateStr || new Date().toISOString().split('T')[0];
-    const targetDate = new Date(todayStr);
+    const packageFilter = { deletedAt: null };
+    const expenseFilter = { deletedAt: null };
 
-    const startOfDay = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
-    const endOfDay = new Date(new Date(targetDate).setHours(23, 59, 59, 999));
+    if (todayStr !== 'all') {
+      const targetDate = new Date(todayStr);
+      const startOfDay = new Date(new Date(targetDate).setHours(0, 0, 0, 0));
+      const endOfDay = new Date(new Date(targetDate).setHours(23, 59, 59, 999));
+      packageFilter.createdAt = { $gte: startOfDay, $lte: endOfDay };
+      expenseFilter.date = { $gte: startOfDay, $lte: endOfDay };
+    }
 
     // Fetch packages for the target date (or all if specified)
-    const packages = await Package.find({
-      createdAt: { $gte: startOfDay, $lte: endOfDay },
-      deletedAt: null
-    })
+    const packages = await Package.find(packageFilter)
       .populate('vendorId', 'name vendorMeta')
       .populate('riderId', 'name')
       .sort({ createdAt: -1 })
       .lean();
 
-    const expenses = await Expense.find({
-      date: { $gte: startOfDay, $lte: endOfDay },
-      deletedAt: null
-    }).lean();
+    const expenses = await Expense.find(expenseFilter).lean();
 
     logger.info(`Fetched ${packages.length} packages and ${expenses.length} expenses for ${todayStr}.`);
 

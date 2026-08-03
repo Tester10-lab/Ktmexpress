@@ -1,8 +1,8 @@
 {
-  "name": "ktmexpress-backend",
+  "name": "kdmexpress-backend",
   "type": "module",
   "version": "1.0.0",
-  "description": "ktmexpress Logistics Delivery Management System - Backend API",
+  "description": "KDM Express Logistics Delivery Management System - Backend API",
   "engines": {
     "node": ">=20.0.0"
   },
