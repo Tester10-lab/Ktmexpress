@@ -1,22 +1,42 @@
 version: '3.9'
+
 services:
+  mongodb:
+    image: mongo:6.0
+    container_name: ktmexpress_mongodb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USER:-ktmadmin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-ktmexpress_db_pass_2026}
+      - MONGO_INITDB_DATABASE=${MONGO_DB:-ktmexpress}
+    volumes:
+      - mongodb_data:/data/db
+
   backend:
     build: ./backend
+    container_name: ktmexpress_backend
     ports:
       - "5000:5000"
     environment:
       - NODE_ENV=production
-      - MONGO_URI=${MONGO_URI}
-      - JWT_SECRET=${JWT_SECRET}
-      - CLIENT_URL=${CLIENT_URL}
+      - MONGO_URI=${MONGO_URI:-mongodb://ktmadmin:ktmexpress_db_pass_2026@mongodb:27017/ktmexpress?authSource=admin}
+      - JWT_SECRET=${JWT_SECRET:-ktmexpress_jwt_secret_production_key_2026}
+      - CLIENT_URL=${CLIENT_URL:-https://kdmexpress.com}
+    depends_on:
+      - mongodb
     restart: unless-stopped
     volumes:
       - ./backend/logs:/app/logs
 
   frontend:
     build: ./frontend
+    container_name: ktmexpress_frontend
     ports:
       - "80:80"
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
