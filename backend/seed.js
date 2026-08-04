@@ -17,7 +17,7 @@ const cleanAndSeed = async () => {
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB for Production Seed Cleanup');
 
-    const adminEmail = 'admin@exdexpress.com';
+    const adminEmail = 'admin@kdmexpress.com';
     
     // Clean up completely invalid users
     await User.deleteMany({ $or: [{ email: null }, { email: '' }] });
@@ -31,7 +31,7 @@ const cleanAndSeed = async () => {
       const adminUser = new User({
         name: 'System Admin',
         email: adminEmail,
-        password: 'admin123',
+        password: 'Admin@@2026',
         role: 'admin',
         contact: '9800000000',
         status: 'Active',
@@ -42,7 +42,7 @@ const cleanAndSeed = async () => {
     } else {
       console.log('Found exactly 1 admin. Resetting password and ensuring Super Admin status...');
       const admin = admins[0];
-      admin.password = 'admin123';
+      admin.password = 'Admin@@2026';
       admin.isSuperAdmin = true;
       await admin.save(); // This triggers the bcrypt pre-save hook
       console.log('Admin password securely reset and Super Admin status verified.');
