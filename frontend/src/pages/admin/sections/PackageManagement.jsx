@@ -476,16 +476,16 @@ const AdminPackages = () => {
                     <input type="text" className="input-field" required value={editPkg.customerName} onChange={e => setEditPkg({ ...editPkg, customerName: e.target.value })} />
                   </div>
                   <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={editPkg.address} onChange={e => setEditPkg({ ...editPkg, address: e.target.value })} />
+                  </div>
+                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Phone <span className="text-red-500">*</span></label>
                     <input type="text" className="input-field" required value={editPkg.customerPhone} onChange={e => setEditPkg({ ...editPkg, customerPhone: e.target.value })} />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">City</label>
                     <input type="text" className="input-field" value={editPkg.city || ''} onChange={e => setEditPkg({ ...editPkg, city: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
-                    <input type="text" className="input-field" required value={editPkg.address} onChange={e => setEditPkg({ ...editPkg, address: e.target.value })} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-5">
@@ -591,16 +591,16 @@ const AdminPackages = () => {
                     <input type="text" className="input-field" required value={newPkg.customerName} onChange={e => setNewPkg(f => ({ ...f, customerName: e.target.value }))} />
                   </div>
                   <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.address} onChange={e => setNewPkg(f => ({ ...f, address: e.target.value }))} />
+                  </div>
+                  <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Phone <span className="text-red-500">*</span></label>
                     <input type="text" className="input-field" required value={newPkg.customerPhone} onChange={e => setNewPkg(f => ({ ...f, customerPhone: e.target.value }))} />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">City</label>
                     <input type="text" className="input-field" value={newPkg.city} onChange={e => setNewPkg(f => ({ ...f, city: e.target.value }))} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
-                    <input type="text" className="input-field" required value={newPkg.address} onChange={e => setNewPkg(f => ({ ...f, address: e.target.value }))} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
