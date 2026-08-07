@@ -50,8 +50,9 @@ fi
 
 # Launch Docker containers (MongoDB + Backend + Frontend)
 echo "🐳 Building and starting Docker containers..."
-docker compose down || true
-docker compose build --no-cache
+docker compose down --remove-orphans || true
+fuser -k 5000/tcp 2>/dev/null || true
+fuser -k 80/tcp 2>/dev/null || true
 docker compose up -d
 
 echo "✅ Containers running! Checking status:"
