@@ -50,6 +50,8 @@ fi
 
 # Launch Docker containers (MongoDB + Backend + Frontend)
 echo "🐳 Building and starting Docker containers..."
+systemctl stop nginx 2>/dev/null || true
+systemctl stop apache2 2>/dev/null || true
 docker compose down --remove-orphans || true
 fuser -k 5000/tcp 2>/dev/null || true
 fuser -k 80/tcp 2>/dev/null || true
