@@ -57,6 +57,9 @@ fuser -k 5000/tcp 2>/dev/null || true
 fuser -k 80/tcp 2>/dev/null || true
 docker compose up -d
 
+echo "🌱 Seeding Super Admin credentials..."
+docker compose exec -T backend node seed.js || true
+
 echo "✅ Containers running! Checking status:"
 docker compose ps
 
