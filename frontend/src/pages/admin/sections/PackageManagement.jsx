@@ -10,7 +10,7 @@ import {
 
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
-  MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
+  MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet, Download,
   Edit2, Trash2, Check, X, Bell, History, Sliders, ChevronDown, ChevronUp
 } from 'lucide-react';
 
@@ -194,6 +194,21 @@ const AdminPackages = () => {
       setNewPkg({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
       fetchPackages(true);
     } catch (err) { showToast(err.message || 'Failed to create package', 'error'); fetchPackages(true); }
+  };
+
+  const downloadSampleCsv = () => {
+    const headers = ['customer name', 'address', 'customerPhone', 'city', 'amount', 'weight', 'delivery charge', 'out of valley'];
+    const sampleRow1 = ['Ram Sharma', 'New Road, Kathmandu', '9841234567', 'Kathmandu', '1500', '0.5', '100', 'false'];
+    const sampleRow2 = ['Sita Thapa', 'Lakeside, Pokhara', '9801234567', 'Pokhara', '2500', '1.0', '200', 'true'];
+    const csvContent = [headers.join(','), sampleRow1.join(','), sampleRow2.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'bulk_upload_sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleCsvUpload = async (e) => {
@@ -655,9 +670,14 @@ const AdminPackages = () => {
                   <label className="block text-sm font-semibold text-slate-700 mb-1">Upload CSV File <span className="text-red-500">*</span></label>
                   <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition-all border border-slate-200 rounded-xl p-2 cursor-pointer" accept=".csv" required onChange={e => setCsvFile(e.target.files[0])} />
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                    <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Required Columns</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Standard Columns</p>
+                      <button type="button" onClick={downloadSampleCsv} className="text-xs text-amber-800 hover:text-amber-950 font-semibold underline flex items-center gap-1">
+                        <Download className="w-3.5 h-3.5" /> Sample CSV
+                      </button>
+                    </div>
                     <p className="text-xs font-mono text-amber-700 leading-relaxed bg-white/50 p-2 rounded-lg border border-amber-100">
-                      customerName, address, customerPhone, city, amount, weight, deliveryCharge, outOfValley
+                      customer name, address, customerPhone, city, amount, weight, delivery charge, out of valley
                     </p>
                   </div>
                 </div>

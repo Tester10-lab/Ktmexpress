@@ -1055,25 +1055,50 @@ const PackageBulkUpload = () => {
     } finally { setLoading(false); }
   };
 
+  const downloadSampleCsv = () => {
+    const headers = ['customer name', 'address', 'customerPhone', 'city', 'amount', 'weight', 'delivery charge', 'out of valley'];
+    const sampleRow1 = ['Ram Sharma', 'New Road, Kathmandu', '9841234567', 'Kathmandu', '1500', '0.5', '100', 'false'];
+    const sampleRow2 = ['Sita Thapa', 'Lakeside, Pokhara', '9801234567', 'Pokhara', '2500', '1.0', '200', 'true'];
+    const csvContent = [headers.join(','), sampleRow1.join(','), sampleRow2.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'bulk_upload_sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="max-w-3xl mx-auto animate-fadeIn">
       <div className="card-premium">
-        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="font-bold text-slate-900 text-lg">Bulk Order Upload</h3>
-          <p className="text-sm text-slate-500 mt-1">Upload a CSV file to create multiple orders at once. Max 500 rows.</p>
+        <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg">Bulk Order Upload</h3>
+            <p className="text-sm text-slate-500 mt-1">Upload a CSV file to create multiple orders at once. Max 500 rows.</p>
+          </div>
+          <button onClick={downloadSampleCsv} type="button" className="btn-secondary py-2 px-4 text-xs flex items-center gap-1.5 shadow-sm hover:bg-slate-100">
+            <Download className="w-4 h-4 text-brand-600" /> Download Sample CSV
+          </button>
         </div>
         <div className="p-8">
           <div className={`border-2 border-dashed rounded-2xl p-12 text-center transition-colors ${file ? 'border-brand-300 bg-brand-50/50' : 'border-slate-200 hover:border-brand-300 hover:bg-slate-50'}`}>
             <UploadCloud className={`w-16 h-16 mx-auto mb-4 ${file ? 'text-brand-500' : 'text-slate-300'}`} />
             <h3 className="text-lg font-bold text-slate-800 mb-2">{file ? 'File Selected' : 'Upload CSV File'}</h3>
-            <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
-              Required columns: <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-xs font-semibold">Customer Name, Address, Customer Phone, Amount</code>
+            <p className="text-sm text-slate-500 mb-6 max-w-lg mx-auto leading-relaxed">
+              Standard format:<br />
+              <code className="bg-slate-100 text-brand-700 px-2 py-1 rounded font-mono text-xs font-semibold inline-block mt-1">
+                customer name, address, customerPhone, city, amount, weight, delivery charge, out of valley
+              </code>
             </p>
-            <input type="file" accept=".csv" id="csv-upload" className="hidden" onChange={e=>{setFile(e.target.files?.[0]||null);setResult(null);}}/>
-            <label htmlFor="csv-upload" className="btn-secondary inline-flex items-center gap-2 cursor-pointer py-3 px-6 shadow-sm">
-              <FileText className="w-5 h-5" />
-              {file ? file.name : 'Browse Files'}
-            </label>
+            <div className="flex justify-center gap-3">
+              <input type="file" accept=".csv" id="csv-upload" className="hidden" onChange={e=>{setFile(e.target.files?.[0]||null);setResult(null);}}/>
+              <label htmlFor="csv-upload" className="btn-secondary inline-flex items-center gap-2 cursor-pointer py-3 px-6 shadow-sm">
+                <FileText className="w-5 h-5" />
+                {file ? file.name : 'Browse Files'}
+              </label>
+            </div>
           </div>
 
           {file && (

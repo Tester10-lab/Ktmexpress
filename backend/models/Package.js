@@ -212,7 +212,7 @@ const packageSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: PACKAGE_STATUSES,
-      default: 'In Warehouse',
+      default: 'Pending',
     },
     comments: {
       type: String,

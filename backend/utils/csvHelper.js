@@ -69,6 +69,7 @@ export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin 
             const city = getVal(raw, ['city', 'area', 'district'], lowerRow)?.trim() || '';
             const weightVal = getVal(raw, ['weight', 'kg'], lowerRow);
             const amountVal = getVal(raw, ['amount', 'cod', 'price'], lowerRow);
+            const deliveryChargeVal = getVal(raw, ['delivery charge', 'deliveryCharge', 'delivery_charge', 'deliveryfee', 'delivery fee', 'shipping charge', 'shippingcharge'], lowerRow);
 
             const errors = [];
             if (!customerName) errors.push('Customer Name is required');
@@ -94,29 +95,35 @@ export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin 
               continue;
             }
 
-            validRows.push({ rowNumber, invoiceId, customerName, customerPhone, address, outOfValley, city, weight, amount, raw });
+            validRows.push({ rowNumber, invoiceId, customerName, customerPhone, address, outOfValley, city, weight, amount, deliveryChargeVal, raw });
           }
 
           // Batch-generate tracking codes for all valid rows
           const trackingCodes = validRows.length > 0 ? await uniqueTrackingCodes(validRows.length) : [];
 
           for (let i = 0; i < validRows.length; i++) {
-            const { rowNumber, invoiceId, customerName, customerPhone, address, outOfValley, city, weight, amount } = validRows[i];
+            const { rowNumber, invoiceId, customerName, customerPhone, address, outOfValley, city, weight, amount, deliveryChargeVal } = validRows[i];
 
             const outOfValleyParsed = String(outOfValley).toLowerCase() === 'true' || outOfValley === '1' || String(outOfValley).toLowerCase() === 'yes';
 
             let finalDeliveryCharge;
-            try {
-              finalDeliveryCharge = await calculateDeliveryFee({
-                vendorId,
-                outOfValley: outOfValleyParsed,
-                city: city || '',
-                weight: weight,
-                _vendor: vendor,
-                _globalSettings: globalSettings,
-              });
-            } catch (e) {
-              finalDeliveryCharge = 0;
+            const customFee = deliveryChargeVal !== undefined && deliveryChargeVal !== null && String(deliveryChargeVal).trim() !== '' ? Number(deliveryChargeVal) : NaN;
+
+            if (!isNaN(customFee) && customFee >= 0) {
+              finalDeliveryCharge = customFee;
+            } else {
+              try {
+                finalDeliveryCharge = await calculateDeliveryFee({
+                  vendorId,
+                  outOfValley: outOfValleyParsed,
+                  city: city || '',
+                  weight: weight,
+                  _vendor: vendor,
+                  _globalSettings: globalSettings,
+                });
+              } catch (e) {
+                finalDeliveryCharge = 0;
+              }
             }
 
             const trackingCode = trackingCodes[i];
