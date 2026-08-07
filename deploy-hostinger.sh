@@ -35,13 +35,15 @@ if [ ! -d "$DEPLOY_DIR" ]; then
 else
     echo "🔄 Pulling latest changes in $DEPLOY_DIR..."
     cd "$DEPLOY_DIR"
-    git pull origin main
+    git fetch origin main
+    git reset --hard origin/main
 fi
 
 # Launch Docker containers (MongoDB + Backend + Frontend)
 echo "🐳 Building and starting Docker containers..."
 docker compose down || true
-docker compose up -d --build
+docker compose build --no-cache
+docker compose up -d
 
 echo "✅ Containers running! Checking status:"
 docker compose ps
