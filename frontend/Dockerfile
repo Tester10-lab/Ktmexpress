@@ -1,5 +1,7 @@
 FROM node:20 AS builder
 WORKDIR /app
+ENV NODE_OPTIONS="--max-old-space-size=2048"
+ENV UV_THREADPOOL_SIZE=4
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 COPY . .

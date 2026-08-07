@@ -11,6 +11,15 @@ echo "🚀 Starting Hostinger VPS deployment for Ktmexpress..."
 # Update system
 apt-get update -y
 
+# Ensure 2GB swap space exists (prevents Out-Of-Memory crashes during Docker build)
+if [ $(swapon --show | wc -l) -eq 0 ]; then
+    echo "🧠 Allocating 2GB swap memory for build stability..."
+    fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile || true
+fi
+
 # Ensure Docker is installed
 if ! command -v docker &> /dev/null; then
     echo "📦 Installing Docker..."
