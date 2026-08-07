@@ -63,7 +63,7 @@ export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin 
 
             const invoiceId = getVal(raw, ['invoiceId', 'invoice', 'reference'], lowerRow)?.trim() || '';
             const customerName = getVal(raw, ['customerName', 'customer name', 'name'], lowerRow)?.trim() || '';
-            const customerPhone = getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact'], lowerRow)?.trim() || '';
+            const customerPhone = getVal(raw, ['customerPhone', 'customer phone', 'phone', 'contact', 'customer number', 'customernumber', 'phone number', 'phonenumber'], lowerRow)?.trim() || '';
             const address = getVal(raw, ['address', 'delivery address', 'location'], lowerRow)?.trim() || '';
             const outOfValley = getVal(raw, ['outOfValley', 'out of valley', 'outside valley'], lowerRow);
             const city = getVal(raw, ['city', 'area', 'district'], lowerRow)?.trim() || '';

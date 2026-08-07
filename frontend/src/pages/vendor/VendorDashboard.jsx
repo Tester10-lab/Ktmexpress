@@ -1067,7 +1067,7 @@ const PackageBulkUpload = () => {
             <UploadCloud className={`w-16 h-16 mx-auto mb-4 ${file ? 'text-brand-500' : 'text-slate-300'}`} />
             <h3 className="text-lg font-bold text-slate-800 mb-2">{file ? 'File Selected' : 'Upload CSV File'}</h3>
             <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">
-              Required columns: <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-xs font-semibold">Customer Name, Customer Phone, Address, Amount</code>
+              Required columns: <code className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-mono text-xs font-semibold">Customer Name, Address, Customer Phone, Amount</code>
             </p>
             <input type="file" accept=".csv" id="csv-upload" className="hidden" onChange={e=>{setFile(e.target.files?.[0]||null);setResult(null);}}/>
             <label htmlFor="csv-upload" className="btn-secondary inline-flex items-center gap-2 cursor-pointer py-3 px-6 shadow-sm">

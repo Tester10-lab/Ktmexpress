@@ -657,7 +657,7 @@ const AdminPackages = () => {
                   <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                     <p className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-2 flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Required Columns</p>
                     <p className="text-xs font-mono text-amber-700 leading-relaxed bg-white/50 p-2 rounded-lg border border-amber-100">
-                      customerName, customerPhone, address, city, amount, weight, deliveryCharge, outOfValley
+                      customerName, address, customerPhone, city, amount, weight, deliveryCharge, outOfValley
                     </p>
                   </div>
                 </div>
