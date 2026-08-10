@@ -45,11 +45,19 @@ export const connectDB = async () => {
 
   while (retries < MAX_RETRIES) {
     try {
-      const conn = await mongoose.connect(mongoUri, {
+      let currentUri = mongoUri;
+      if (retries > 0 && currentUri.includes('mongodb+srv://')) {
+        // Fallback SRV to direct shard endpoints if querySrv is blocked by host DNS
+        currentUri = currentUri.replace(
+          'mongodb+srv://kdmexpress7_db_user:kdmexpress7_db_user@cluster0.cnh6hgr.mongodb.net/kdmexpress',
+          'mongodb://kdmexpress7_db_user:kdmexpress7_db_user@ac-ta5bhnp-shard-00-00.cnh6hgr.mongodb.net:27017,ac-ta5bhnp-shard-00-01.cnh6hgr.mongodb.net:27017,ac-ta5bhnp-shard-00-02.cnh6hgr.mongodb.net:27017/kdmexpress?ssl=true&replicaSet=atlas-13b7m1-shard-0&authSource=admin'
+        );
+      }
+      const conn = await mongoose.connect(currentUri, {
         maxPoolSize: 10,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
-        family: 4, // Force IPv4 to prevent IPv6 DNS SRV issues
+        family: 4,
       });
       logger.info(`MongoDB connected: ${conn.connection.host}`);
       return;
@@ -60,7 +68,7 @@ export const connectDB = async () => {
         logger.error('Max retries reached. Exiting.');
         process.exit(1);
       }
-      await new Promise(r => setTimeout(r, 3000 * retries));
+      await new Promise(r => setTimeout(r, 2000 * retries));
     }
   }
 };
