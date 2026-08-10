@@ -19,7 +19,7 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=production
-      - MONGO_URI=${MONGO_URI:-mongodb://ktmadmin:ktmexpress_db_pass_2026@mongodb:27017/ktmexpress?authSource=admin}
+      - MONGO_URI=${MONGO_URI:-mongodb+srv://kdmexpress7_db_user:kdmexpress7_db_user@cluster0.cnh6hgr.mongodb.net/kdmexpress?retryWrites=true&w=majority&appName=Cluster0}
       - JWT_SECRET=${JWT_SECRET:-ktmexpress_jwt_secret_production_key_2026}
       - CLIENT_URL=${CLIENT_URL:-https://kdmexpress.com}
     depends_on:

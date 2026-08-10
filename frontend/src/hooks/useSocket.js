@@ -14,7 +14,7 @@ export function useSocket() {
     let socketInstance;
     if (user?.role && token) {
       import('socket.io-client').then(({ io }) => {
-        const rawUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const rawUrl = import.meta.env.VITE_API_URL || '/api';
         const socketUrl = rawUrl.replace(/\/api\/?$/, '');
 
         socketInstance = io(socketUrl, {

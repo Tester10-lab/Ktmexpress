@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   withCredentials: true,
   timeout: 10000,
 });
@@ -54,7 +54,7 @@ api.interceptors.response.use(
 
       if (!refreshPromises[activeRole]) {
         refreshPromises[activeRole] = axios.post(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/refresh`,
+          `${import.meta.env.VITE_API_URL || '/api'}/auth/refresh`,
           { role: activeRole },
           { withCredentials: true }
         ).then(res => {
