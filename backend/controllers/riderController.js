@@ -92,12 +92,14 @@ export const updateDeliveryStatus = async (req, res) => {
     }
 
     const ts = nowStr();
+    const prevStatus = pkg.status;
 
     const ACTION_TO_STATUS = {
       deliver: 'Delivered',
       postpone: 'Postponed',
       cancel: 'Cancelled',
       return: 'Returned',
+      exchange: 'Exchanged',
       pickup_complete: 'Picked Up'
     };
 
@@ -111,11 +113,20 @@ export const updateDeliveryStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: transition.reason });
     }
 
+    if (comment && comment.trim()) {
+      if (!Array.isArray(pkg.comments)) pkg.comments = [];
+      pkg.comments.push({
+        text: comment.trim(),
+        user: req.user.name || 'Rider',
+        role: 'Rider',
+        createdAt: new Date()
+      });
+    }
+
     switch (action) {
       case 'deliver':
         pkg.status = 'Delivered';
         pkg.cashReconciled = false;
-        pkg.comments = comment || '';
         pkg.riderSubmission = {
           status: 'Delivered',
           amount: cashCollected !== undefined ? Number(cashCollected) : pkg.amount,
@@ -129,14 +140,13 @@ export const updateDeliveryStatus = async (req, res) => {
           user: req.user.name,
           type: 'RIDER_SUBMITTED',
           changes: [
-            { field: 'status', before: pkg.status, after: 'Delivered' }
+            { field: 'status', before: prevStatus, after: 'Delivered' }
           ]
         });
         break;
 
       case 'postpone':
         pkg.status = 'Postponed';
-        pkg.comments = comment || '';
         pkg.riderSubmission = {
           status: 'Postponed',
           amount: pkg.amount,
@@ -147,44 +157,41 @@ export const updateDeliveryStatus = async (req, res) => {
         appendTimelineEvent(pkg, {
           time: ts,
           status: 'Postponed',
-          message: `Delivery postponed. Reason: ${comment}. New date: ${newDate || 'TBD'}.`,
+          message: `Delivery postponed. Reason: ${comment || 'No reason provided'}. New date: ${newDate || 'TBD'}.`,
           user: req.user.name,
           type: 'RIDER_SUBMITTED',
           changes: [
-            { field: 'status', before: pkg.status, after: 'Postponed' }
+            { field: 'status', before: prevStatus, after: 'Postponed' }
           ]
         });
         break;
 
       case 'cancel':
         pkg.status = 'Cancelled';
-        pkg.comments = comment || '';
         appendTimelineEvent(pkg, {
           time: ts,
           status: 'Cancelled',
-          message: `Delivery failed: ${comment}`,
+          message: `Delivery failed: ${comment || 'No reason provided'}`,
           user: req.user.name,
         });
         break;
 
       case 'return':
         pkg.status = 'Returned';
-        pkg.comments = comment || '';
         appendTimelineEvent(pkg, {
           time: ts,
           status: 'Returned',
-          message: `Package marked for return. Reason: ${comment}`,
+          message: `Package marked for return. Reason: ${comment || 'No reason provided'}`,
           user: req.user.name,
         });
         break;
 
       case 'exchange':
         pkg.status = 'Exchanged';
-        pkg.comments = comment || '';
         appendTimelineEvent(pkg, {
           time: ts,
           status: 'Exchanged',
-          message: `Package marked for exchange. Reason: ${comment}`,
+          message: `Package marked for exchange. Reason: ${comment || 'No reason provided'}`,
           user: req.user.name,
         });
         break;

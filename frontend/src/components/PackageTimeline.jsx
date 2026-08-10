@@ -31,12 +31,16 @@ const PackageTimeline = ({ pkg, onCommentAdded }) => {
       createdAt: t.time
     }));
 
-  const arrayComments = (localPkg.comments || []).map(c => ({
-    text: c.text,
-    user: c.user || 'User',
-    role: c.role || '',
-    createdAt: c.createdAt || c.time
-  }));
+  const arrayComments = Array.isArray(localPkg.comments)
+    ? localPkg.comments.map(c => ({
+        text: typeof c === 'string' ? c : (c?.text || ''),
+        user: typeof c === 'string' ? 'User' : (c?.user || 'User'),
+        role: typeof c === 'string' ? '' : (c?.role || ''),
+        createdAt: typeof c === 'string' ? localPkg.updatedAt : (c?.createdAt || c?.time)
+      }))
+    : typeof localPkg.comments === 'string' && localPkg.comments.trim()
+      ? [{ text: localPkg.comments.trim(), user: 'User', role: '', createdAt: localPkg.updatedAt }]
+      : [];
 
   // Merge and deduplicate comments by text + createdAt
   const mergedCommentsMap = new Map();

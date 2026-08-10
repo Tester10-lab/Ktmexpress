@@ -826,6 +826,11 @@ const PackageList = () => {
                       <input type="text" name="customerName" value={f.customerName} onChange={handleFormChange} className="input-field" placeholder="Enter recipient's full name" />
                       {formErrors.customerName && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.customerName}</span>}
                     </div>
+                    <div>
+                      <label className={labelClass}>Full delivery address <span className="text-red-500">*</span></label>
+                      <input type="text" name="address" value={f.address} onChange={handleFormChange} className="input-field" placeholder="Street, landmark, ward no..." />
+                      {formErrors.address && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.address}</span>}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className={labelClass}>Contact number <span className="text-red-500">*</span></label>
@@ -844,15 +849,10 @@ const PackageList = () => {
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold">2</span>
-                    <h4 className="text-sm font-bold text-brand-700 uppercase tracking-wider">Delivery Info</h4>
+                    <h4 className="text-sm font-bold text-brand-700 uppercase tracking-wider">Delivery Location Info</h4>
                   </div>
                   
                   <div className="space-y-5">
-                    <div>
-                      <label className={labelClass}>Full delivery address <span className="text-red-500">*</span></label>
-                      <input type="text" name="address" value={f.address} onChange={handleFormChange} className="input-field" placeholder="Street, landmark, ward no..." />
-                      {formErrors.address && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.address}</span>}
-                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className={labelClass}>City / Branch <span className="text-red-500">*</span></label>

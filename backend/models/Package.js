@@ -214,10 +214,6 @@ const packageSchema = new mongoose.Schema(
       enum: PACKAGE_STATUSES,
       default: 'Pending',
     },
-    comments: {
-      type: String,
-      default: '',
-    },
     qrCodeUrl: {
       type: String,
       default: '',

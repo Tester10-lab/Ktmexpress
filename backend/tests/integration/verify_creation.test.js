@@ -57,23 +57,23 @@ describe('Verification of Package Creation Workflows', () => {
     expect(pkg.timeline[0].message).toBe('Package arrived at warehouse.');
   });
 
-  it('Vendor Create Order sets status to In Warehouse', async () => {
+  it('Vendor Create Order sets status to Pending', async () => {
     const req = { user: vendor, body: { customerName: 'TestUserC', customerPhone: '3', address: '3', amount: 300 } };
     const res = mockRes();
     await createPackage(req, res);
     const pkg = res.data.data;
-    expect(pkg.status).toBe('In Warehouse');
-    expect(pkg.timeline[0].message).toBe('Package arrived at warehouse.');
+    expect(pkg.status).toBe('Pending');
+    expect(pkg.timeline[0].message).toBe('Package created. Needs pickup request.');
   });
 
-  it('Vendor Bulk Upload (CSV) sets status to In Warehouse', async () => {
+  it('Vendor Bulk Upload (CSV) sets status to Pending', async () => {
     const csvContent = `customerName,customerPhone,address,amount\nTestUserD,4,4,400`;
     const csvPath = path.join(__dirname, 'test.csv');
     fs.writeFileSync(csvPath, csvContent);
     const result = await processCsvImport(csvPath, vendor._id.toString(), 'CSV Tester');
     const pkg = await Package.findById(result.data[0]);
-    expect(pkg.status).toBe('In Warehouse');
-    expect(pkg.timeline[0].message).toBe('Package arrived at warehouse.');
+    expect(pkg.status).toBe('Pending');
+    expect(pkg.timeline[0].message).toBe('Package created. Needs pickup request.');
     fs.unlinkSync(csvPath);
   });
 
