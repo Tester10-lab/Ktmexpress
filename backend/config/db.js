@@ -5,13 +5,10 @@ import { logger } from './logger.js';
 
 
 export const connectDB = async () => {
-  // Workaround for Windows local environments where Node.js fails to query SRV records via IPv6 DNS
-  if (process.env.NODE_ENV === 'development') {
-    try {
-      dns.setServers(['8.8.8.8', '1.1.1.1']);
-    } catch (err) {
-      console.warn('Failed to set DNS servers', err);
-    }
+  try {
+    dns.setServers(['8.8.8.8', '1.1.1.1']);
+  } catch (err) {
+    console.warn('Failed to set DNS servers', err);
   }
 
   let mongoUri = process.env.MONGO_URI;
