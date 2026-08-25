@@ -13,6 +13,16 @@ import { logger } from '../config/logger.js';
 import { uniqueTrackingCode, uniqueTrackingCodes, generateInvoiceId, nowStr, escapeRegex } from '../utils/helpers.js';
 import { processCsvImport } from '../utils/csvHelper.js';
 
+// GET /api/vendor/next-invoice-id
+export const getNextInvoiceId = async (req, res) => {
+  try {
+    const invoiceId = await generateInvoiceId();
+    res.json({ success: true, invoiceId });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET /api/vendor/dashboard
 export const getVendorDashboard = async (req, res) => {
   try {
@@ -226,10 +236,11 @@ export const createPackage = async (req, res) => {
 
     const trackingCode = await uniqueTrackingCode();
     const labelUrls = generateLabelUrls(trackingCode);
+    const finalInvoiceId = (invoiceId && String(invoiceId).trim()) ? String(invoiceId).trim() : await generateInvoiceId();
 
     const pkg = await Package.create({
       trackingCode,
-      invoiceId: invoiceId || `INV-${Date.now()}`,
+      invoiceId: finalInvoiceId,
       customerName,
       customerPhone,
       address,

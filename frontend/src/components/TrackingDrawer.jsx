@@ -129,6 +129,9 @@ const TrackingDrawer = () => {
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Tracking ID</p>
                     <h3 className="text-xl font-black font-mono tracking-widest">{pkg.trackingCode}</h3>
+                    {pkg.invoiceId && (
+                      <p className="text-xs font-semibold mt-1 opacity-90">Invoice ID: <span className="font-mono">{pkg.invoiceId}</span></p>
+                    )}
                   </div>
                   <div className="px-3 py-1 rounded-full font-bold text-sm bg-white/50 backdrop-blur-sm border border-current">
                     {pkg.status}
@@ -191,11 +194,23 @@ const TrackingDrawer = () => {
               {/* QR / Barcode */}
               <div className="flex gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
                 <div className="flex flex-col items-center justify-center bg-white p-2 rounded-lg border border-slate-200 shadow-sm shrink-0">
-                  <img
-                    src={pkg.qrCodeUrl || `https://quickchart.io/qr?size=100&text=${encodeURIComponent(`${window.location.origin}/track?code=${pkg.trackingCode}`)}`}
-                    alt="QR Code" 
-                    className="w-20 h-20"
-                  />
+                  {(() => {
+                    const trackingBase = (import.meta.env.VITE_PUBLIC_URL && !import.meta.env.VITE_PUBLIC_URL.includes('localhost'))
+                      ? import.meta.env.VITE_PUBLIC_URL
+                      : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'https://kdmexpress.com' : window.location.origin);
+                    const targetUrl = `${trackingBase}/track?code=${pkg.trackingCode}`;
+                    return (
+                      <img
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&ecc=M&data=${encodeURIComponent(targetUrl)}`}
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://quickchart.io/qr?size=120&text=${encodeURIComponent(targetUrl)}`;
+                        }}
+                        alt={`QR Code for ${pkg.trackingCode}`} 
+                        className="w-20 h-20 object-contain"
+                      />
+                    );
+                  })()}
                   <span className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">QR</span>
                 </div>
                 <div className="flex flex-col items-center justify-center flex-1 bg-white p-2 rounded-lg border border-slate-200 shadow-sm">

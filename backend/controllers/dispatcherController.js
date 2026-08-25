@@ -370,41 +370,80 @@ export const getDispatcherDashboard = async (req, res) => {
 // GET /api/dispatcher/packages
 export const getAllPackagesForDispatcher = async (req, res) => {
   try {
-    const { status, search } = req.query;
+    const { status, search, riderId, vendorId, city, startDate, endDate, limit } = req.query;
     const filter = {};
+
     if (status && status !== 'all') {
-      // Support comma-separated statuses
-      const statuses = status.split(',');
-      filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        filter.status = statuses[0];
+      } else if (statuses.length > 1) {
+        filter.status = { $in: statuses };
+      }
     }
+
+    if (riderId) {
+      if (riderId === 'unassigned' || riderId === 'postponed' || riderId === 'null') {
+        filter.riderId = null;
+      } else if (mongoose.Types.ObjectId.isValid(riderId)) {
+        filter.riderId = riderId;
+      }
+    }
+
+    if (vendorId && mongoose.Types.ObjectId.isValid(vendorId)) {
+      filter.vendorId = vendorId;
+    }
+
+    if (city) {
+      filter.city = { $regex: escapeRegex(city), $options: 'i' };
+    }
+
+    if (startDate || endDate) {
+      filter.createdAt = {};
+      if (startDate) filter.createdAt.$gte = new Date(`${startDate}T00:00:00+05:45`);
+      if (endDate) filter.createdAt.$lte = new Date(`${endDate}T23:59:59+05:45`);
+    }
+
     if (search) {
       const escapedSearch = escapeRegex(search);
-      const matchingVendors = await User.find({
-        role: 'vendor',
-        $or: [
-          { name: { $regex: escapedSearch, $options: 'i' } },
-          { 'vendorMeta.shopName': { $regex: escapedSearch, $options: 'i' } }
-        ]
-      }).select('_id').lean();
+      const [matchingVendors, matchingRiders] = await Promise.all([
+        User.find({
+          role: 'vendor',
+          $or: [
+            { name: { $regex: escapedSearch, $options: 'i' } },
+            { 'vendorMeta.shopName': { $regex: escapedSearch, $options: 'i' } }
+          ]
+        }).select('_id').lean(),
+        User.find({
+          role: 'rider',
+          name: { $regex: escapedSearch, $options: 'i' }
+        }).select('_id').lean()
+      ]);
+
       const vendorIds = matchingVendors.map(v => v._id);
+      const riderIds = matchingRiders.map(r => r._id);
 
       filter.$or = [
         { trackingCode: { $regex: escapedSearch, $options: 'i' } },
         { customerName: { $regex: escapedSearch, $options: 'i' } },
         { invoiceId: { $regex: escapedSearch, $options: 'i' } },
         { customerPhone: { $regex: escapedSearch, $options: 'i' } },
-        { vendorId: { $in: vendorIds } }
+        { address: { $regex: escapedSearch, $options: 'i' } },
+        { city: { $regex: escapedSearch, $options: 'i' } },
+        { vendorId: { $in: vendorIds } },
+        { riderId: { $in: riderIds } }
       ];
     }
 
+    const maxLimit = Math.min(parseInt(limit) || 500, 1000);
     const packages = await Package.find(filter)
       .populate('vendorId', 'name email vendorMeta')
-      .populate('riderId', 'name contact')
+      .populate('riderId', 'name contact phone')
       .sort({ createdAt: -1 })
-      .limit(500)
+      .limit(maxLimit)
       .lean();
 
-    res.json({ success: true, data: packages });
+    res.json({ success: true, count: packages.length, data: packages });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

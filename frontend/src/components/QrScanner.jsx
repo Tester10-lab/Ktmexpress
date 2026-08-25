@@ -2,6 +2,30 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Camera, Flashlight, FlashlightOff, AlertCircle, TerminalSquare, Upload } from 'lucide-react';
 
+export const parseTrackingCode = (text) => {
+  if (!text) return '';
+  const trimmed = String(text).trim();
+  try {
+    if (trimmed.includes('http://') || trimmed.includes('https://') || trimmed.includes('/track')) {
+      const matchQuery = trimmed.match(/[?&]code=([^&]+)/i);
+      if (matchQuery && matchQuery[1]) {
+        return decodeURIComponent(matchQuery[1]).trim();
+      }
+      const matchPath = trimmed.match(/\/track\/([a-zA-Z0-9-]+)/i);
+      if (matchPath && matchPath[1]) {
+        return matchPath[1].trim();
+      }
+    }
+  } catch (e) {}
+
+  const match = trimmed.match(/(?:^|[?&])code=([^&]+)/i);
+  if (match && match[1]) {
+    return decodeURIComponent(match[1]).trim();
+  }
+
+  return trimmed;
+};
+
 const QrScanner = ({ onScanSuccess, onClose }) => {
   const [error, setError] = useState('');
   const [hasCamera, setHasCamera] = useState(true);
@@ -34,13 +58,14 @@ const QrScanner = ({ onScanSuccess, onClose }) => {
               qrbox: { width: 250, height: 250 }
             },
             (decodedText) => {
-              if (decodedText.length < 5) {
+              const code = parseTrackingCode(decodedText);
+              if (!code || code.length < 3) {
                 setError('Invalid QR code format.');
                 return;
               }
               setError('');
               if (onScanSuccess) {
-                onScanSuccess(decodedText);
+                onScanSuccess(code);
               }
             },
             (errorMessage) => {
@@ -109,8 +134,8 @@ const QrScanner = ({ onScanSuccess, onClose }) => {
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
-    const cleanCode = manualCode.trim();
-    if (!cleanCode || cleanCode.length < 5) {
+    const cleanCode = parseTrackingCode(manualCode);
+    if (!cleanCode || cleanCode.length < 3) {
       setError('Invalid tracking code format.');
       return;
     }
@@ -131,7 +156,8 @@ const QrScanner = ({ onScanSuccess, onClose }) => {
       // Create a temporary Html5Qrcode instance
       const scanner = new Html5Qrcode("file-qr-reader");
       const decodedText = await scanner.scanFile(file, false);
-      if (decodedText.length < 5) {
+      const code = parseTrackingCode(decodedText);
+      if (!code || code.length < 3) {
         setError('Invalid QR code format in image.');
         setFileScanning(false);
         return;
@@ -139,7 +165,7 @@ const QrScanner = ({ onScanSuccess, onClose }) => {
       setError('');
       setFileScanning(false);
       if (onScanSuccess) {
-        onScanSuccess(decodedText);
+        onScanSuccess(code);
       }
     } catch (err) {
       console.error("File scan error:", err);

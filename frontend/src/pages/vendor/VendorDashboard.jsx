@@ -143,9 +143,6 @@ const VendorHome = () => {
           <h2 className="text-2xl font-bold text-slate-900">Welcome back 👋</h2>
           <p className="text-sm text-slate-500 mt-1">Here's your delivery overview</p>
         </div>
-        <button className="btn-primary py-2.5 px-5 flex items-center gap-2" onClick={() => navigate('/vendor/packages/new')}>
-          <Plus className="w-5 h-5" /> New Order
-        </button>
       </div>
 
       {/* ─── Standard KPIs ─────────────────────────────────────── */}
@@ -303,6 +300,26 @@ const PackageList = () => {
   const [scannerOpen, setScannerOpen] = useState(false);
   const printRef = useRef();
   const { showToast } = useToast();
+
+  const fetchNextInvoiceId = async () => {
+    try {
+      const res = await api.get('/vendor/next-invoice-id');
+      if (res.data && res.data.invoiceId) {
+        return res.data.invoiceId;
+      }
+    } catch (e) {
+      console.error('Failed to fetch next invoice ID', e);
+    }
+    return '';
+  };
+
+  const openNewOrderModal = async () => {
+    setEditMode(false);
+    setEditPackageId(null);
+    const nextId = await fetchNextInvoiceId();
+    setCreateForm({ ...EMPTY_FORM, invoiceId: nextId });
+    setDrawerOpen(true);
+  };
 
   // ── Auto-fetch delivery charge from admin rules ──
   const {
@@ -467,7 +484,10 @@ const PackageList = () => {
         }
       }
       
-      if (!editMode) setCreateForm(EMPTY_FORM);
+      if (!editMode) {
+        const nextId = await fetchNextInvoiceId();
+        setCreateForm({ ...EMPTY_FORM, invoiceId: nextId });
+      }
       fetchPackages(true);
     } catch (err) {
       const msg = err.message || (editMode ? 'Failed to update order' : 'Failed to create order');
@@ -511,7 +531,7 @@ const PackageList = () => {
           <button className="btn-secondary py-2 px-4 flex items-center gap-2" onClick={() => setScannerOpen(true)}>
             <Camera className="w-5 h-5" /> Scan to Track
           </button>
-          <button className="btn-primary py-2 px-4 flex items-center gap-2" onClick={() => { setEditMode(false); setEditPackageId(null); setCreateForm(EMPTY_FORM); setDrawerOpen(true); }}>
+          <button className="btn-primary py-2 px-4 flex items-center gap-2" onClick={openNewOrderModal}>
             <Plus className="w-5 h-5" /> New Order
           </button>
         </div>
@@ -747,16 +767,33 @@ const PackageList = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center col-span-1">
                     <span className="text-xs font-bold text-slate-500 uppercase mb-3">QR Code</span>
-                    <img
-                      src={viewPackageDetails.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&ecc=M&data=${encodeURIComponent('http://localhost:5173/track?code='+viewPackageDetails.trackingCode)}`}
-                      alt="QR Code" width="120" height="120" className="border border-slate-200 rounded-lg shadow-sm"
-                    />
-                    <a
-                      href={viewPackageDetails.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=M&data=${encodeURIComponent('http://localhost:5173/track?code='+viewPackageDetails.trackingCode)}`}
-                      download={`QR-${viewPackageDetails.trackingCode}.png`} target="_blank" rel="noreferrer"
-                      className="mt-4 btn-secondary btn-sm w-full flex justify-center items-center gap-1.5">
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
+                    {(() => {
+                      const trackingBase = (import.meta.env.VITE_PUBLIC_URL && !import.meta.env.VITE_PUBLIC_URL.includes('localhost'))
+                        ? import.meta.env.VITE_PUBLIC_URL
+                        : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'https://kdmexpress.com' : window.location.origin);
+                      const targetUrl = `${trackingBase}/track?code=${viewPackageDetails.trackingCode}`;
+                      return (
+                        <>
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(targetUrl)}`}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = `https://quickchart.io/qr?size=160&text=${encodeURIComponent(targetUrl)}`;
+                            }}
+                            alt={`QR Code for ${viewPackageDetails.trackingCode}`}
+                            width="120"
+                            height="120"
+                            className="border border-slate-200 rounded-lg shadow-sm object-contain"
+                          />
+                          <a
+                            href={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&ecc=M&data=${encodeURIComponent(targetUrl)}`}
+                            download={`QR-${viewPackageDetails.trackingCode}.png`} target="_blank" rel="noreferrer"
+                            className="mt-4 btn-secondary btn-sm w-full flex justify-center items-center gap-1.5">
+                            <Download className="w-3.5 h-3.5" /> Download
+                          </a>
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center justify-center col-span-1 sm:col-span-2">
                     <span className="text-xs font-bold text-slate-500 uppercase mb-3">Code 128 Barcode</span>
@@ -813,10 +850,32 @@ const PackageList = () => {
             <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-slate-50/50">
               <form id="create-order-form" className="space-y-8 max-w-2xl mx-auto">
                 
-                {/* 1. RECIPIENT */}
+                {/* 1. DELIVERY LOCATION INFO */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold">1</span>
+                    <h4 className="text-sm font-bold text-brand-700 uppercase tracking-wider">Delivery Location Info</h4>
+                  </div>
+                  
+                  <div className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div>
+                        <label className={labelClass}>City / Branch <span className="text-red-500">*</span></label>
+                        <SearchableDropdown name="destinationBranch" value={f.destinationBranch} onChange={handleFormChange} options={SIMPLE_BRANCHES} placeholder="Select nearest branch" />
+                        {formErrors.destinationBranch && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.destinationBranch}</span>}
+                      </div>
+                      <div>
+                        <label className={labelClass}>Area / Sub-city</label>
+                        <SearchableDropdown name="city" value={f.city} onChange={handleFormChange} options={f.destinationBranch === 'HEAD OFFICE' ? KATHMANDU_VALLEY_AREAS : OUT_OF_VALLEY_CITIES} placeholder="Select area" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. RECIPIENT DETAILS */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold">2</span>
                     <h4 className="text-sm font-bold text-brand-700 uppercase tracking-wider">Recipient Details</h4>
                   </div>
                   
@@ -845,28 +904,6 @@ const PackageList = () => {
                   </div>
                 </div>
 
-                {/* 2. DELIVERY */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-100 text-brand-700 text-xs font-bold">2</span>
-                    <h4 className="text-sm font-bold text-brand-700 uppercase tracking-wider">Delivery Location Info</h4>
-                  </div>
-                  
-                  <div className="space-y-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      <div>
-                        <label className={labelClass}>City / Branch <span className="text-red-500">*</span></label>
-                        <SearchableDropdown name="destinationBranch" value={f.destinationBranch} onChange={handleFormChange} options={SIMPLE_BRANCHES} placeholder="Select nearest branch" />
-                        {formErrors.destinationBranch && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.destinationBranch}</span>}
-                      </div>
-                      <div>
-                        <label className={labelClass}>Area / Sub-city</label>
-                        <SearchableDropdown name="city" value={f.city} onChange={handleFormChange} options={f.destinationBranch === 'HEAD OFFICE' ? KATHMANDU_VALLEY_AREAS : OUT_OF_VALLEY_CITIES} placeholder="Select area" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
                 {/* 3. PACKAGE */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
@@ -878,7 +915,8 @@ const PackageList = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className={labelClass}>Invoice / Order ID</label>
-                        <input type="text" name="invoiceId" value={f.invoiceId} onChange={handleFormChange} className="input-field" placeholder="#INV-0000" />
+                        <input type="text" name="invoiceId" value={f.invoiceId} onChange={handleFormChange} className="input-field" placeholder="e.g. KDM-001" />
+                        <span className="text-[11px] text-slate-400 mt-1 block font-medium">Optional: Auto-generated (e.g. KDM-001) if left empty</span>
                       </div>
                       <div>
                         <label className={labelClass}>Scheduled Date</label>

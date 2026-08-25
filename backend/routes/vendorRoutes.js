@@ -3,6 +3,7 @@ const router = express.Router();
 import auth from '../middleware/auth.js';
 import roleGuard from '../middleware/roleGuard.js';
 import { 
+  getNextInvoiceId,
   getVendorDashboard,
   getVendorPackages,
   createPickupRequest,
@@ -42,6 +43,7 @@ const upload = multer({
 // All routes require auth + vendor role
 router.use(auth, roleGuard('vendor'));
 
+router.get('/next-invoice-id', getNextInvoiceId);
 router.get('/dashboard', getVendorDashboard);
 router.get('/packages', getVendorPackages);
 router.post('/packages', createPackage);

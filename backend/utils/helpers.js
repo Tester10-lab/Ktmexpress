@@ -56,10 +56,22 @@ export async function uniqueTrackingCodes(count) {
   return [...codes];
 }
 
-// Generate a concurrency-safe unique invoice ID
-export function generateInvoiceId() {
-  // Use timestamp + random string for uniqueness under concurrent load
-  return `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+// Generate a concurrency-safe unique invoice ID formatted like KDM-001, KDM-002...
+export async function generateInvoiceId() {
+  try {
+    const count = await Package.countDocuments();
+    let num = count + 1;
+    let candidate = `KDM-${num.toString().padStart(3, '0')}`;
+    let exists = await Package.exists({ invoiceId: candidate });
+    while (exists) {
+      num++;
+      candidate = `KDM-${num.toString().padStart(3, '0')}`;
+      exists = await Package.exists({ invoiceId: candidate });
+    }
+    return candidate;
+  } catch (err) {
+    return `KDM-${Math.floor(100 + Math.random() * 900)}`;
+  }
 }
 
 // Escape regex characters from a string

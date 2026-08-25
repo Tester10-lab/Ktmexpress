@@ -114,8 +114,8 @@ const runReconciliation = async () => {
       if (process.env.SMTP_EMAIL && process.env.SMTP_EMAIL !== 'your-smtp-email') {
         try {
           await sendEmail({
-            to: process.env.FROM_EMAIL || 'admin@ktmexpress.com',
-            subject: `Ktmexpress Daily Reconciliation Report - ${now.toLocaleDateString()}`,
+            to: process.env.FROM_EMAIL || 'admin@kdmexpress.com',
+            subject: `KDM Express Daily Reconciliation Report - ${now.toLocaleDateString()}`,
             html: emailBody
           });
           logger.info('Daily reconciliation report email sent successfully.');

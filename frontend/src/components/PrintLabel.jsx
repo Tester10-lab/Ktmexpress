@@ -26,8 +26,10 @@ const statusColor = (status) => {
 
 const LabelCard = ({ pkg }) => {
   const { logoUrl } = useSettings();
-  const trackingBase = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
-  const qr = pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(`${trackingBase}/track?code=${pkg.trackingCode}`)}`;
+  const trackingBase = (import.meta.env.VITE_PUBLIC_URL && !import.meta.env.VITE_PUBLIC_URL.includes('localhost'))
+    ? import.meta.env.VITE_PUBLIC_URL
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'https://kdmexpress.com' : window.location.origin);
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(`${trackingBase}/track?code=${pkg.trackingCode}`)}`;
   const barcode = pkg.barcodeUrl || `https://barcodeapi.org/api/128/${pkg.trackingCode}`;
   const deliveryDate = pkg.deliveryDate ? new Date(pkg.deliveryDate).toLocaleDateString() : '—';
 
@@ -91,7 +93,15 @@ const LabelCard = ({ pkg }) => {
 
         {/* QR Code */}
         <div className="label-qr-section">
-          <img src={qr} alt={`QR for ${pkg.trackingCode}`} className="label-qr-img" />
+          <img
+            src={qr}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = `https://quickchart.io/qr?size=160&text=${encodeURIComponent(`${trackingBase}/track?code=${pkg.trackingCode}`)}`;
+            }}
+            alt={`QR for ${pkg.trackingCode}`}
+            className="label-qr-img"
+          />
           <div className="label-qr-caption">Scan to Track</div>
         </div>
       </div>

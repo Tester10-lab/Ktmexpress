@@ -114,6 +114,14 @@ const GlobalSettings = ({ onUpdate }) => {
             </button>
           </div>
           <p className="text-xs text-slate-500">Recommended size: 250x60px. Will update globally instantly.</p>
+          {logoUrl && (
+            <div className="pt-2">
+              <span className="text-xs font-semibold text-slate-600 block mb-1.5">Current Active Logo:</span>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 w-fit flex items-center justify-center shadow-inner">
+                <img src={logoUrl} alt="Active Logo" className="h-10 object-contain" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

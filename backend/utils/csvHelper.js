@@ -132,9 +132,11 @@ export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin 
             const initialStatus = isAdmin ? 'In Warehouse' : 'Pending';
             const initialMessage = isAdmin ? 'Package arrived at warehouse.' : 'Package created. Needs pickup request.';
 
+            const finalInvoiceId = (invoiceId && String(invoiceId).trim()) ? String(invoiceId).trim() : await generateInvoiceId();
+
             packageDocs.push({
               trackingCode,
-              invoiceId: invoiceId || generateInvoiceId(),
+              invoiceId: finalInvoiceId,
               customerName,
               customerPhone,
               address,

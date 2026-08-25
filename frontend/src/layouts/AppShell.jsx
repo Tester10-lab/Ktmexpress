@@ -5,7 +5,6 @@ import brandLogo from '../assets/logo.png';
 import { useAuth } from '../store/AuthContext';
 import useNotificationSound from '../hooks/useNotificationSound';
 import { useZoom } from '../hooks/useZoom';
-import { useSwipeGesture } from '../hooks/useSwipeGesture';
 import ZoomBar from '../components/ZoomBar';
 import { useToast } from '../store/ToastContext';
 import { useSettings } from '../store/SettingsContext';
@@ -27,10 +26,6 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
 
   const openSidebar = useCallback(() => setMobileOpen(true), []);
   const closeSidebar = useCallback(() => setMobileOpen(false), []);
-  const { ref: swipeRef } = useSwipeGesture({
-    onSwipeRight: openSidebar,
-    onSwipeLeft: closeSidebar,
-  });
 
   const handleLogout = () => {
     logout();
@@ -41,7 +36,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#fafafa]" ref={swipeRef}>
+    <div className="flex h-screen overflow-hidden bg-[#fafafa]">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-[9999] px-4 py-2 bg-slate-900 text-white font-semibold rounded-lg">Skip to main content</a>
 
       {/* Mobile Overlay */}
@@ -53,15 +48,19 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 flex flex-col ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
         {/* Brand */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-slate-100 flex-shrink-0 relative z-10">
-          <div className="flex items-center gap-3 text-slate-900">
-            {logoUrl ? (
-              <img src={logoUrl} alt="Company Logo" className="h-8 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
-            ) : (
-              <div className="flex flex-col">
-                <img src={brandLogo} alt="ktmexpress Logo" className="h-10 object-contain" />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mt-1">{roleBadge || 'Workspace'}</span>
-              </div>
+        <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 flex-shrink-0 relative z-10 bg-slate-50/50">
+          <div className="flex items-center gap-2.5">
+            <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm flex items-center">
+              {logoUrl ? (
+                <img src={logoUrl} alt="Company Logo" className="h-8 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
+              ) : (
+                <img src={brandLogo} alt="KDM Express Logo" className="h-8 object-contain" />
+              )}
+            </div>
+            {roleBadge && (
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md border border-slate-300/60">
+                {roleBadge}
+              </span>
             )}
           </div>
           <button className="lg:hidden p-1 text-slate-400 hover:text-slate-600 rounded-md hover:bg-slate-100 transition-colors" onClick={closeSidebar}>

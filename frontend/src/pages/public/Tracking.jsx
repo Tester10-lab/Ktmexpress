@@ -40,7 +40,7 @@ const Tracking = () => {
       <section className="bg-slate-900 py-16 px-6 text-center shadow-inner relative overflow-hidden">
         <div className="max-w-2xl mx-auto relative z-10">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight">Track Your Package</h1>
-          <p className="text-slate-400 text-lg mb-8">Enter your tracking code for real-time status updates</p>
+          <p className="text-slate-400 text-lg mb-8">Enter your 7-character tracking code or Invoice / Order ID</p>
           
           <div className="flex bg-white/5 backdrop-blur-md p-1.5 rounded-2xl border border-white/10">
             <input 
@@ -48,7 +48,7 @@ const Tracking = () => {
               value={code} 
               onChange={e => setCode(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && doTrack()}
-              placeholder="e.g. LOG-2026-ABC12"
+              placeholder="Enter Tracking Code or Invoice ID..."
               className="flex-1 bg-white border-none outline-none px-5 py-3 rounded-xl text-slate-900 font-mono tracking-wider font-semibold placeholder:text-slate-400 placeholder:font-sans placeholder:font-normal"
             />
             <Button 
@@ -82,9 +82,17 @@ const Tracking = () => {
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
               {/* Header */}
               <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center gap-4 flex-wrap bg-slate-50">
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tracking ID</p>
-                  <h2 className="text-xl font-bold font-mono tracking-widest text-slate-900">{pkg.trackingCode}</h2>
+                <div className="flex items-center gap-6 flex-wrap">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Tracking ID</p>
+                    <h2 className="text-xl font-bold font-mono tracking-widest text-slate-900">{pkg.trackingCode}</h2>
+                  </div>
+                  {pkg.invoiceId && (
+                    <div className="border-l border-slate-200 pl-6">
+                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Invoice ID</p>
+                      <h2 className="text-lg font-bold font-mono text-brand-700">{pkg.invoiceId}</h2>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <StatusBadge status={pkg.status} className="text-sm px-3 py-1" />
@@ -104,11 +112,23 @@ const Tracking = () => {
                 <div className="flex flex-col items-center p-4 bg-slate-50 border border-slate-200 rounded-xl">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Scan to Track</p>
                   <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm">
-                    <img
-                      src={pkg.qrCodeUrl || `https://quickchart.io/qr?size=150&text=${encodeURIComponent(`${window.location.origin}/track?code=${pkg.trackingCode}`)}`}
-                      alt="QR Code" 
-                      className="w-32 h-32"
-                    />
+                    {(() => {
+                      const trackingBase = (import.meta.env.VITE_PUBLIC_URL && !import.meta.env.VITE_PUBLIC_URL.includes('localhost'))
+                        ? import.meta.env.VITE_PUBLIC_URL
+                        : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'https://kdmexpress.com' : window.location.origin);
+                      const targetUrl = `${trackingBase}/track?code=${pkg.trackingCode}`;
+                      return (
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&ecc=M&data=${encodeURIComponent(targetUrl)}`}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = `https://quickchart.io/qr?size=160&text=${encodeURIComponent(targetUrl)}`;
+                          }}
+                          alt={`QR Code for ${pkg.trackingCode}`}
+                          className="w-32 h-32 object-contain"
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="flex-1 min-w-[200px] flex flex-col items-center p-4 bg-slate-50 border border-slate-200 rounded-xl justify-center">

@@ -11,7 +11,7 @@ const branches = [
     type: 'Main Hub',
     address: 'Kuleshwor, Kathmandu',
     phone: '+977-9861252198',
-    email: 'hub.ktm@ktmexpress.com',
+    email: 'hub.ktm@kdmexpress.com',
     mapLink: 'https://maps.google.com/?q=Kuleshwor,+Kathmandu,+Nepal',
     features: ['Inbound Sorting', 'Dispatch Center', 'Vendor Drop-off', 'Customer Service'],
   },
@@ -20,7 +20,7 @@ const branches = [
     type: 'Regional Center',
     address: 'Jawalakhel, Lalitpur',
     phone: '+977-9800000000',
-    email: 'hub.lalitpur@ktmexpress.com',
+    email: 'hub.lalitpur@kdmexpress.com',
     mapLink: 'https://maps.google.com/?q=Jawalakhel,+Lalitpur,+Nepal',
     features: ['Local Dispatch', 'Vendor Drop-off'],
   },
@@ -29,7 +29,7 @@ const branches = [
     type: 'Regional Center',
     address: 'Suryabinayak, Bhaktapur',
     phone: '+977-9800000001',
-    email: 'hub.bkt@ktmexpress.com',
+    email: 'hub.bkt@kdmexpress.com',
     mapLink: 'https://maps.google.com/?q=Suryabinayak,+Bhaktapur,+Nepal',
     features: ['Local Dispatch', 'Vendor Drop-off'],
   }
@@ -43,7 +43,7 @@ const Branches = () => {
       <main className="flex-1 px-6 py-20 relative z-10 flex flex-col items-center">
         <div className="text-center mb-16">
           <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 tracking-tight mb-4">Our Branches</h1>
-          <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">Find a ktmexpress drop-off location or logistics hub near you.</p>
+          <p className="text-slate-500 text-lg max-w-2xl mx-auto leading-relaxed">Find a KDM Express drop-off location or logistics hub near you.</p>
         </div>
 
         <div className="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

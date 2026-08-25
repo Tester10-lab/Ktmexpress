@@ -741,9 +741,11 @@ export const createPackageForVendor = async (req, res) => {
       }
     }
 
+    const finalInvoiceId = (invoiceId && String(invoiceId).trim()) ? String(invoiceId).trim() : await generateInvoiceId();
+
     const pkg = await Package.create({
       trackingCode,
-      invoiceId: invoiceId || generateInvoiceId(),
+      invoiceId: finalInvoiceId,
       customerName,
       customerPhone,
       address,
@@ -822,9 +824,11 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         }
       }
 
+      const finalInvoiceId = (p.invoiceId && String(p.invoiceId).trim()) ? String(p.invoiceId).trim() : await generateInvoiceId();
+
       packageDocs.push({
         trackingCode,
-        invoiceId: p.invoiceId || generateInvoiceId(),
+        invoiceId: finalInvoiceId,
         customerName: p.customerName,
         customerPhone: p.customerPhone,
         address: p.address,
@@ -1172,6 +1176,7 @@ export const updateSettlement = async (req, res) => {
 };
 
 // POST /api/admin/settlements/direct-payout
+// POST /api/admin/settlements/direct-payout
 export const directVendorPayout = async (req, res) => {
   try {
     const { vendorId, amount, paymentMethod, reference, adminNotes } = req.body;
@@ -1184,7 +1189,7 @@ export const directVendorPayout = async (req, res) => {
     // Find all delivered, unpaid packages for this vendor
     const eligiblePackages = await Package.find({
       vendorId,
-      status: { $regex: /^delivered$/i },
+      status: { $regex: /delivered/i },
       vendorPaid: { $ne: true }
     }).sort({ createdAt: 1 });
 
@@ -1250,31 +1255,23 @@ export const directVendorPayout = async (req, res) => {
 // GET /api/admin/settlements/vendor-balances
 export const getVendorBalances = async (req, res) => {
   try {
-    // Aggregate directly from delivered unpaid packages
+    // 1. Fetch all registered vendors
+    const vendors = await User.find({ role: 'vendor', deletedAt: null }).select('name email contact vendorMeta').lean();
+
+    // 2. Fetch all delivered, unpaid packages
     const unpaidPackages = await Package.find({
-      status: { $regex: /^delivered$/i },
+      status: { $regex: /delivered/i },
       vendorPaid: { $ne: true }
-    }).populate('vendorId', 'name email vendorMeta').lean();
+    }).lean();
 
-    const vendorMap = {};
-
+    // 3. Map unpaid packages per vendor
+    const vendorStatsMap = {};
     unpaidPackages.forEach(p => {
-      const v = p.vendorId;
-      if (!v) return;
-      const vid = v._id ? v._id.toString() : v.toString();
+      if (!p.vendorId) return;
+      const vid = p.vendorId.toString();
 
-      if (!vendorMap[vid]) {
-        const vMeta = v.vendorMeta || {};
-        vendorMap[vid] = {
-          vendorId: vid,
-          name: v.name || 'Vendor',
-          email: v.email || '',
-          shopName: vMeta.shopName || v.name || 'Vendor Shop',
-          bankName: vMeta.bankName || 'N/A',
-          accountNumber: vMeta.accountNumber || 'N/A',
-          branch: vMeta.branch || 'N/A',
-          accountHolder: vMeta.accountHolder || v.name || 'N/A',
-          phone: vMeta.phone || '',
+      if (!vendorStatsMap[vid]) {
+        vendorStatsMap[vid] = {
           pendingCount: 0,
           totalCOD: 0,
           totalDeliveryCharge: 0,
@@ -1282,13 +1279,38 @@ export const getVendorBalances = async (req, res) => {
         };
       }
 
-      vendorMap[vid].pendingCount += 1;
-      vendorMap[vid].totalCOD += (p.amount || 0);
-      vendorMap[vid].totalDeliveryCharge += (p.deliveryCharge || 0);
-      vendorMap[vid].netPayable += ((p.amount || 0) - (p.deliveryCharge || 0));
+      vendorStatsMap[vid].pendingCount += 1;
+      vendorStatsMap[vid].totalCOD += (p.amount || 0);
+      vendorStatsMap[vid].totalDeliveryCharge += (p.deliveryCharge || 0);
+      vendorStatsMap[vid].netPayable += ((p.amount || 0) - (p.deliveryCharge || 0));
     });
 
-    const result = Object.values(vendorMap).filter(v => v.pendingCount > 0);
+    // 4. Build response array for all vendors
+    const result = vendors.map(v => {
+      const vid = v._id.toString();
+      const vMeta = v.vendorMeta || {};
+      const stats = vendorStatsMap[vid] || { pendingCount: 0, totalCOD: 0, totalDeliveryCharge: 0, netPayable: 0 };
+
+      return {
+        vendorId: vid,
+        name: v.name || 'Vendor',
+        email: v.email || '',
+        shopName: vMeta.shopName || v.name || 'Vendor Shop',
+        bankName: vMeta.bankName || 'N/A',
+        accountNumber: vMeta.accountNumber || 'N/A',
+        branch: vMeta.branch || 'N/A',
+        accountHolder: vMeta.accountHolder || v.name || 'N/A',
+        phone: v.contact || vMeta.phone || '',
+        pendingCount: stats.pendingCount,
+        totalCOD: stats.totalCOD,
+        totalDeliveryCharge: stats.totalDeliveryCharge,
+        netPayable: Math.max(0, stats.netPayable)
+      };
+    });
+
+    // Sort: Vendors with highest net payable balance first
+    result.sort((a, b) => b.netPayable - a.netPayable);
+
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
@@ -23,27 +23,43 @@ const navLinks = [
 
 const titleMap = {
   '/dispatcher/tasks':           'Tasks (Pickup & Delivery)',
-  '/dispatcher/scan-station':    '📷 Scan Station — Warehouse Staff',
-  '/dispatcher/inbound-scan':    'Inbound Scan — Warehouse',
   '/dispatcher/reverse-logistics': 'Reverse Logistics (RTV)',
-  '/dispatcher/riders':          'Active Riders',
-  '/dispatcher/handovers':       'COD Handovers Verification',
-  '/dispatcher':                 'Warehouse Staff Dashboard',
+  '/dispatcher/riders':          'Active Riders Overview',
+  '/dispatcher/handovers':       'COD Reconciliation & Handover',
+  '/dispatcher/scan-station':    'Warehouse Scan Station',
+  '/dispatcher/inbound-scan':    'Inbound & Sorting Station',
+  '/dispatcher':                 'Warehouse Management Overview',
 };
 
-// ─── Shared Helpers ───────────────────────────────────────────────────────
-const STATUS_COLORS = {
-  'Pending': '#f59e0b', 'Pick Up Requested': '#f59e0b', 'Picked Up': '#3b82f6',
-  'In Warehouse': '#8b5cf6', 'Out for Delivery': '#06b6d4', 'Delivered': '#10b981',
-  'Postponed': '#f97316', 'Cancelled': '#ef4444', 'Returned': '#ef4444',
-  'Returned to Vendor': '#6b7280',
-};
-
+// ─── Status Badge ─────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
-  const color = STATUS_COLORS[status] || '#6b7280';
+  const map = {
+    'Delivered':           { bg: '#dcfce7', text: '#15803d' },
+    'In Warehouse':        { bg: '#ede9fe', text: '#6d28d9' },
+    'Out for Delivery':    { bg: '#e0f2fe', text: '#0369a1' },
+    'Picked Up':           { bg: '#fef3c7', text: '#b45309' },
+    'Pick Up Requested':   { bg: '#fef9c3', text: '#a16207' },
+    'Postponed':           { bg: '#ffedd5', text: '#c2410c' },
+    'Cancelled':           { bg: '#fee2e2', text: '#b91c1c' },
+    'Returned':            { bg: '#f1f5f9', text: '#475569' },
+    'Returned to Vendor':  { bg: '#f1f5f9', text: '#334155' },
+    'Pending':             { bg: '#fef3c7', text: '#92400e' },
+  };
+  const s = map[status] || { bg: '#f3f4f6', text: '#374151' };
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: color + '18', color, border: `1px solid ${color}40` }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: color }}></span>
+    <span style={{
+      background: s.bg,
+      color: s.text,
+      padding: '3px 10px',
+      borderRadius: 20,
+      fontSize: 12,
+      fontWeight: 600,
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4
+    }}>
+      {status === 'Delivered' && '✓ '}
+      {status === 'Cancelled' && '✕ '}
       {status}
     </span>
   );
@@ -74,7 +90,6 @@ const thStyle = { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWei
 const tdStyle = { padding: '11px 14px', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' };
 const cardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 20 };
 const cardHeaderStyle = { padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' };
-const drawerFooterStyle = { padding: '16px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', justifyContent: 'flex-end', gap: 10 };
 
 function ActionBtn({ onClick, children, variant = 'primary', disabled = false, size = 'sm', icon }) {
   const colors = {
@@ -106,9 +121,14 @@ function ActionBtn({ onClick, children, variant = 'primary', disabled = false, s
 // ─── 1. Dashboard Home ────────────────────────────────────────────────────
 const DispatcherHome = () => {
   const [stats, setStats] = useState(null);
-  const [recent, setRecent] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [riders, setRiders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [riderFilter, setRiderFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -116,7 +136,6 @@ const DispatcherHome = () => {
     try {
       const res = await api.patch(`/packages/${trackingCode}/warehouse-arrival`);
       showToast(res.data.message || 'Arrival confirmed!', 'success');
-      // Intentionally not closing scannerOpen to allow rapid scanning
       fetchAll();
     } catch (e) {
       showToast(e.message || 'Failed to confirm arrival', 'error');
@@ -125,12 +144,14 @@ const DispatcherHome = () => {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [sRes, pRes] = await Promise.all([
+      const [sRes, pRes, rRes] = await Promise.all([
         api.get('/dispatcher/dashboard'),
         api.get('/dispatcher/packages?status=all'),
+        api.get('/dispatcher/riders'),
       ]);
       setStats(sRes.data.data || {});
-      setRecent((pRes.data.data || []).slice(0, 20));
+      setPackages(pRes.data.data || []);
+      setRiders(rRes.data.data || []);
     } catch { showToast('Failed to load dashboard', 'error'); }
     finally { setLoading(false); }
   }, []);
@@ -141,14 +162,94 @@ const DispatcherHome = () => {
     return () => clearInterval(interval);
   }, [fetchAll]);
 
+  // Real-time filtering
+  const filteredPackages = useMemo(() => {
+    return packages.filter(p => {
+      // 1. Search Query
+      if (search.trim()) {
+        const s = search.toLowerCase().trim();
+        const vendorName = (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase();
+        const riderName = (p.riderId?.name || '').toLowerCase();
+        const match =
+          (p.trackingCode && p.trackingCode.toLowerCase().includes(s)) ||
+          (p.invoiceId && p.invoiceId.toLowerCase().includes(s)) ||
+          (p.customerName && p.customerName.toLowerCase().includes(s)) ||
+          (p.customerPhone && p.customerPhone.toLowerCase().includes(s)) ||
+          (p.address && p.address.toLowerCase().includes(s)) ||
+          (p.city && p.city.toLowerCase().includes(s)) ||
+          vendorName.includes(s) ||
+          riderName.includes(s);
+        if (!match) return false;
+      }
+
+      // 2. Status Filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'Postponed') {
+          if (p.status !== 'Postponed' && p.riderId) return false;
+        } else if (p.status !== statusFilter) {
+          return false;
+        }
+      }
+
+      // 3. Rider Filter
+      if (riderFilter !== 'all') {
+        if (riderFilter === 'postponed' || riderFilter === 'unassigned') {
+          if (p.riderId) return false;
+        } else {
+          const rId = p.riderId?._id || p.riderId;
+          if (String(rId) !== String(riderFilter)) return false;
+        }
+      }
+
+      // 4. Date Filter
+      if (dateFilter !== 'all' && p.createdAt) {
+        const pkgDate = new Date(p.createdAt);
+        const now = new Date();
+        if (dateFilter === 'today') {
+          if (pkgDate.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === 'yesterday') {
+          const yest = new Date();
+          yest.setDate(now.getDate() - 1);
+          if (pkgDate.toDateString() !== yest.toDateString()) return false;
+        } else if (dateFilter === 'this_week') {
+          const weekAgo = new Date();
+          weekAgo.setDate(now.getDate() - 7);
+          if (pkgDate < weekAgo) return false;
+        } else if (dateFilter === 'this_month') {
+          if (pkgDate.getMonth() !== now.getMonth() || pkgDate.getFullYear() !== now.getFullYear()) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [packages, search, statusFilter, riderFilter, dateFilter]);
+
+  const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all' || riderFilter !== 'all' || dateFilter !== 'all';
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setRiderFilter('all');
+    setDateFilter('all');
+  };
+
   if (loading) return <Spinner />;
 
   const s = stats || {};
 
+  // Status counts
+  const countInWarehouse = packages.filter(p => p.status === 'In Warehouse').length;
+  const countOutForDelivery = packages.filter(p => p.status === 'Out for Delivery').length;
+  const countDelivered = packages.filter(p => p.status === 'Delivered').length;
+  const countPostponed = packages.filter(p => p.status === 'Postponed' || (!p.riderId && p.status === 'In Warehouse')).length;
+  const countPickups = packages.filter(p => ['Pending', 'Pick Up Requested', 'Picked Up'].includes(p.status)).length;
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Overview</h2>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Warehouse Dispatch Overview</h2>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>Manage deliveries, search tracking codes & monitor active riders</p>
+        </div>
         <ActionBtn onClick={() => setScannerOpen(true)} variant="primary" icon={<span style={{fontSize:16}}>📷</span>}>
           Scan Arrival
         </ActionBtn>
@@ -167,7 +268,7 @@ const DispatcherHome = () => {
         {[
           { label: 'Pickups', value: s.pickupsPending || 0, color: '#f59e0b', icon: '🚚', path: '/dispatcher/tasks' },
           { label: 'In Warehouse', value: s.inWarehouse || 0, color: '#8b5cf6', icon: '🏭', path: '/dispatcher/inbound-scan' },
-          { label: 'Unassigned', value: s.unassigned || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/tasks' },
+          { label: 'Postponed', value: s.unassigned || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/tasks' },
           { label: 'Out for Delivery', value: s.outForDelivery || 0, color: '#06b6d4', icon: '📦', path: '/dispatcher/tasks' },
           { label: 'Returns Pending', value: s.returnedPending || 0, color: '#6b7280', icon: '↩️', path: '/dispatcher/reverse-logistics' },
           { label: 'Active Riders', value: s.activeRiders || 0, color: '#10b981', icon: '🏍️', path: '/dispatcher/riders' },
@@ -180,36 +281,248 @@ const DispatcherHome = () => {
         ))}
       </div>
 
-      {/* Live Progress Table */}
+      {/* Live Delivery Progress with Comprehensive Search & Filter Controls */}
       <div style={cardStyle}>
         <div style={cardHeaderStyle}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Live Delivery Progress</h3>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#6b7280' }}>Last 20 packages — auto-refreshes every 30s</p>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Live Delivery Progress</h3>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#64748b' }}>
+              Showing {filteredPackages.length} of {packages.length} packages — auto-refreshes every 30s
+            </p>
           </div>
-          <ActionBtn onClick={fetchAll} variant="ghost">↻ Refresh</ActionBtn>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                style={{ fontSize: 12, color: '#ef4444', fontWeight: 600, background: '#fee2e2', border: '1px solid #fecaca', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+              >
+                ✕ Clear Filters
+              </button>
+            )}
+            <ActionBtn onClick={fetchAll} variant="ghost">↻ Refresh</ActionBtn>
+          </div>
         </div>
+
+        {/* Filter Toolbar */}
+        <div style={{ padding: '16px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* Main Search and Dropdowns Row */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+            {/* Search Input */}
+            <div style={{ flex: '1 1 260px', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
+                🔍
+              </div>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search tracking, invoice, customer, phone, address, vendor, rider..."
+                style={{
+                  width: '100%',
+                  padding: '9px 34px 9px 34px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  fontSize: 13,
+                  outline: 'none',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Status Dropdown */}
+            <div style={{ minWidth: 150, flex: '0 1 auto' }}>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">All Statuses ({packages.length})</option>
+                <option value="In Warehouse">🏬 In Warehouse ({countInWarehouse})</option>
+                <option value="Out for Delivery">🚀 Out for Delivery ({countOutForDelivery})</option>
+                <option value="Delivered">✅ Delivered ({countDelivered})</option>
+                <option value="Postponed">⚠️ Postponed ({countPostponed})</option>
+                <option value="Pick Up Requested">🚚 Pick Up Requested</option>
+                <option value="Picked Up">📦 Picked Up</option>
+                <option value="Cancelled">❌ Cancelled</option>
+                <option value="Returned">↩️ Returned</option>
+                <option value="Returned to Vendor">🔄 Returned to Vendor</option>
+              </select>
+            </div>
+
+            {/* Rider Dropdown */}
+            <div style={{ minWidth: 160, flex: '0 1 auto' }}>
+              <select
+                value={riderFilter}
+                onChange={e => setRiderFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">All Riders</option>
+                <option value="postponed">⚠️ Postponed (No Rider)</option>
+                {riders.map(r => (
+                  <option key={r._id} value={r._id}>🏍️ {r.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Dropdown */}
+            <div style={{ minWidth: 130, flex: '0 1 auto' }}>
+              <select
+                value={dateFilter}
+                onChange={e => setDateFilter(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '9px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  background: '#fff',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">📅 All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="this_week">Last 7 Days</option>
+                <option value="this_month">This Month</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Filter Pill Buttons */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Quick Filter:</span>
+            {[
+              { id: 'all', label: 'All', count: packages.length, color: '#3b82f6' },
+              { id: 'In Warehouse', label: 'In Warehouse', count: countInWarehouse, color: '#8b5cf6' },
+              { id: 'Out for Delivery', label: 'Out for Delivery', count: countOutForDelivery, color: '#0284c7' },
+              { id: 'Delivered', label: 'Delivered', count: countDelivered, color: '#10b981' },
+              { id: 'Postponed', label: 'Postponed', count: countPostponed, color: '#ef4444' },
+              { id: 'Pick Up Requested', label: 'Pickups', count: countPickups, color: '#f59e0b' },
+            ].map(tab => {
+              const active = statusFilter === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    background: active ? tab.color : '#fff',
+                    color: active ? '#fff' : '#475569',
+                    border: active ? `1px solid ${tab.color}` : '1px solid #cbd5e1',
+                    boxShadow: active ? `0 2px 6px ${tab.color}35` : 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  <span>{tab.label}</span>
+                  <span style={{
+                    background: active ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                    color: active ? '#fff' : '#64748b',
+                    borderRadius: 10,
+                    padding: '1px 6px',
+                    fontSize: 10,
+                    fontWeight: 700
+                  }}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Table Content */}
         <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
-                {['Tracking Code', 'Vendor', 'Customer', 'Destination', 'Rider', 'Status', 'COD'].map(h => (
+                {['Tracking / Invoice', 'Vendor', 'Customer', 'Destination', 'Assigned Rider', 'Status', 'COD'].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {recent.length === 0 ? (
-                <tr><td colSpan="7"><EmptyState message="No packages yet." /></td></tr>
-              ) : recent.map(p => (
-                <tr key={p._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                  <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-                  <td style={tdStyle}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
-                  <td style={tdStyle}>{p.customerName}</td>
-                  <td style={{ ...tdStyle, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#6b7280' }}>{p.city || p.address || '—'}</td>
-                  <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db', fontStyle: 'italic' }}>Unassigned</span>}</td>
+              {filteredPackages.length === 0 ? (
+                <tr>
+                  <td colSpan="7">
+                    <EmptyState 
+                      message={hasActiveFilters ? "No packages match your search filters." : "No packages yet."} 
+                      icon={hasActiveFilters ? "🔍" : "📭"} 
+                    />
+                  </td>
+                </tr>
+              ) : filteredPackages.slice(0, 100).map(p => (
+                <tr key={p._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <TrackingLink code={p.trackingCode} />
+                      {p.invoiceId && (
+                        <span style={{ fontSize: 10, color: '#6366f1', background: '#eef2ff', padding: '1px 6px', borderRadius: 4, width: 'fit-content', fontWeight: 600 }}>
+                          Inv: {p.invoiceId}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 500 }}>
+                    {(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}
+                  </td>
+                  <td style={tdStyle}>
+                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{p.customerName || '—'}</div>
+                    {p.customerPhone && <div style={{ fontSize: 11, color: '#64748b' }}>{p.customerPhone}</div>}
+                  </td>
+                  <td style={{ ...tdStyle, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#475569' }}>
+                    {p.city || p.address || '—'}
+                  </td>
+                  <td style={tdStyle}>
+                    {p.riderId?.name ? (
+                      <span style={{ fontWeight: 600, color: '#0f766e', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        🏍️ {p.riderId.name}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#ea580c', background: '#fff7ed', border: '1px solid #ffedd5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+                        Postponed
+                      </span>
+                    )}
+                  </td>
                   <td style={tdStyle}><StatusBadge status={p.status} /></td>
-                  <td style={{ ...tdStyle, fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: '#0f172a' }}>Rs. {p.amount?.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -233,6 +546,7 @@ const PickupRequests = () => {
   const [bulkRiderId, setBulkRiderId] = useState('');
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [search, setSearch] = useState('');
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
@@ -270,7 +584,7 @@ const PickupRequests = () => {
       await Promise.all(pickupIds.map(pickupId => api.put('/dispatcher/assign-pickup', { pickupId, riderId })));
       showToast('Rider assigned for all pickups!', 'success');
       fetchData(true);
-    } catch (e) { showToast(e.message || 'Failed to assign some pickups', 'error'); }
+    } catch (e) { showToast('Failed to assign some pickups', 'error'); }
     finally { setActionLoading(s => ({ ...s, [shopId]: null })); }
   };
 
@@ -327,7 +641,26 @@ const PickupRequests = () => {
     finally { setBulkConfirming(false); }
   };
 
-  const pending = pickups.filter(p => p.status === 'pending');
+  const filteredPickups = useMemo(() => {
+    if (!search.trim()) return pickups;
+    const s = search.toLowerCase().trim();
+    return pickups.filter(p => {
+      const shopName = (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase();
+      const riderName = (p.assignedRiderId?.name || '').toLowerCase();
+      const trackingCode = (p.packageId?.trackingCode || p.trackingCode || '').toLowerCase();
+      const customerName = (p.packageId?.customerName || '').toLowerCase();
+      const address = (p.packageId?.address || '').toLowerCase();
+      return (
+        shopName.includes(s) ||
+        riderName.includes(s) ||
+        trackingCode.includes(s) ||
+        customerName.includes(s) ||
+        address.includes(s)
+      );
+    });
+  }, [pickups, search]);
+
+  const pending = filteredPickups.filter(p => p.status === 'pending');
   const pendingGroups = Object.values(pending.reduce((acc, p) => {
     const shopId = p.vendorId?._id || 'unknown';
     if (!acc[shopId]) acc[shopId] = { shopId, shopName: p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—', packages: [], oldestDate: p.requestedAt, pickupIds: [] };
@@ -336,7 +669,7 @@ const PickupRequests = () => {
     if (new Date(p.requestedAt) < new Date(acc[shopId].oldestDate)) acc[shopId].oldestDate = p.requestedAt;
     return acc;
   }, {}));
-  const assigned = pickups.filter(p => p.status === 'assigned');
+  const assigned = filteredPickups.filter(p => p.status === 'assigned');
 
   const selectStyle = { padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, width: '100%', minWidth: '120px' };
 
@@ -500,6 +833,40 @@ const PickupRequests = () => {
 
   return (
     <div>
+      {/* Search & Filter Header for Pickups */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: '1 1 260px', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }}>
+            🔍
+          </div>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search shop, tracking code, customer, address, assigned rider..."
+            style={{
+              width: '100%',
+              padding: '9px 34px 9px 34px',
+              borderRadius: 8,
+              border: '1px solid #cbd5e1',
+              background: '#fff',
+              fontSize: 13,
+              outline: 'none',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        <ActionBtn onClick={() => fetchData()} variant="ghost">↻ Refresh Pickups</ActionBtn>
+      </div>
+
       {/* Bulk Assign Toolbar for Pending Requests */}
       <div style={{ ...cardStyle, padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 20 }}>
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, flex: 1 }}>Bulk Assign Pickups</h3>
@@ -1008,7 +1375,7 @@ const ReverseLogistics = () => {
 
   // Group pendingRider by Rider
   const riderGroups = pendingRider.reduce((acc, p) => {
-    const riderName = p.riderId?.name || 'Unassigned';
+    const riderName = p.riderId?.name || 'Postponed';
     if (!acc[riderName]) acc[riderName] = [];
     acc[riderName].push(p);
     return acc;
@@ -1623,6 +1990,8 @@ const CodHandovers = () => {
   const [handovers, setHandovers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const { showToast } = useToast();
 
   const fetchHandovers = async (silent = false) => {
@@ -1655,21 +2024,114 @@ const CodHandovers = () => {
     }
   };
 
+  const stats = useMemo(() => {
+    let gross = 0;
+    let expenses = 0;
+    let net = 0;
+    let pending = 0;
+
+    handovers.forEach(h => {
+      const hGross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
+      const hExp = h.expenseDeduction || 0;
+      const hNet = h.amount || 0;
+      gross += hGross;
+      expenses += hExp;
+      net += hNet;
+      if (h.status === 'Pending Verification') pending += hNet;
+    });
+
+    return { gross, expenses, net, pending };
+  }, [handovers]);
+
+  const filteredHandovers = useMemo(() => {
+    return handovers.filter(h => {
+      if (search.trim()) {
+        const s = search.toLowerCase().trim();
+        const riderName = (h.riderId?.name || '').toLowerCase();
+        const riderPhone = (h.riderId?.contact || h.riderId?.phone || '').toLowerCase();
+        if (!riderName.includes(s) && !riderPhone.includes(s)) return false;
+      }
+      if (statusFilter !== 'all' && h.status !== statusFilter) return false;
+      return true;
+    });
+  }, [handovers, search, statusFilter]);
+
+  const filteredTotals = useMemo(() => {
+    let gross = 0;
+    let expenses = 0;
+    let net = 0;
+    let packages = 0;
+    filteredHandovers.forEach(h => {
+      gross += h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
+      expenses += h.expenseDeduction || 0;
+      net += h.amount || 0;
+      packages += h.packageIds?.length || 0;
+    });
+    return { gross, expenses, net, packages };
+  }, [filteredHandovers]);
+
   if (loading) return <Spinner />;
 
   return (
-    <div className="space-y-6 animate-fadeIn">
-      <div className="flex justify-between items-center">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">COD Handovers</h2>
-          <p className="text-sm text-slate-500">Verify cash deposited by riders at the hub.</p>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>COD Reconciliation & Rider Expenses</h2>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>Track gross collections, rider expense deductions and verify net cash deposits.</p>
+        </div>
+        <ActionBtn onClick={() => fetchHandovers()} variant="ghost">↻ Refresh</ActionBtn>
+      </div>
+
+      {/* Summary KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', marginBottom: 4 }}>Total Gross COD</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#1e293b' }}>Rs. {stats.gross.toLocaleString()}</div>
+        </div>
+        <div style={{ background: '#fffbeb', borderRadius: 12, border: '1px solid #fde68a', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#b45309', textTransform: 'uppercase', marginBottom: 4 }}>Total Rider Expenses</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#d97706' }}>- Rs. {stats.expenses.toLocaleString()}</div>
+        </div>
+        <div style={{ background: '#f0fdf4', borderRadius: 12, border: '1px solid #bbf7d0', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>Total Net Deposited</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#166534' }}>Rs. {stats.net.toLocaleString()}</div>
+        </div>
+        <div style={{ background: '#faf5ff', borderRadius: 12, border: '1px solid #e9d5ff', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#7e22ce', textTransform: 'uppercase', marginBottom: 4 }}>Pending Verification</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#9333ea' }}>Rs. {stats.pending.toLocaleString()}</div>
         </div>
       </div>
 
       <div style={cardStyle}>
-        <div style={cardHeaderStyle}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Pending & Completed Handovers</h3>
+        <div style={{ ...cardHeaderStyle, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Pending & Completed Handovers</h3>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: '#6b7280' }}>
+              Showing {filteredHandovers.length} of {handovers.length} records
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search rider name, contact..."
+              style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, width: 200, outline: 'none' }}
+            />
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, outline: 'none' }}
+            >
+              <option value="all">All Statuses ({handovers.length})</option>
+              <option value="Pending Verification">⏳ Pending</option>
+              <option value="Verified">✓ Verified</option>
+              <option value="Rejected">✕ Rejected</option>
+            </select>
+          </div>
         </div>
+
         <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
@@ -1679,58 +2141,97 @@ const CodHandovers = () => {
                 <th style={{ ...thStyle, textAlign: 'right' }}>Gross COD</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Rider Expenses</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Net Cash Handover</th>
-                <th style={thStyle}>Packages</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Action</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Packages</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Status</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {handovers.length === 0 ? (
-                <tr><td colSpan="8"><EmptyState message="No COD handovers found." /></td></tr>
+              {filteredHandovers.length === 0 ? (
+                <tr><td colSpan="8"><EmptyState message="No matching COD handovers found." /></td></tr>
               ) : (
-                handovers.map(h => (
-                  <tr key={h._id}>
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 600, color: '#111827' }}>{new Date(h.createdAt).toLocaleDateString()}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{new Date(h.createdAt).toLocaleTimeString()}</div>
-                    </td>
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 600 }}>{h.riderId?.name}</div>
-                      <div style={{ fontSize: 11, color: '#6b7280' }}>{h.riderId?.contact || '-'}</div>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#374151' }}>
-                      Rs. {(h.grossCOD || h.amount || 0).toLocaleString()}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>
-                      - Rs. {(h.expenseDeduction || 0).toLocaleString()}
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>
-                      <span style={{ fontWeight: 800, color: '#166534', fontSize: 15 }}>
-                        Rs. {(h.amount || 0).toLocaleString()}
-                      </span>
-                    </td>
-                    <td style={tdStyle}><span style={{ background: '#f3f4f6', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600 }}>{h.packageIds?.length || 0}</span></td>
-                    <td style={tdStyle}>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${h.status === 'Verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : h.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                        {h.status}
-                      </span>
-                    </td>
-                    <td style={tdStyle}>
-                      {h.status === 'Pending Verification' ? (
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <ActionBtn onClick={() => handleVerify(h._id, 'Verified')} variant="success" disabled={verifying === h._id}>Verify</ActionBtn>
-                          <ActionBtn onClick={() => handleVerify(h._id, 'Rejected')} variant="danger" disabled={verifying === h._id}>Reject</ActionBtn>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#9ca3af', fontStyle: 'italic' }}>
-                          By {h.verifiedBy?.name || 'Admin'}
+                filteredHandovers.map(h => {
+                  const gross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
+                  const expense = h.expenseDeduction || 0;
+                  const net = h.amount || 0;
+
+                  return (
+                    <tr key={h._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                      <td style={tdStyle}>
+                        <div style={{ fontWeight: 600, color: '#111827' }}>{new Date(h.createdAt).toLocaleDateString()}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280' }}>{new Date(h.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </td>
+                      <td style={tdStyle}>
+                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{h.riderId?.name || 'Rider'}</div>
+                        <div style={{ fontSize: 11, color: '#6b7280' }}>{h.riderId?.contact || '-'}</div>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#334155' }}>
+                        Rs. {gross.toLocaleString()}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {expense > 0 ? (
+                          <span style={{ color: '#b45309', background: '#fef3c7', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700 }}>
+                            - Rs. {expense.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontSize: 12 }}>Rs. 0</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        <span style={{ fontWeight: 800, color: '#15803d', fontSize: 15 }}>
+                          Rs. {net.toLocaleString()}
                         </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                          {h.packageIds?.length || 0}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'center' }}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${h.status === 'Verified' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : h.status === 'Rejected' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                          {h.status === 'Verified' && '✓ '}
+                          {h.status}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {h.status === 'Pending Verification' ? (
+                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                            <ActionBtn onClick={() => handleVerify(h._id, 'Verified')} variant="success" size="sm" disabled={verifying === h._id}>Verify</ActionBtn>
+                            <ActionBtn onClick={() => handleVerify(h._id, 'Rejected')} variant="danger" size="sm" disabled={verifying === h._id}>Reject</ActionBtn>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
+                            By {h.verifiedBy?.name || 'Admin'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
+            {filteredHandovers.length > 0 && (
+              <tfoot style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0', fontWeight: 700 }}>
+                <tr>
+                  <td colSpan="2" style={{ ...tdStyle, fontSize: 11, textTransform: 'uppercase', color: '#475569' }}>
+                    Total Summary ({filteredHandovers.length} records)
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: '#1e293b' }}>
+                    Rs. {filteredTotals.gross.toLocaleString()}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: '#b45309' }}>
+                    - Rs. {filteredTotals.expenses.toLocaleString()}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: '#15803d', fontSize: 15 }}>
+                    Rs. {filteredTotals.net.toLocaleString()}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'center', color: '#475569' }}>
+                    {filteredTotals.packages} pkgs
+                  </td>
+                  <td colSpan="2" style={tdStyle}></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>

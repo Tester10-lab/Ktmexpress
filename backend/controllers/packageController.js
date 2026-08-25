@@ -189,25 +189,44 @@ export const updatePackage = async (req, res) => {
 // GET /api/packages/track/:trackingCode
 export const trackPackage = async (req, res) => {
   try {
-    const rawCode = req.params.trackingCode || '';
-    const trackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
-
-    if (!trackingCode || trackingCode.length < 5) {
-      return res.status(400).json({ success: false, message: 'Invalid tracking code.' });
+    let rawCode = (req.params.trackingCode || '').trim();
+    if (!rawCode) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code or invoice ID.' });
     }
 
-    const pkg = await Package.findOne({ trackingCode })
-      .populate('vendorId', 'name')
-      .populate('riderId', 'name')
+    if (rawCode.includes('http://') || rawCode.includes('https://') || rawCode.includes('code=')) {
+      const matchQuery = rawCode.match(/[?&]code=([^&]+)/i);
+      if (matchQuery && matchQuery[1]) {
+        rawCode = decodeURIComponent(matchQuery[1]).trim();
+      } else {
+        const matchPath = rawCode.match(/\/track\/([a-zA-Z0-9-]+)/i);
+        if (matchPath && matchPath[1]) {
+          rawCode = matchPath[1].trim();
+        }
+      }
+    }
+
+    const cleanCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase();
+    const pkg = await Package.findOne({
+      $or: [
+        { trackingCode: cleanCode },
+        { trackingCode: rawCode.toUpperCase() },
+        { invoiceId: rawCode },
+        { invoiceId: { $regex: `^${escapeRegex(rawCode)}$`, $options: 'i' } }
+      ]
+    })
+      .populate('vendorId', 'name vendorMeta')
+      .populate('riderId', 'name contact')
       .lean();
 
     if (!pkg) {
-      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+      return res.status(404).json({ success: false, message: `No package found with tracking code or invoice ID '${rawCode}'.` });
     }
 
     // Role-based visibility isolation for vendors
-    if (req.user.role === 'vendor' && pkg.vendorId._id.toString() !== req.user.id) {
-      return res.status(404).json({ success: false, message: `No package found with tracking code ${trackingCode}.` });
+    const vendorObjId = pkg.vendorId?._id ? pkg.vendorId._id.toString() : (pkg.vendorId ? pkg.vendorId.toString() : '');
+    if (req.user.role === 'vendor' && vendorObjId !== req.user.id) {
+      return res.status(404).json({ success: false, message: `No package found with tracking code or invoice ID '${rawCode}'.` });
     }
 
     res.json({ success: true, data: pkg });
@@ -219,15 +238,33 @@ export const trackPackage = async (req, res) => {
 // PATCH /api/packages/:trackingCode/warehouse-arrival
 export const confirmWarehouseArrival = async (req, res) => {
   try {
-    const rawCode = req.params.trackingCode || '';
+    let rawCode = req.params.trackingCode || '';
+    if (rawCode.includes('http://') || rawCode.includes('https://') || rawCode.includes('code=')) {
+      const matchQuery = rawCode.match(/[?&]code=([^&]+)/i);
+      if (matchQuery && matchQuery[1]) {
+        rawCode = decodeURIComponent(matchQuery[1]).trim();
+      } else {
+        const matchPath = rawCode.match(/\/track\/([a-zA-Z0-9-]+)/i);
+        if (matchPath && matchPath[1]) {
+          rawCode = matchPath[1].trim();
+        }
+      }
+    }
+
     const upperTrackingCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().trim();
 
-    if (!upperTrackingCode || upperTrackingCode.length < 5) {
+    if (!upperTrackingCode || upperTrackingCode.length < 3) {
       return res.status(400).json({ success: false, message: 'Invalid tracking code.' });
     }
     
     // Check if already in warehouse first (for idempotent success)
-    const existing = await Package.findOne({ trackingCode: upperTrackingCode });
+    const existing = await Package.findOne({
+      $or: [
+        { trackingCode: upperTrackingCode },
+        { invoiceId: rawCode },
+        { invoiceId: { $regex: `^${escapeRegex(rawCode)}$`, $options: 'i' } }
+      ]
+    });
     
     if (!existing) {
       return res.status(404).json({ success: false, message: `No package found with tracking code ${upperTrackingCode}.` });

@@ -200,7 +200,28 @@ const AdminDispatcher = () => {
     finally { setActionLoading(s => ({ ...s, [`r_${packageId}_${type}`]: false })); }
   };
 
-  const pendingPickups = pickups.filter(p => p.status === 'pending');
+  const [warehouseSearch, setWarehouseSearch] = useState('');
+  const [warehouseRiderFilter, setWarehouseRiderFilter] = useState('all');
+  const [pickupSearch, setPickupSearch] = useState('');
+
+  const filteredPickups = pickups.filter(p => {
+    if (!pickupSearch.trim()) return true;
+    const s = pickupSearch.toLowerCase().trim();
+    const shopName = (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase();
+    const riderName = (p.assignedRiderId?.name || '').toLowerCase();
+    const trackingCode = (p.packageId?.trackingCode || p.trackingCode || '').toLowerCase();
+    const customerName = (p.packageId?.customerName || '').toLowerCase();
+    const address = (p.packageId?.address || '').toLowerCase();
+    return (
+      shopName.includes(s) ||
+      riderName.includes(s) ||
+      trackingCode.includes(s) ||
+      customerName.includes(s) ||
+      address.includes(s)
+    );
+  });
+
+  const pendingPickups = filteredPickups.filter(p => p.status === 'pending');
   const pendingGroups = Object.values(pendingPickups.reduce((acc, p) => {
     const shopId = p.vendorId?._id || 'unknown';
     if (!acc[shopId]) acc[shopId] = { shopId, shopName: p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—', packages: [], oldestDate: p.requestedAt, pickupIds: [] };
@@ -210,11 +231,36 @@ const AdminDispatcher = () => {
     return acc;
   }, {}));
 
-  const assignedPickups = pickups.filter(p => p.status === 'assigned');
+  const assignedPickups = filteredPickups.filter(p => p.status === 'assigned');
+
+  const filteredWarehousePackages = warehousePackages.filter(p => {
+    if (warehouseRiderFilter !== 'all') {
+      if (warehouseRiderFilter === 'postponed' || warehouseRiderFilter === 'unassigned') {
+        if (p.riderId) return false;
+      } else {
+        const rId = p.riderId?._id || p.riderId;
+        if (String(rId) !== String(warehouseRiderFilter)) return false;
+      }
+    }
+    if (!warehouseSearch.trim()) return true;
+    const s = warehouseSearch.toLowerCase().trim();
+    const vendorName = (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase();
+    const riderName = (p.riderId?.name || '').toLowerCase();
+    return (
+      (p.trackingCode && p.trackingCode.toLowerCase().includes(s)) ||
+      (p.invoiceId && p.invoiceId.toLowerCase().includes(s)) ||
+      (p.customerName && p.customerName.toLowerCase().includes(s)) ||
+      (p.customerPhone && p.customerPhone.toLowerCase().includes(s)) ||
+      (p.address && p.address.toLowerCase().includes(s)) ||
+      (p.city && p.city.toLowerCase().includes(s)) ||
+      vendorName.includes(s) ||
+      riderName.includes(s)
+    );
+  });
 
   const tabs = [
     { id: 'overview', label: 'Overview', count: null },
-    { id: 'pickups', label: 'Pickups', count: pendingPickups.length + assignedPickups.length },
+    { id: 'pickups', label: 'Pickups', count: pickups.filter(p => p.status === 'pending' || p.status === 'assigned').length },
     { id: 'warehouse', label: 'Warehouse', count: warehousePackages.length },
     { id: 'returns', label: 'Returns', count: returnPackages.length },
     { id: 'riders', label: 'Riders', count: riders.length },
@@ -255,7 +301,7 @@ const AdminDispatcher = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-scaleIn">
           <MetricCard title="Pending Pickups" value={stats.pickupsPending ?? 0} color="warning" icon={<span className="text-2xl">🚚</span>} />
           <MetricCard title="In Warehouse" value={stats.inWarehouse ?? 0} color="purple" icon={<span className="text-2xl">🏭</span>} />
-          <MetricCard title="Unassigned" value={stats.unassigned ?? 0} color="danger" icon={<span className="text-2xl">⚠️</span>} />
+          <MetricCard title="Postponed" value={stats.unassigned ?? 0} color="danger" icon={<span className="text-2xl">⚠️</span>} />
           <MetricCard title="Out for Delivery" value={stats.outForDelivery ?? 0} color="info" icon={<span className="text-2xl">📦</span>} />
           <MetricCard title="Returns Pending" value={stats.returnedPending ?? 0} color="warning" icon={<span className="text-2xl">↩️</span>} />
           <MetricCard title="Active Riders" value={stats.activeRiders ?? 0} color="success" icon={<span className="text-2xl">🏍️</span>} />
@@ -269,7 +315,24 @@ const AdminDispatcher = () => {
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center flex-wrap gap-4">
               <div>
                 <h3 className="font-bold text-slate-800 text-lg">Pending Pickup Requests</h3>
-                <p className="text-sm text-slate-500">{pendingPickups.length} request(s) awaiting rider assignment</p>
+                <p className="text-sm text-slate-500">
+                  {pendingPickups.length} request(s) awaiting rider assignment
+                </p>
+              </div>
+              <div className="relative min-w-[260px]">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={pickupSearch}
+                  onChange={e => setPickupSearch(e.target.value)}
+                  placeholder="Search shop, tracking, address, rider..."
+                  className="input-field pl-9 pr-8 py-1.5 text-xs w-full"
+                />
+                {pickupSearch && (
+                  <button onClick={() => setPickupSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -280,7 +343,7 @@ const AdminDispatcher = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {pendingGroups.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No pending pickups.</td></tr>
+                  {pendingGroups.length === 0 ? <tr><td colSpan="5" className="px-6 py-12 text-center text-slate-500">No pending pickups match search.</td></tr>
                   : pendingGroups.map(g => (
                     <tr key={g.shopId} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-900">
@@ -333,7 +396,7 @@ const AdminDispatcher = () => {
                   <tbody className="divide-y divide-slate-100 bg-white">
                     {assignedPickups.map(p => (
                       <tr key={p._id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4"><TrackingLink code={p.packageId?.trackingCode} /></td>
+                        <td className="px-6 py-4 font-mono font-medium text-slate-900"><TrackingLink code={p.packageId?.trackingCode || p.trackingCode} /></td>
                         <td className="px-6 py-4 font-bold text-slate-900">
                           <button 
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); openTracking(p.packageId?.trackingCode || p.trackingCode); }} 
@@ -401,9 +464,41 @@ const AdminDispatcher = () => {
           )}
 
           <div className="card-premium overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-bold text-slate-800 text-lg">Warehouse Packages</h3>
-              <p className="text-sm text-slate-500">{warehousePackages.length} package(s) ready for delivery assignment</p>
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center flex-wrap gap-4">
+              <div>
+                <h3 className="font-bold text-slate-800 text-lg">Warehouse Packages</h3>
+                <p className="text-sm text-slate-500">
+                  Showing {filteredWarehousePackages.length} of {warehousePackages.length} package(s)
+                </p>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative min-w-[240px]">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={warehouseSearch}
+                    onChange={e => setWarehouseSearch(e.target.value)}
+                    placeholder="Search tracking, customer, vendor, rider..."
+                    className="input-field pl-9 pr-8 py-1.5 text-xs w-full"
+                  />
+                  {warehouseSearch && (
+                    <button onClick={() => setWarehouseSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={warehouseRiderFilter}
+                  onChange={e => setWarehouseRiderFilter(e.target.value)}
+                  className="input-field py-1.5 text-xs w-40"
+                >
+                  <option value="all">All Riders</option>
+                  <option value="postponed">⚠️ Postponed (No Rider)</option>
+                  {riders.map(r => (
+                    <option key={r._id} value={r._id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
@@ -412,8 +507,8 @@ const AdminDispatcher = () => {
                     <th className="px-4 py-3 w-10">
                       <input
                         type="checkbox"
-                        checked={warehousePackages.length > 0 && warehousePackages.every(p => selected.includes(p._id))}
-                        onChange={e => setSelected(e.target.checked ? warehousePackages.map(p => p._id) : [])}
+                        checked={filteredWarehousePackages.length > 0 && filteredWarehousePackages.every(p => selected.includes(p._id))}
+                        onChange={e => setSelected(e.target.checked ? filteredWarehousePackages.map(p => p._id) : [])}
                       />
                     </th>
                     <th className="px-6 py-3">Tracking</th>
@@ -426,8 +521,8 @@ const AdminDispatcher = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {warehousePackages.length === 0 ? <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-500">No packages in warehouse.</td></tr>
-                    : warehousePackages.map(p => (
+                  {filteredWarehousePackages.length === 0 ? <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-500">No packages match search filters.</td></tr>
+                    : filteredWarehousePackages.map(p => (
                     <tr key={p._id} className={`hover:bg-slate-50 transition-colors ${selected.includes(p._id) ? 'bg-blue-50/50' : ''}`}>
                       <td className="px-4 py-4">
                         <input
