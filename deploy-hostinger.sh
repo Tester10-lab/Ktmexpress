@@ -55,7 +55,7 @@ systemctl stop apache2 2>/dev/null || true
 docker compose down --remove-orphans || true
 fuser -k 5000/tcp 2>/dev/null || true
 fuser -k 80/tcp 2>/dev/null || true
-docker compose up -d
+docker compose up -d --build
 
 echo "🌱 Seeding Super Admin credentials..."
 docker compose exec -T backend node seed.js || true
