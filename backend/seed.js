@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import User from './models/User.js';
+import { seedExcelPricing } from './services/excelPricingSeeder.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,6 +53,10 @@ const cleanAndSeed = async () => {
       await User.updateOne({ email: adminEmail }, { $set: { loginAttempts: 0 }, $unset: { lockUntil: 1 } });
       console.log('Admin password securely reset to admin123, account unlocked, and Super Admin status verified.');
     }
+
+    console.log('Seeding master KDM Express pricing rates (95 Cities + KTM Base Rate)...');
+    await seedExcelPricing(true);
+    console.log('Successfully seeded master pricing rates.');
 
     process.exit(0);
   } catch (error) {
