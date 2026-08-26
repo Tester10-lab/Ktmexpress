@@ -44,8 +44,12 @@ const cleanAndSeed = async () => {
       const admin = admins[0];
       admin.password = 'Admin@@2026';
       admin.isSuperAdmin = true;
+      admin.status = 'Active';
+      admin.loginAttempts = 0;
+      admin.lockUntil = undefined;
       await admin.save(); // This triggers the bcrypt pre-save hook
-      console.log('Admin password securely reset and Super Admin status verified.');
+      await User.updateOne({ email: adminEmail }, { $set: { loginAttempts: 0 }, $unset: { lockUntil: 1 } });
+      console.log('Admin password securely reset, account unlocked, and Super Admin status verified.');
     }
 
     process.exit(0);
