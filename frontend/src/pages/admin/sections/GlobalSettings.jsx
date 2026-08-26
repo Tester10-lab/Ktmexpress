@@ -5,7 +5,7 @@ import { useSettings } from '../../../store/SettingsContext';
 
 const GlobalSettings = ({ onUpdate }) => {
   const { showToast } = useToast();
-  const { refreshSettings } = useSettings();
+  const { refreshSettings, logoUrl } = useSettings();
   const [globalSettings, setGlobalSettings] = useState({ ktmBaseRate: 150, weightSurchargePerKg: 50 });
   const [savingGlobal, setSavingGlobal] = useState(false);
   

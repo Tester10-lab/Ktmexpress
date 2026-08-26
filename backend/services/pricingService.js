@@ -31,11 +31,11 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
 
   const {
     customFlatRate,
-    useGlobalPricing,
+    useGlobalPricing = true,
     defaultKtmRate,
     defaultOutsideRate,
     weightSurcharge: vendorWeightSurcharge
-  } = vendor.vendorMeta;
+  } = vendor.vendorMeta || {};
 
   let baseFee = 0;
   const globalSettings = _globalSettings || await getGlobalSettings();
@@ -93,7 +93,8 @@ export const getPricingSummary = async () => {
   
   let customPricingVendors = 0;
   vendors.forEach(v => {
-    if (!v.vendorMeta.useGlobalPricing || v.vendorMeta.customFlatRate !== null) {
+    const meta = v.vendorMeta || {};
+    if (meta.useGlobalPricing === false || (meta.customFlatRate !== null && meta.customFlatRate !== undefined)) {
       customPricingVendors++;
     }
   });
