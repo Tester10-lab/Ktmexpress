@@ -11,8 +11,8 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 const cleanAndSeed = async () => {
   try {
-    const mongoUri = process.env.MONGO_URI;
-    if (!mongoUri) throw new Error('MONGO_URI is not defined');
+    const mongoUri = process.env.MONGO_URI || 'mongodb://ktmadmin:ktmexpress_db_pass_2026@mongodb:27017/ktmexpress?authSource=admin';
+    console.log(`Connecting to database...`);
     
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB for Production Seed Cleanup');

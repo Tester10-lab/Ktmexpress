@@ -11,7 +11,7 @@ export const connectDB = async () => {
     console.warn('Failed to set DNS servers', err);
   }
 
-  let mongoUri = process.env.MONGO_URI;
+  let mongoUri = process.env.MONGO_URI || 'mongodb://ktmadmin:ktmexpress_db_pass_2026@mongodb:27017/ktmexpress?authSource=admin';
 
   if (process.env.USE_MEMORY_DB === 'true') {
     logger.info('Starting In-Memory MongoDB Server...');
