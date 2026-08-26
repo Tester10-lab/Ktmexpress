@@ -54,10 +54,11 @@ export const register = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Set refresh token in HTTP-only cookie
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
     res.cookie(`refreshToken_${role}`, refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      secure: isHttps,
+      sameSite: isHttps ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -138,10 +139,11 @@ export const login = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Set refresh token in HTTP-only cookie
+    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
     res.cookie(`refreshToken_${user.role}`, refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+      secure: isHttps,
+      sameSite: isHttps ? 'none' : 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -215,10 +217,11 @@ export const logout = (req, res) => {
   const { role } = req.body;
   if (!role) return res.status(400).json({ success: false, message: 'Role is required' });
 
+  const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
   res.clearCookie(`refreshToken_${role}`, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+    secure: isHttps,
+    sameSite: isHttps ? 'none' : 'lax',
   });
   res.json({ success: true, message: 'Logged out successfully' });
 };
