@@ -12,15 +12,20 @@ import SearchPanel from '../../components/SearchPanel';
 import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
 import PackageTimeline from '../../components/PackageTimeline';
 import PackageManagement from '../admin/sections/PackageManagement';
+import {
+  LayoutDashboard, Package, Truck, RotateCcw, Bike, Wallet,
+  Search, CheckCircle2, XCircle, Clock, AlertCircle, Eye,
+  ChevronDown, ChevronUp, QrCode, RefreshCw, Filter, Check, X
+} from 'lucide-react';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
-  { name: 'Dashboard', path: '/dispatcher', exact: true, icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> },
-  { name: 'All Packages', path: '/dispatcher/packages', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg> },
-  { name: 'Tasks (Pickup & Delivery)', path: '/dispatcher/tasks', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> },
-  { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.5"/></svg> },
-  { name: 'Active Riders', path: '/dispatcher/riders', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/><path d="M15 15.5l-2.5-3.5H9L6.5 15.5"/><circle cx="12" cy="7" r="2"/></svg> },
-  { name: 'COD Handovers', path: '/dispatcher/handovers', icon: <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> },
+  { name: 'Dashboard', path: '/dispatcher', exact: true, icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
+  { name: 'All Packages', path: '/dispatcher/packages', icon: <Package className="w-[18px] h-[18px]" /> },
+  { name: 'Tasks (Pickup & Delivery)', path: '/dispatcher/tasks', icon: <Truck className="w-[18px] h-[18px]" /> },
+  { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <RotateCcw className="w-[18px] h-[18px]" /> },
+  { name: 'Active Riders', path: '/dispatcher/riders', icon: <Bike className="w-[18px] h-[18px]" /> },
+  { name: 'COD Handovers', path: '/dispatcher/handovers', icon: <Wallet className="w-[18px] h-[18px]" /> },
 ];
 
 const titleMap = {
@@ -36,31 +41,22 @@ const titleMap = {
 
 // ─── Status Badge ─────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
-  const map = {
-    'Delivered':           { bg: '#dcfce7', text: '#15803d' },
-    'In Warehouse':        { bg: '#ede9fe', text: '#6d28d9' },
-    'Out for Delivery':    { bg: '#e0f2fe', text: '#0369a1' },
-    'Picked Up':           { bg: '#fef3c7', text: '#b45309' },
-    'Pick Up Requested':   { bg: '#fef9c3', text: '#a16207' },
-    'Postponed':           { bg: '#ffedd5', text: '#c2410c' },
-    'Cancelled':           { bg: '#fee2e2', text: '#b91c1c' },
-    'Returned':            { bg: '#f1f5f9', text: '#475569' },
-    'Returned to Vendor':  { bg: '#f1f5f9', text: '#334155' },
-    'Pending':             { bg: '#fef3c7', text: '#92400e' },
+  const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
+  const styles = {
+    'Delivered':           'bg-emerald-50 text-emerald-700 border-emerald-200',
+    'In Warehouse':        'bg-slate-100 text-slate-800 border-slate-300',
+    'Out for Delivery':    'bg-sky-50 text-sky-700 border-sky-200',
+    'Picked Up':           'bg-amber-50 text-amber-700 border-amber-200',
+    'Pick Up Requested':   'bg-amber-50 text-amber-700 border-amber-200',
+    'Postponed':           'bg-orange-50 text-orange-700 border-orange-200',
+    'Cancelled':           'bg-red-50 text-red-700 border-red-200',
+    'Returned':            'bg-slate-100 text-slate-700 border-slate-200',
+    'Returned to Vendor':  'bg-slate-100 text-slate-700 border-slate-200',
+    'Pending':             'bg-amber-50 text-amber-700 border-amber-200',
+    'Hold':                'bg-rose-50 text-rose-700 border-rose-200',
   };
-  const s = map[status] || { bg: '#f3f4f6', text: '#374151' };
   return (
-    <span style={{
-      background: s.bg,
-      color: s.text,
-      padding: '3px 10px',
-      borderRadius: 20,
-      fontSize: 12,
-      fontWeight: 600,
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: 4
-    }}>
+    <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
       {status === 'Delivered' && '✓ '}
       {status === 'Cancelled' && '✕ '}
       {status}
@@ -70,42 +66,39 @@ function StatusBadge({ status }) {
 
 function Spinner() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 60 }}>
-      <svg className="animate-spin" style={{ width: 28, height: 28, color: '#3b82f6' }} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-      </svg>
+    <div className="flex items-center justify-center p-12">
+      <div className="w-7 h-7 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
     </div>
   );
 }
 
 function EmptyState({ message, icon }) {
   return (
-    <div style={{ textAlign: 'center', padding: '60px 20px', color: '#9ca3af' }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>{icon || '📭'}</div>
-      <p style={{ margin: 0, fontSize: 14 }}>{message}</p>
+    <div className="text-center py-12 px-4 text-slate-400">
+      <div className="text-4xl mb-3">{icon || '📭'}</div>
+      <p className="m-0 text-sm font-medium text-slate-500">{message}</p>
     </div>
   );
 }
 
 const tableStyle = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
-const thStyle = { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', borderBottom: '1px solid #e5e7eb', background: '#f9fafb' };
-const tdStyle = { padding: '11px 14px', borderBottom: '1px solid #f3f4f6', verticalAlign: 'middle' };
-const cardStyle = { background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: 20 };
-const cardHeaderStyle = { padding: '16px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' };
+const thStyle = { padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' };
+const tdStyle = { padding: '12px 16px', borderBottom: '1px solid #f1f5f9', verticalAlign: 'middle' };
+const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)', overflow: 'hidden', marginBottom: 24 };
+const cardHeaderStyle = { padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff' };
 
 function ActionBtn({ onClick, children, variant = 'primary', disabled = false, size = 'sm', icon }) {
   const colors = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white border-none',
-    secondary: 'bg-slate-500 hover:bg-slate-600 text-white border-none',
-    success: 'bg-emerald-600 hover:bg-emerald-700 text-white border-none',
-    warning: 'bg-amber-600 hover:bg-amber-700 text-white border-none',
-    danger: 'bg-red-600 hover:bg-red-700 text-white border-none',
-    ghost: 'bg-transparent hover:bg-slate-100 text-slate-700 border border-slate-200',
+    primary: 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm border border-transparent',
+    secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm',
+    success: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm border border-transparent',
+    warning: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm border border-transparent',
+    danger: 'bg-white hover:bg-red-50 text-red-600 border border-slate-200 hover:border-red-200 shadow-sm',
+    ghost: 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-transparent',
   };
   
-  const baseClasses = 'inline-flex items-center gap-1.5 font-semibold rounded-md transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
-  const sizeClasses = size === 'sm' ? 'py-[5px] px-[12px] text-xs' : 'py-[8px] px-[18px] text-sm';
+  const baseClasses = 'inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-all duration-150 active:scale-[0.98] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap';
+  const sizeClasses = size === 'sm' ? 'py-1.5 px-3 text-xs' : 'py-2 px-4 text-sm';
   const variantClasses = colors[variant] || colors.primary;
   
   return (
