@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "seed": "node seed.js",
+    "wipe-data": "node scripts/destructive/wipeOldData.js",
     "lint": "eslint . --ext .js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
