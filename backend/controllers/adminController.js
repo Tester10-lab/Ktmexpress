@@ -685,12 +685,14 @@ export const updatePackageAdmin = async (req, res) => {
     }
 
     if (updates.length > 0) {
+      const roleLabel = req.user.role === 'dispatcher' ? 'Dispatcher' : (req.user.role === 'admin' ? 'Admin' : 'Staff');
+      const messageText = 'Package details updated by ' + roleLabel.toLowerCase() + (req.body.reason ? '. Reason: ' + req.body.reason : '');
       appendTimelineEvent(pkg, {
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
         status: pkg.status,
-        message: 'Package details updated by admin' + (req.body.reason ? '. Reason: ' + req.body.reason : ''),
+        message: messageText,
         user: req.user.name,
-        role: 'Admin',
+        role: roleLabel,
         changes
       });
       await pkg.save();

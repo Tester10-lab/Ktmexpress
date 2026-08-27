@@ -548,25 +548,34 @@ const AdminPackages = () => {
                       <History className="w-4 h-4 text-brand-600" /> Package Edit History
                     </h4>
                     <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                      {editPkg.timeline.filter(t => t.changes && t.changes.length > 0).map((t, idx) => (
-                        <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm">
-                          <div className="flex justify-between items-start mb-2">
-                            <span className="font-semibold text-slate-700">{t.user} <span className="font-normal text-slate-500">edited</span></span>
-                            <span className="text-xs text-slate-400">{new Date(t.time).toLocaleString()}</span>
+                      {editPkg.timeline.filter(t => t.changes && t.changes.length > 0).map((t, idx) => {
+                        const rawMsg = t.message || '';
+                        // Filter out redundant generic fallback messages like "Package details updated by admin" or "Package details updated by dispatcher"
+                        const cleanMsg = rawMsg
+                          .replace(/^Package details updated by\s*(admin|dispatcher|staff)?\.?\s*/i, '')
+                          .replace(/^Reason:\s*/i, '')
+                          .trim();
+
+                        return (
+                          <div key={idx} className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm">
+                            <div className="flex justify-between items-start mb-2">
+                              <span className="font-semibold text-slate-700">{t.user || 'User'} <span className="font-normal text-slate-500">edited</span></span>
+                              <span className="text-xs text-slate-400">{t.time ? new Date(t.time).toLocaleString() : ''}</span>
+                            </div>
+                            {cleanMsg && <div className="text-xs text-slate-600 mb-2 italic bg-white/80 px-2 py-1 rounded border border-slate-100">Reason: "{cleanMsg}"</div>}
+                            <ul className="space-y-1">
+                              {t.changes.map((c, i) => (
+                                <li key={i} className="text-xs flex items-center gap-2">
+                                  <span className="font-mono bg-slate-200 px-1 rounded text-slate-600">{c.field}</span>
+                                  <span className="line-through text-red-500">{String(c.before)}</span>
+                                  <span className="text-slate-400">→</span>
+                                  <span className="text-emerald-600 font-medium">{String(c.after)}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </div>
-                          {t.message && <div className="text-xs text-slate-600 mb-2 italic">"{t.message}"</div>}
-                          <ul className="space-y-1">
-                            {t.changes.map((c, i) => (
-                              <li key={i} className="text-xs flex items-center gap-2">
-                                <span className="font-mono bg-slate-200 px-1 rounded text-slate-600">{c.field}</span>
-                                <span className="line-through text-red-500">{String(c.before)}</span>
-                                <span className="text-slate-400">→</span>
-                                <span className="text-emerald-600 font-medium">{String(c.after)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
