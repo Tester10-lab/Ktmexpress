@@ -207,6 +207,9 @@ export const trackPackage = async (req, res) => {
     }
 
     const cleanCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase();
+    if (cleanCode.length < 4) {
+      return res.status(400).json({ success: false, message: 'Invalid tracking code or invoice ID.' });
+    }
     const pkg = await Package.findOne({
       $or: [
         { trackingCode: cleanCode },

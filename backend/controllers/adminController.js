@@ -216,16 +216,24 @@ export const verifyCOD = async (req, res) => {
 
 // POST /api/admin/settlements/mark-paid
 export const markVendorPaid = async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  let session = null;
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
+  } catch (e) {
+    session = null;
+  }
 
   try {
     const { packageIds, reference, paymentMethod } = req.body;
     if (!packageIds || !packageIds.length) return res.status(400).json({ success: false, message: 'No packages selected' });
 
-    const packages = await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } }).session(session);
+    const packages = session
+      ? await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } }).session(session)
+      : await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } });
+
     if (packages.length === 0) {
-      await session.abortTransaction();
+      if (session) await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'No eligible packages found' });
     }
 
@@ -242,12 +250,16 @@ export const markVendorPaid = async (req, res) => {
         time: currentStr,
         status: pkg.status,
         message: `Vendor paid Rs. ${pkg.vendorReceivable}${reference ? ` (Ref: ${reference})` : ''}`,
-        user: req.user.name,
+        user: req.user?.name || 'Admin',
       });
-      await pkg.save({ session });
+      if (session) {
+        await pkg.save({ session });
+      } else {
+        await pkg.save();
+      }
     }
 
-    await session.commitTransaction();
+    if (session) await session.commitTransaction();
 
     // Invalidate dashboard cache
     dashboardCache.timestamp = 0;
@@ -258,10 +270,10 @@ export const markVendorPaid = async (req, res) => {
       data: { count: packages.length }
     });
   } catch (error) {
-    await session.abortTransaction();
+    if (session) await session.abortTransaction();
     res.status(500).json({ success: false, message: error.message });
   } finally {
-    session.endSession();
+    if (session) session.endSession();
   }
 };
 

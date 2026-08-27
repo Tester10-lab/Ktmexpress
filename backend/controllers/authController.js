@@ -54,7 +54,7 @@ export const register = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Set refresh token in HTTP-only cookie
-    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const isHttps = req.secure || (req.headers && req.headers['x-forwarded-proto'] === 'https');
     res.cookie(`refreshToken_${role}`, refreshToken, {
       httpOnly: true,
       secure: isHttps,
@@ -139,7 +139,7 @@ export const login = async (req, res) => {
     const refreshToken = generateRefreshToken(user);
 
     // Set refresh token in HTTP-only cookie
-    const isHttps = req.secure || req.headers['x-forwarded-proto'] === 'https';
+    const isHttps = req.secure || (req.headers && req.headers['x-forwarded-proto'] === 'https');
     res.cookie(`refreshToken_${user.role}`, refreshToken, {
       httpOnly: true,
       secure: isHttps,

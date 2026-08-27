@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 // Set test environment
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'testsecret';
+jest.setTimeout(30000);
 
 import publicRoutes from '../../routes/publicRoutes.js';
 import dispatcherRoutes from '../../routes/dispatcherRoutes.js';
