@@ -1872,7 +1872,7 @@ const ActiveRiders = () => {
             </div>
 
             {/* Footer */}
-            <div style={drawerFooterStyle}>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', background: '#f9fafb', display: 'flex', justifyContent: 'flex-end' }}>
               <ActionBtn onClick={() => setSelectedRider(null)} variant="secondary">Close History</ActionBtn>
             </div>
 
