@@ -71,23 +71,26 @@ export const useVerification = (fetchPackages, showToast) => {
   };
 
   const handleQuickVerify = async (pkg) => {
-    if (!window.confirm(`Verify delivery status of package ${pkg.trackingCode} as submitted?`)) return;
+    const targetStatus = pkg.riderSubmission?.status || pkg.status;
+    const targetAmount = pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount;
+    const notes = pkg.riderSubmission?.comments || 'Verified from All Packages';
+    if (!window.confirm(`Accept & Verify package ${pkg.trackingCode}?\n• Status: ${targetStatus}\n• COD: Rs. ${targetAmount}\n• Reason/Notes: ${notes}`)) return;
     try {
       const payload = {
         version: pkg.__v,
-        status: pkg.riderSubmission?.status || pkg.status,
-        amount: pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount,
+        status: targetStatus,
+        amount: targetAmount,
         deliveryCharge: pkg.deliveryCharge,
-        comments: pkg.riderSubmission?.comments || pkg.comments,
+        comments: notes,
         paymentMethod: pkg.paymentMethod || 'Cash',
         reason: 'System correction',
-        customRemarks: 'Directly verified from pending'
+        customRemarks: notes
       };
       await api.post(`/packages/${pkg._id}/verify-action`, payload);
-      showToast('Package verified successfully.', 'success');
+      showToast(`✓ Package ${pkg.trackingCode} verified successfully!`, 'success');
       if (fetchPackages) fetchPackages(true);
     } catch (e) {
-      showToast(e.response?.data?.message || 'Failed to verify package', 'error');
+      showToast(e.response?.data?.message || e.message || 'Failed to verify package', 'error');
     }
   };
 

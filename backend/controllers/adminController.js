@@ -1471,45 +1471,41 @@ export const verifyPackageAdmin = async (req, res) => {
 
     const isEditVerified = pkg.deliveryVerificationStatus === 'Verified';
 
-    // Optimistic Concurrency Control check
-    if (version !== undefined && pkg.__v !== version) {
-      if (session) await session.abortTransaction();
-      return res.status(409).json({
-        success: false,
-        message: 'This package was modified by another admin. Please refresh and try again.',
-      });
-    }
+    const targetStatus = status || pkg.riderSubmission?.status || pkg.status;
+    const targetAmount = (amount !== undefined && amount !== null && !isNaN(Number(amount)))
+      ? Number(amount)
+      : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount);
 
-    const previousAmount = isEditVerified ? pkg.amount : (pkg.riderSubmission?.amount || pkg.amount);
+    const previousAmount = Number(isEditVerified ? pkg.amount : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount)) || 0;
     const previousStatus = isEditVerified ? pkg.status : (pkg.riderSubmission?.status || pkg.status);
     
-    const difference = amount - previousAmount;
+    const difference = targetAmount - previousAmount;
     const now = new Date();
     const nowStrVal = nowStr(now);
 
     const timelineChanges = [];
 
     // Financial adjustment logging
-    if (difference !== 0) {
+    if (!isNaN(difference) && difference !== 0) {
       pkg.financialAdjustments.push({
         originalAmount: previousAmount,
-        adjustedAmount: amount,
+        adjustedAmount: targetAmount,
         difference,
         reason: reason || 'Adjustment',
         adjustedBy: req.user._id,
         adjustedByName: req.user.name,
         createdAt: now,
       });
-      timelineChanges.push({ field: 'amount', before: previousAmount, after: amount });
+      timelineChanges.push({ field: 'amount', before: previousAmount, after: targetAmount });
     }
 
-    if (previousStatus !== status) {
-      timelineChanges.push({ field: 'status', before: previousStatus, after: status });
+    if (previousStatus !== targetStatus) {
+      timelineChanges.push({ field: 'status', before: previousStatus, after: targetStatus });
     }
 
     // Apply edits
-    pkg.status = status;
-    pkg.amount = amount;
+    pkg.status = targetStatus;
+    pkg.amount = targetAmount;
     if (deliveryCharge !== undefined) pkg.deliveryCharge = deliveryCharge;
     if (comments !== undefined) pkg.comments = comments;
     if (receiverName !== undefined) pkg.customerName = receiverName;
