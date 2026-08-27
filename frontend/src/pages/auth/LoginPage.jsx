@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Eye, EyeOff, Loader2, ArrowRight, Lock, Mail, Check, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../store/AuthContext';
@@ -275,8 +275,8 @@ const LoginPage = () => {
             )}
           </div>
 
-          {/* Remember Me & Forgot Password Row */}
-          <div className="flex items-center justify-between text-xs sm:text-sm pt-1">
+          {/* Remember Me Row */}
+          <div className="flex items-center text-xs sm:text-sm pt-1">
             <label className="flex items-center gap-2.5 cursor-pointer group select-none">
               <div className={`w-4 h-4 rounded-md border transition-all duration-150 flex items-center justify-center ${
                 rememberMe ? 'bg-cyan-500 border-cyan-400 text-slate-950' : 'border-white/20 bg-white/[0.05] group-hover:border-white/40'
@@ -293,13 +293,6 @@ const LoginPage = () => {
                 Remember me
               </span>
             </label>
-
-            <Link
-              to="/forgot-password"
-              className="font-semibold text-cyan-400 hover:text-cyan-300 transition-colors hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-400/20 rounded-md px-1"
-            >
-              Forgot password?
-            </Link>
           </div>
 
           {/* Primary Action Button - Glossy Gradient with Top Specular Bar */}
@@ -326,19 +319,6 @@ const LoginPage = () => {
               )}
             </div>
           </button>
-
-          {/* Sign Up Link Footer */}
-          <div className="text-center pt-4 border-t border-white/10">
-            <p className="text-xs sm:text-sm text-slate-400 font-medium">
-              Don't have an account?{' '}
-              <Link
-                to="/signup"
-                className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors hover:underline focus:outline-none focus:ring-2 focus:ring-cyan-400/20 rounded-md px-1"
-              >
-                Create an account
-              </Link>
-            </p>
-          </div>
 
         </div>
       </div>
