@@ -30,8 +30,9 @@ export const getMyDeliveries = async (req, res) => {
           { 
             status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged'] },
             $or: [
-              { deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] } },
-              { updatedAt: { $gte: today } }
+              { deliveryVerificationStatus: { $in: ['Pending', 'Reopened', 'Verified'] } },
+              { updatedAt: { $gte: today } },
+              { verifiedAt: { $gte: today } }
             ]
           }
         ]

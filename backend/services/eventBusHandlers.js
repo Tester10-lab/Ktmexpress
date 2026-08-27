@@ -15,27 +15,41 @@ eventBus.on('package.rider_submitted', ({ pkg, reqUser, io }) => {
 });
 
 eventBus.on('package.verified', ({ pkg, reqUser, io, isAdjustment, originalRiderAmount, finalAmount, reason }) => {
-  logger.info(`Event: package.verified for package ${pkg.trackingCode} by admin ${reqUser.name}`);
+  logger.info(`Event: package.verified for package ${pkg.trackingCode} by ${reqUser?.name || 'staff'}`);
   
   // Notify Rider of verification / edits
   if (io && pkg.riderId) {
-    let msg = `Your delivery for ${pkg.trackingCode} has been verified by Admin.`;
+    const riderTarget = pkg.riderId._id ? pkg.riderId._id.toString() : pkg.riderId.toString();
+    let msg = `Your delivery for ${pkg.trackingCode} has been verified and accepted by ${reqUser?.name || 'Dispatcher'}.`;
     if (isAdjustment) {
-      msg = `Admin adjusted COD for ${pkg.trackingCode}: Rs. ${originalRiderAmount} -> Rs. ${finalAmount}. Reason: ${reason}`;
+      msg = `COD adjusted for ${pkg.trackingCode}: Rs. ${originalRiderAmount} -> Rs. ${finalAmount}. Reason: ${reason}`;
     }
-    io.to(`user_${pkg.riderId}`).emit('notification', {
-      title: 'Delivery Verified',
+    io.to(`user_${riderTarget}`).emit('notification', {
+      id: `package_verified_${pkg._id}_${Date.now()}`,
+      title: 'Delivery Verified & Accepted',
       message: msg,
-      type: 'package_verified'
+      type: 'package_verified',
+      packageId: pkg._id,
+      trackingCode: pkg.trackingCode,
+      deliveryVerificationStatus: 'Verified',
+      status: pkg.status,
+      createdAt: new Date().toISOString()
     });
   }
 
   // Notify Vendor that package is verified
   if (io && pkg.vendorId) {
-    io.to(`user_${pkg.vendorId}`).emit('notification', {
-      title: 'Delivery Verified by Admin',
+    const vendorTarget = pkg.vendorId._id ? pkg.vendorId._id.toString() : pkg.vendorId.toString();
+    io.to(`user_${vendorTarget}`).emit('notification', {
+      id: `package_verified_vendor_${pkg._id}_${Date.now()}`,
+      title: 'Delivery Verified',
       message: `Package ${pkg.trackingCode} is verified as ${pkg.status}. COD: Rs. ${pkg.amount}.`,
-      type: 'package_verified_vendor'
+      type: 'package_verified_vendor',
+      packageId: pkg._id,
+      trackingCode: pkg.trackingCode,
+      deliveryVerificationStatus: 'Verified',
+      status: pkg.status,
+      createdAt: new Date().toISOString()
     });
   }
 });

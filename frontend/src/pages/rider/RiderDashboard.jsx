@@ -29,7 +29,15 @@ const titleMap = {
 function statusBadge(status, verificationStatus) {
   const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
   if (verificationStatus === 'Pending' || verificationStatus === 'Reopened') {
-    return <span className={`${base} bg-amber-50 text-amber-700 border-amber-200`}>⏳ Pending Verification</span>;
+    return <span className={`${base} bg-amber-50 text-amber-700 border-amber-200 animate-pulse`}>⏳ Pending Verification</span>;
+  }
+  if (verificationStatus === 'Verified') {
+    return (
+      <span className={`${base} bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold inline-flex items-center gap-1`}>
+        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" />
+        {status} • Verified
+      </span>
+    );
   }
   const styles = {
     'Delivered': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -170,6 +178,19 @@ const MyDeliveries = () => {
   useEffect(() => { 
     const t = setTimeout(() => fetchAll(), 400); 
     return () => clearTimeout(t);
+  }, [fetchAll]);
+
+  // Real-time notification & polling listener
+  useEffect(() => {
+    const handleNotifUpdate = () => {
+      fetchAll(true);
+    };
+    window.addEventListener('app_notification', handleNotifUpdate);
+    const interval = setInterval(() => fetchAll(true), 15000);
+    return () => {
+      window.removeEventListener('app_notification', handleNotifUpdate);
+      clearInterval(interval);
+    };
   }, [fetchAll]);
 
   const openModal = React.useCallback((pkg, action) => { 
