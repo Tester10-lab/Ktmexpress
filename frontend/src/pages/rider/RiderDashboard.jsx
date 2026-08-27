@@ -786,15 +786,29 @@ const ExpenseLog = () => {
 const ExpenseHistory = () => {
   const [expenses, setExpenses] = useState([]);
   const [period, setPeriod] = useState('monthly');
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
   useEffect(() => {
     setLoading(true);
-    api.get(`/expenses/history?period=${period}`).then(r=>setExpenses(r.data.data||[])).catch(()=>showToast('Failed to load history','error')).finally(()=>setLoading(false));
-  }, [period]);
+    api.get(`/expenses/history?period=${period}`)
+      .then(r => setExpenses(r.data.data || []))
+      .catch(() => showToast('Failed to load history', 'error'))
+      .finally(() => setLoading(false));
+  }, [period, showToast]);
 
-  const catEmoji = { fuel:'🛢️', food:'🍱', misc:'📦' };
+  const catEmoji = { fuel: '🛢️', food: '🍱', misc: '📦' };
+
+  const filteredExpenses = expenses.filter(e => {
+    if (!search.trim()) return true;
+    const s = search.toLowerCase();
+    const cat = (e.category || '').toLowerCase();
+    const desc = (e.description || '').toLowerCase();
+    const amt = String(e.amount || '');
+    const dt = new Date(e.date).toLocaleDateString().toLowerCase();
+    return cat.includes(s) || desc.includes(s) || amt.includes(s) || dt.includes(s);
+  });
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -802,13 +816,22 @@ const ExpenseHistory = () => {
         <div className="px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50">
           <div>
             <h3 className="font-bold text-slate-900 text-lg">Expense History</h3>
-            <p className="text-sm text-slate-500 mt-1">View all your logged expenses</p>
+            <p className="text-sm text-slate-500 mt-1">View and search all your logged expenses</p>
           </div>
-          <select className="input-field w-full sm:w-auto" value={period} onChange={e=>setPeriod(e.target.value)}>
-            <option value="daily">Today</option>
-            <option value="weekly">This Week</option>
-            <option value="monthly">This Month</option>
-          </select>
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="w-full sm:w-64">
+              <SearchPanel 
+                value={search} 
+                onChange={setSearch} 
+                placeholder="Search category, notes, amount..." 
+              />
+            </div>
+            <select className="input-field w-full sm:w-auto text-sm py-2" value={period} onChange={e => setPeriod(e.target.value)}>
+              <option value="daily">Today</option>
+              <option value="weekly">This Week</option>
+              <option value="monthly">This Month</option>
+            </select>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -822,17 +845,17 @@ const ExpenseHistory = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {loading ? <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500"><div className="flex justify-center items-center"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-brand-600 mr-2"></div>Loading...</div></td></tr>
-              : expenses.length===0 ? <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500">No expenses found for this period.</td></tr>
-              : expenses.map(e=>(
+              : filteredExpenses.length === 0 ? <tr><td colSpan="4" className="px-6 py-12 text-center text-slate-500">No expenses found matching your search.</td></tr>
+              : filteredExpenses.map(e => (
                 <tr key={e._id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4 text-slate-500 font-medium">{new Date(e.date).toLocaleDateString()}</td>
                   <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 capitalize shadow-sm">
-                      <span className="mr-1.5">{catEmoji[e.category]||''}</span> {e.category}
+                      <span className="mr-1.5">{catEmoji[e.category] || ''}</span> {e.category}
                     </span>
                   </td>
                   <td className="px-6 py-4 font-bold text-brand-600">Rs. {e.amount}</td>
-                  <td className="px-6 py-4 text-slate-600">{e.description||'—'}</td>
+                  <td className="px-6 py-4 text-slate-600">{e.description || '—'}</td>
                 </tr>
               ))}
             </tbody>

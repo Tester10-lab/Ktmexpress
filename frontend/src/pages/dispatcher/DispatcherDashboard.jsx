@@ -1947,6 +1947,7 @@ const ActiveRiders = () => {
     startDate: '',
     endDate: '',
   });
+  const [historySearch, setHistorySearch] = useState('');
   const [expandedTimelines, setExpandedTimelines] = useState(new Set());
   const [verificationModal, setVerificationModal] = useState({ open: false, pkgId: null, reason: '', comment: '' });
 
@@ -2141,111 +2142,140 @@ const ActiveRiders = () => {
                     ))}
                   </div>
 
-                  {/* Filters */}
-                  <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+                  {/* Filters & Search */}
+                  <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 8, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    
+                    {/* Search Row */}
                     <div>
-                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Status</label>
-                      <select 
-                        style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
-                        value={historyFilters.status}
-                        onChange={(e) => setHistoryFilters({ ...historyFilters, status: e.target.value })}
-                      >
-                        <option value="all">All Statuses</option>
-                        <option value="In Warehouse">In Warehouse</option>
-                        <option value="Picked Up">Picked Up</option>
-                        <option value="Out for Delivery">Out for Delivery</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Postponed">Postponed</option>
-                        <option value="Hold">Hold</option>
-                        <option value="Cancelled">Cancelled</option>
-                        <option value="Returned">Returned</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Vendor</label>
-                      <select 
-                        style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
-                        value={historyFilters.vendorId}
-                        onChange={(e) => setHistoryFilters({ ...historyFilters, vendorId: e.target.value })}
-                      >
-                        <option value="all">All Vendors</option>
-                        {(() => {
-                          const uniqueVendors = [];
-                          const seen = new Set();
-                          (riderHistory.packages || []).forEach(p => {
-                            const v = p.vendorId;
-                            if (v && !seen.has(v._id)) {
-                              seen.add(v._id);
-                              uniqueVendors.push(v);
-                            }
-                          });
-                          return uniqueVendors.map(v => (
-                            <option key={v._id} value={v._id}>
-                              {v.vendorMeta?.shopName || v.name}
-                            </option>
-                          ));
-                        })()}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Region</label>
-                      <select 
-                        style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
-                        value={historyFilters.valley}
-                        onChange={(e) => setHistoryFilters({ ...historyFilters, valley: e.target.value })}
-                      >
-                        <option value="all">All Regions</option>
-                        <option value="inside">Inside Valley</option>
-                        <option value="outside">Outside Valley</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Start Date</label>
+                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Search History</label>
                       <input 
-                        type="date"
-                        style={{ width: '105%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }}
-                        value={historyFilters.startDate}
-                        onChange={(e) => setHistoryFilters({ ...historyFilters, startDate: e.target.value })}
+                        type="text"
+                        placeholder="Search by tracking code, customer name, phone, vendor shop, or address..."
+                        style={{ width: '100%', padding: '6px 12px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
                       />
                     </div>
 
-                    <div>
-                      <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>End Date</label>
-                      <input 
-                        type="date"
-                        style={{ width: '105%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }}
-                        value={historyFilters.endDate}
-                        onChange={(e) => setHistoryFilters({ ...historyFilters, endDate: e.target.value })}
-                      />
+                    {/* Filter Controls Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Status</label>
+                        <select 
+                          style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                          value={historyFilters.status}
+                          onChange={(e) => setHistoryFilters({ ...historyFilters, status: e.target.value })}
+                        >
+                          <option value="all">All Statuses</option>
+                          <option value="In Warehouse">In Warehouse</option>
+                          <option value="Picked Up">Picked Up</option>
+                          <option value="Out for Delivery">Out for Delivery</option>
+                          <option value="Delivered">Delivered</option>
+                          <option value="Postponed">Postponed</option>
+                          <option value="Hold">Hold</option>
+                          <option value="Cancelled">Cancelled</option>
+                          <option value="Returned">Returned</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Vendor</label>
+                        <select 
+                          style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                          value={historyFilters.vendorId}
+                          onChange={(e) => setHistoryFilters({ ...historyFilters, vendorId: e.target.value })}
+                        >
+                          <option value="all">All Vendors</option>
+                          {(() => {
+                            const uniqueVendors = [];
+                            const seen = new Set();
+                            (riderHistory.packages || []).forEach(p => {
+                              const v = p.vendorId;
+                              if (v && !seen.has(v._id)) {
+                                seen.add(v._id);
+                                uniqueVendors.push(v);
+                              }
+                            });
+                            return uniqueVendors.map(v => (
+                              <option key={v._id} value={v._id}>
+                                {v.vendorMeta?.shopName || v.name}
+                              </option>
+                            ));
+                          })()}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Region</label>
+                        <select 
+                          style={{ width: '100%', padding: '5px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12, background: '#fff' }}
+                          value={historyFilters.valley}
+                          onChange={(e) => setHistoryFilters({ ...historyFilters, valley: e.target.value })}
+                        >
+                          <option value="all">All Regions</option>
+                          <option value="inside">Inside Valley</option>
+                          <option value="outside">Outside Valley</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>Start Date</label>
+                        <input 
+                          type="date"
+                          style={{ width: '100%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }}
+                          value={historyFilters.startDate}
+                          onChange={(e) => setHistoryFilters({ ...historyFilters, startDate: e.target.value })}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', marginBottom: 4 }}>End Date</label>
+                        <input 
+                          type="date"
+                          style={{ width: '100%', padding: '4px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 12 }}
+                          value={historyFilters.endDate}
+                          onChange={(e) => setHistoryFilters({ ...historyFilters, endDate: e.target.value })}
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {/* Packages Table */}
-                  <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                    <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                      <table style={tableStyle}>
-                        <thead>
-                          <tr>
-                            <th style={thStyle}>Tracking Code</th>
-                            <th style={thStyle}>Vendor / Region</th>
-                            <th style={thStyle}>Customer</th>
-                            <th style={thStyle}>COD / Dates</th>
-                            <th style={thStyle}>Status</th>
-                            <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody style={{ fontSize: 12 }}>
-                          {riderHistory.packages.length === 0 ? (
-                            <tr>
-                              <td colSpan="6" style={{ ...tdStyle, textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
-                                No historical packages match the selected criteria.
-                              </td>
-                            </tr>
-                          ) : (
-                            riderHistory.packages.map(p => {
+                  {(() => {
+                    const filteredHistoryPackages = (riderHistory.packages || []).filter(p => {
+                      if (!historySearch.trim()) return true;
+                      const s = historySearch.toLowerCase();
+                      const tc = (p.trackingCode || '').toLowerCase();
+                      const cn = (p.customerName || '').toLowerCase();
+                      const cp = (p.customerPhone || '').toLowerCase();
+                      const vn = ((p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '').toLowerCase();
+                      const addr = (p.address || '').toLowerCase();
+                      return tc.includes(s) || cn.includes(s) || cp.includes(s) || vn.includes(s) || addr.includes(s);
+                    });
+
+                    return (
+                      <div style={{ border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
+                        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                          <table style={tableStyle}>
+                            <thead>
+                              <tr>
+                                <th style={thStyle}>Tracking Code</th>
+                                <th style={thStyle}>Vendor / Region</th>
+                                <th style={thStyle}>Customer</th>
+                                <th style={thStyle}>COD / Dates</th>
+                                <th style={thStyle}>Status</th>
+                                <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody style={{ fontSize: 12 }}>
+                              {filteredHistoryPackages.length === 0 ? (
+                                <tr>
+                                  <td colSpan="6" style={{ ...tdStyle, textAlign: 'center', padding: '40px 0', color: '#9ca3af' }}>
+                                    No historical packages match the selected criteria.
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredHistoryPackages.map(p => {
                               const isTimelineExpanded = expandedTimelines.has(p._id);
                               return (
                                 <React.Fragment key={p._id}>
@@ -2334,6 +2364,8 @@ const ActiveRiders = () => {
                       </table>
                     </div>
                   </div>
+                    );
+                  })()}
 
                 </div>
               )}

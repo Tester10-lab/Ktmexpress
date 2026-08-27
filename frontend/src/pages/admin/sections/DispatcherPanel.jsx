@@ -73,6 +73,7 @@ const AdminDispatcher = () => {
     startDate: '',
     endDate: '',
   });
+  const [historySearch, setHistorySearch] = useState('');
   const [expandedTimelines, setExpandedTimelines] = useState(new Set());
 
   const fetchRiderHistory = useCallback(async (riderId, filters = {}) => {
@@ -721,12 +722,23 @@ const AdminDispatcher = () => {
                     ))}
                   </div>
 
-                  {/* Filters */}
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
-                    <div className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
-                      <Sliders className="w-3.5 h-3.5" /> Filter History
+                  {/* Filters & Search */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-3">
+                    
+                    {/* Search Row */}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Search History</label>
+                      <input 
+                        type="text"
+                        placeholder="Search by tracking code, customer name, phone, vendor shop, or address..."
+                        className="input-field py-1.5 w-full text-xs"
+                        value={historySearch}
+                        onChange={(e) => setHistorySearch(e.target.value)}
+                      />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+
+                    {/* Filter Controls Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 mb-1">Status</label>
                         <select 
@@ -809,53 +821,66 @@ const AdminDispatcher = () => {
                   </div>
 
                   {/* Packages Table */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
-                    <div className="overflow-x-auto max-h-[450px]">
-                      <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0">
-                          <tr>
-                            <th className="px-4 py-3">Tracking Code</th>
-                            <th className="px-4 py-3">Vendor / Region</th>
-                            <th className="px-4 py-3">Customer</th>
-                            <th className="px-4 py-3">COD / Dates</th>
-                            <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 text-xs">
-                          {riderHistory.packages.length === 0 ? (
-                            <tr>
-                              <td colSpan="6" className="px-4 py-12 text-center text-slate-400">
-                                No historical records match these filters.
-                              </td>
-                            </tr>
-                          ) : (
-                            riderHistory.packages.map(p => {
-                              const isTimelineExpanded = expandedTimelines.has(p._id);
-                              return (
-                                <React.Fragment key={p._id}>
-                                  <tr className="hover:bg-slate-50/50">
-                                    <td className="px-4 py-3 font-semibold">
-                                      <TrackingLink code={p.trackingCode} />
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="font-bold text-slate-700">{p.vendorId?.vendorMeta?.shopName || (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</div>
-                                      <div className="text-[10px] text-slate-400 font-medium">
-                                        {p.outOfValley ? '🏔️ Outside Valley' : '🏡 Inside Valley'}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="font-bold text-slate-800">{p.customerName}</div>
-                                      <div className="text-slate-500">{p.customerPhone}</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="font-black text-slate-900">Rs. {p.amount}</div>
-                                      <div className="text-[9px] text-slate-400 mt-0.5">
-                                        Created: {new Date(p.createdAt).toLocaleDateString()}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3">{statusBadge(p.status)}</td>
-                                    <td className="px-4 py-3 text-right">
+                  {(() => {
+                    const filteredHistoryPackages = (riderHistory.packages || []).filter(p => {
+                      if (!historySearch.trim()) return true;
+                      const s = historySearch.toLowerCase();
+                      const tc = (p.trackingCode || '').toLowerCase();
+                      const cn = (p.customerName || '').toLowerCase();
+                      const cp = (p.customerPhone || '').toLowerCase();
+                      const vn = ((p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '').toLowerCase();
+                      const addr = (p.address || '').toLowerCase();
+                      return tc.includes(s) || cn.includes(s) || cp.includes(s) || vn.includes(s) || addr.includes(s);
+                    });
+
+                    return (
+                      <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                        <div className="overflow-x-auto max-h-[450px]">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0">
+                              <tr>
+                                <th className="px-4 py-3">Tracking Code</th>
+                                <th className="px-4 py-3">Vendor / Region</th>
+                                <th className="px-4 py-3">Customer</th>
+                                <th className="px-4 py-3">COD / Dates</th>
+                                <th className="px-4 py-3">Status</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                              {filteredHistoryPackages.length === 0 ? (
+                                <tr>
+                                  <td colSpan="6" className="px-4 py-12 text-center text-slate-400">
+                                    No historical records match these filters or search.
+                                  </td>
+                                </tr>
+                              ) : (
+                                filteredHistoryPackages.map(p => {
+                                  const isTimelineExpanded = expandedTimelines.has(p._id);
+                                  return (
+                                    <React.Fragment key={p._id}>
+                                      <tr className="hover:bg-slate-50/50">
+                                        <td className="px-4 py-3 font-semibold">
+                                          <TrackingLink code={p.trackingCode} />
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <div className="font-bold text-slate-700">{p.vendorId?.vendorMeta?.shopName || (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || 'Unknown'}</div>
+                                          <div className="text-[10px] text-slate-400 font-medium">
+                                            {p.outOfValley ? '🏔️ Outside Valley' : '🏡 Inside Valley'}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <div className="font-bold text-slate-800">{p.customerName}</div>
+                                          <div className="text-slate-500">{p.customerPhone}</div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                          <div className="font-black text-slate-900">Rs. {p.amount}</div>
+                                          <div className="text-[9px] text-slate-400 mt-0.5">
+                                            Created: {new Date(p.createdAt).toLocaleDateString()}
+                                          </div>
+                                        </td>
+                                        <td className="px-4 py-3">{statusBadge(p.status)}</td>
+                                        <td className="px-4 py-3 text-right">
                                       <button 
                                         onClick={() => toggleTimeline(p._id)}
                                         className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors"
@@ -893,6 +918,8 @@ const AdminDispatcher = () => {
                       </table>
                     </div>
                   </div>
+                    );
+                  })()}
                 </>
               )}
             </div>
