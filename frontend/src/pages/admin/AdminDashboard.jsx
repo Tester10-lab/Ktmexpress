@@ -3,8 +3,7 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import api from '../../api/axios';
 import { 
-  LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
-  Package, LayoutGrid, BarChart3, CheckCircle2
+  LayoutDashboard, Wallet, Receipt, Users, Settings2, BarChart3
 } from 'lucide-react';
 
 import AnalyticsDashboard from './sections/AnalyticsDashboard';
@@ -12,11 +11,9 @@ import SettlementPanel from './sections/SettlementPanel';
 import ExpenseLog from './sections/ExpenseLog';
 import UserManagement from './sections/UserManagement';
 import PricingEngine from './PricingEngine';
-import AuditLogViewer from './sections/AuditLogViewer';
-import PackageManagement from './sections/PackageManagement';
-import DispatcherPanel from './sections/DispatcherPanel';
 import CodReconciliation from './sections/CodReconciliation';
 import FinancialAnalytics from './sections/FinancialAnalytics';
+
 // Nav icons
 const navLinks = [
   { name: 'Dashboard', path: '/admin', exact: true, icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -24,9 +21,6 @@ const navLinks = [
   { name: 'Rider Expenses', path: '/admin/expenses', icon: <Receipt className="w-5 h-5" /> },
   { name: 'Manage Users', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
   { name: 'Pricing Engine', path: '/admin/pricing-engine', icon: <Settings2 className="w-5 h-5" /> },
-  { name: 'Global Scan History', path: '/admin/scan-history', icon: <Activity className="w-5 h-5" /> },
-  { name: 'All Packages', path: '/admin/packages', icon: <Package className="w-5 h-5" /> },
-  { name: 'Dispatcher Panel', path: '/admin/dispatcher', icon: <LayoutGrid className="w-5 h-5" /> },
   { name: 'COD Handovers', path: '/admin/handovers', icon: <Wallet className="w-5 h-5" /> },
   { name: 'Reports', path: '/admin/reports', icon: <BarChart3 className="w-5 h-5" /> }
 ];
@@ -37,9 +31,6 @@ const titleMap = {
   '/admin/expenses': 'Rider Expenses',
   '/admin/users': 'User Management',
   '/admin/pricing-engine': 'Pricing Engine',
-  '/admin/scan-history': 'Global Scan History',
-  '/admin/packages': 'All Packages',
-  '/admin/dispatcher': 'Dispatcher Panel',
   '/admin/handovers': 'COD Handovers Verification',
   '/admin/reports': 'Reports & Analytics',
 };
@@ -127,9 +118,6 @@ const AdminDashboard = () => {
         <Route path="/users" element={<UserManagement />} />
         <Route path="/pricing-engine" element={<PricingEngine />} />
         <Route path="/pricing" element={<PricingEngine />} />
-        <Route path="/scan-history" element={<AuditLogViewer />} />
-        <Route path="/packages" element={<PackageManagement />} />
-        <Route path="/dispatcher" element={<DispatcherPanel />} />
         <Route path="/handovers" element={<CodReconciliation />} />
         <Route path="/reports" element={<FinancialAnalytics />} />
       </Routes>
