@@ -195,7 +195,13 @@ const MyDeliveries = () => {
 
   const openModal = React.useCallback((pkg, action) => { 
     setActionModal({open:true,pkg,action}); 
-    setForm({comment:'',cashCollected:pkg.amount,newDate:''}); 
+    setForm({
+      comment: '',
+      cashCollected: pkg.amount,
+      newDate: '',
+      proposedStatus: pkg.status || 'Delivered',
+      verificationReason: ''
+    }); 
   }, []);
 
   const submitAction = async e => {
@@ -207,11 +213,17 @@ const MyDeliveries = () => {
           showToast('Please select or specify a reason for verification', 'error');
           return;
         }
-        await api.post(`/packages/${actionModal.pkg._id}/request-verification`, { reason: payloadReason.trim() });
+        await api.post(`/packages/${actionModal.pkg._id}/request-verification`, { 
+          reason: payloadReason.trim(),
+          proposedStatus: form.proposedStatus || actionModal.pkg.status,
+          proposedAmount: form.cashCollected !== undefined && form.cashCollected !== '' ? Number(form.cashCollected) : actionModal.pkg.amount,
+          comments: form.comment
+        });
+        showToast('Verification request sent to dispatcher!', 'success');
       } else {
         await api.put('/rider/update-status',{packageId:actionModal.pkg._id,action:actionModal.action,comment:form.comment,cashCollected:Number(form.cashCollected),newDate:form.newDate});
+        showToast('Status updated!','success');
       }
-      showToast('Status updated!','success');
       setActionModal({open:false,pkg:null,action:''});
       fetchAll(true);
     } catch(err) { showToast(err.response?.data?.message || err.message || 'Failed','error'); }
@@ -470,7 +482,7 @@ const MyDeliveries = () => {
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason for Verification <span className="text-red-500">*</span></label>
                       <select 
-                        className="input-field mb-4" 
+                        className="input-field mb-3" 
                         value={form.verificationReason || ''} 
                         onChange={e => setForm(f => ({ ...f, verificationReason: e.target.value, comment: e.target.value === 'Other' ? '' : e.target.value }))}
                         required
@@ -488,12 +500,45 @@ const MyDeliveries = () => {
                         <option value="Other">Other (please specify below)</option>
                       </select>
                     </div>
-                    {form.verificationReason === 'Other' && (
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Additional Details <span className="text-red-500">*</span></label>
-                        <textarea className="input-field min-h-[100px]" placeholder="Please specify the reason..." value={form.comment} onChange={e=>setForm(f=>({...f,comment:e.target.value}))} required/>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Target Package Status</label>
+                        <select 
+                          className="input-field" 
+                          value={form.proposedStatus || actionModal.pkg.status}
+                          onChange={e => setForm(f => ({ ...f, proposedStatus: e.target.value }))}
+                        >
+                          <option value="Delivered">Delivered</option>
+                          <option value="Postponed">Postponed</option>
+                          <option value="Cancelled">Cancelled</option>
+                          <option value="Returned">Returned</option>
+                          <option value="Exchanged">Exchanged</option>
+                          <option value="Hold">Hold</option>
+                        </select>
                       </div>
-                    )}
+
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-700 mb-1">Actual COD Collected (Rs.)</label>
+                        <input 
+                          type="number" 
+                          className="input-field" 
+                          value={form.cashCollected} 
+                          onChange={e => setForm(f => ({ ...f, cashCollected: e.target.value }))} 
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Remarks / Details {form.verificationReason === 'Other' && <span className="text-red-500">*</span>}</label>
+                      <textarea 
+                        className="input-field min-h-[90px]" 
+                        placeholder="Explain details for dispatcher verification..." 
+                        value={form.comment} 
+                        onChange={e => setForm(f => ({ ...f, comment: e.target.value }))} 
+                        required={form.verificationReason === 'Other'}
+                      />
+                    </div>
                   </>
                 ) : (
                   <div>

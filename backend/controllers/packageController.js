@@ -346,7 +346,7 @@ export const confirmWarehouseArrival = async (req, res) => {
 export const requestVerification = async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body;
+    const { reason, proposedStatus, proposedAmount, comments } = req.body;
 
     if (!reason || typeof reason !== 'string' || !reason.trim()) {
       return res.status(400).json({ success: false, message: 'Reason for verification is required.' });
@@ -408,6 +408,15 @@ export const requestVerification = async (req, res) => {
         }
       }
     };
+
+    if (proposedStatus || proposedAmount !== undefined || comments) {
+      updateQuery.$set.riderSubmission = {
+        status: proposedStatus || pkg.status,
+        amount: proposedAmount !== undefined && proposedAmount !== '' ? Number(proposedAmount) : pkg.amount,
+        comments: comments || cleanReason,
+        submittedAt: new Date()
+      };
+    }
 
     if (!pkg.verificationStartedAt) {
       updateQuery.$set.verificationStartedAt = new Date();

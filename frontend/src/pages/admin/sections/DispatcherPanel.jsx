@@ -99,6 +99,32 @@ const AdminDispatcher = () => {
     }
   }, [showToast]);
 
+  const handleVerifyDelivery = async (pkg) => {
+    const targetStatus = pkg.riderSubmission?.status || pkg.status;
+    const targetAmount = pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount;
+    const notes = pkg.riderSubmission?.comments || 'Accepted and verified';
+    if (!window.confirm(`Accept & Verify changes for ${pkg.trackingCode}?\n• Status: ${targetStatus}\n• COD: Rs. ${targetAmount}\n• Notes: ${notes}`)) return;
+    try {
+      const payload = {
+        version: pkg.__v,
+        status: targetStatus,
+        amount: targetAmount,
+        deliveryCharge: pkg.deliveryCharge,
+        comments: notes,
+        paymentMethod: pkg.paymentMethod || 'Cash',
+        reason: 'Dispatcher accepted verification',
+        customRemarks: notes
+      };
+      await api.post(`/packages/${pkg._id}/verify-action`, payload);
+      showToast(`✓ Package ${pkg.trackingCode} verified and changes accepted!`, 'success');
+      if (selectedRider) {
+        fetchRiderHistory(selectedRider._id, historyFilters);
+      }
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Failed to verify package', 'error');
+    }
+  };
+
   useEffect(() => {
     if (selectedRider) {
       fetchRiderHistory(selectedRider._id, historyFilters);
@@ -879,16 +905,49 @@ const AdminDispatcher = () => {
                                             Created: {new Date(p.createdAt).toLocaleDateString()}
                                           </div>
                                         </td>
-                                        <td className="px-4 py-3">{statusBadge(p.status)}</td>
+                                        <td className="px-4 py-3">
+                                          <div className="flex flex-col gap-1">
+                                            {statusBadge(p.status)}
+                                            {p.deliveryVerificationStatus === 'Pending' && (
+                                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                                                ⏳ Pending Verification
+                                              </span>
+                                            )}
+                                            {p.deliveryVerificationStatus === 'Verified' && (
+                                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                                ✓ Verified
+                                              </span>
+                                            )}
+                                          </div>
+                                        </td>
                                         <td className="px-4 py-3 text-right">
-                                      <button 
-                                        onClick={() => toggleTimeline(p._id)}
-                                        className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors"
-                                      >
-                                        {isTimelineExpanded ? 'Hide Timeline' : 'View Timeline'}
-                                      </button>
-                                    </td>
-                                  </tr>
+                                          <div className="flex items-center justify-end gap-2">
+                                            {p.deliveryVerificationStatus === 'Pending' ? (
+                                              <button
+                                                onClick={() => handleVerifyDelivery(p)}
+                                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition-colors flex items-center gap-1 shadow-xs"
+                                                title="Accept Rider Changes & Verify"
+                                              >
+                                                <CheckCircle2 className="w-3 h-3" /> Accept & Verify
+                                              </button>
+                                            ) : ['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(p.status) && p.deliveryVerificationStatus !== 'Verified' ? (
+                                              <button
+                                                onClick={() => handleVerifyDelivery(p)}
+                                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded text-xs font-semibold transition-colors"
+                                                title="Verify Status"
+                                              >
+                                                Verify
+                                              </button>
+                                            ) : null}
+                                            <button 
+                                              onClick={() => toggleTimeline(p._id)}
+                                              className="text-xs font-bold text-brand-600 hover:text-brand-800 transition-colors"
+                                            >
+                                              {isTimelineExpanded ? 'Hide' : 'Timeline'}
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
                                   
                                   {isTimelineExpanded && (
                                     <tr>

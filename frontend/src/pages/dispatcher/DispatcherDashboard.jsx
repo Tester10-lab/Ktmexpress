@@ -188,7 +188,9 @@ const DispatcherHome = () => {
 
       // 2. Status Filter
       if (statusFilter !== 'all') {
-        if (statusFilter === 'Postponed') {
+        if (statusFilter === 'verification_pending') {
+          if (p.deliveryVerificationStatus !== 'Pending') return false;
+        } else if (statusFilter === 'Postponed') {
           if (p.status !== 'Postponed' && p.riderId) return false;
         } else if (p.status !== statusFilter) {
           return false;
@@ -228,6 +230,30 @@ const DispatcherHome = () => {
     });
   }, [packages, search, statusFilter, riderFilter, dateFilter]);
 
+  const handleAcceptVerify = async (pkg) => {
+    const targetStatus = pkg.riderSubmission?.status || pkg.status;
+    const targetAmount = pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount;
+    const notes = pkg.riderSubmission?.comments || 'Accepted by Dispatcher';
+    if (!window.confirm(`Accept & Verify changes for ${pkg.trackingCode}?\n• Status: ${targetStatus}\n• COD: Rs. ${targetAmount}\n• Reason/Notes: ${notes}`)) return;
+    try {
+      const payload = {
+        version: pkg.__v,
+        status: targetStatus,
+        amount: targetAmount,
+        deliveryCharge: pkg.deliveryCharge,
+        comments: notes,
+        paymentMethod: pkg.paymentMethod || 'Cash',
+        reason: 'Dispatcher accepted verification',
+        customRemarks: notes
+      };
+      await api.post(`/packages/${pkg._id}/verify-action`, payload);
+      showToast(`✓ Package ${pkg.trackingCode} verified and changes accepted!`, 'success');
+      fetchAll();
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Failed to verify package', 'error');
+    }
+  };
+
   const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all' || riderFilter !== 'all' || dateFilter !== 'all';
   const clearFilters = () => {
     setSearch('');
@@ -241,6 +267,7 @@ const DispatcherHome = () => {
   const s = stats || {};
 
   // Status counts
+  const countVerificationPending = packages.filter(p => p.deliveryVerificationStatus === 'Pending').length;
   const countInWarehouse = packages.filter(p => p.status === 'In Warehouse').length;
   const countOutForDelivery = packages.filter(p => p.status === 'Out for Delivery').length;
   const countDelivered = packages.filter(p => p.status === 'Delivered').length;
@@ -428,6 +455,7 @@ const DispatcherHome = () => {
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Quick Filter:</span>
             {[
               { id: 'all', label: 'All', count: packages.length, color: '#3b82f6' },
+              { id: 'verification_pending', label: '⏳ Verification Pending', count: countVerificationPending, color: '#d97706' },
               { id: 'In Warehouse', label: 'In Warehouse', count: countInWarehouse, color: '#8b5cf6' },
               { id: 'Out for Delivery', label: 'Out for Delivery', count: countOutForDelivery, color: '#0284c7' },
               { id: 'Delivered', label: 'Delivered', count: countDelivered, color: '#10b981' },
@@ -477,15 +505,15 @@ const DispatcherHome = () => {
           <table style={tableStyle}>
             <thead>
               <tr>
-                {['Tracking / Invoice', 'Vendor', 'Customer', 'Destination', 'Assigned Rider', 'Status', 'COD'].map(h => (
-                  <th key={h} style={thStyle}>{h}</th>
+                {['Tracking / Invoice', 'Vendor', 'Customer', 'Destination', 'Assigned Rider', 'Status', 'Verification', 'COD', 'Actions'].map(h => (
+                  <th key={h} style={{ ...thStyle, textAlign: h === 'Actions' || h === 'COD' ? 'right' : 'left' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filteredPackages.length === 0 ? (
                 <tr>
-                  <td colSpan="7">
+                  <td colSpan="9">
                     <EmptyState 
                       message={hasActiveFilters ? "No packages match your search filters." : "No packages yet."} 
                       icon={hasActiveFilters ? "🔍" : "📭"} 
@@ -526,7 +554,70 @@ const DispatcherHome = () => {
                     )}
                   </td>
                   <td style={tdStyle}><StatusBadge status={p.status} /></td>
-                  <td style={{ ...tdStyle, fontWeight: 700, color: '#0f172a' }}>Rs. {p.amount?.toLocaleString()}</td>
+                  <td style={tdStyle}>
+                    {p.deliveryVerificationStatus === 'Pending' ? (
+                      <div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '2px 6px', borderRadius: 4, display: 'inline-block' }}>
+                          ⏳ Pending Verification
+                        </span>
+                        {p.riderSubmission && (
+                          <div style={{ fontSize: 10, color: '#92400e', fontWeight: 600, marginTop: 2 }}>
+                            To: {p.riderSubmission.status} (Rs. {p.riderSubmission.amount})
+                          </div>
+                        )}
+                      </div>
+                    ) : p.deliveryVerificationStatus === 'Verified' ? (
+                      <span style={{ fontSize: 10, fontWeight: 600, color: '#059669', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '2px 6px', borderRadius: 4 }}>
+                        ✓ Verified
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 10, color: '#94a3b8' }}>—</span>
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: '#0f172a', textAlign: 'right' }}>Rs. {p.amount?.toLocaleString()}</td>
+                  <td style={{ ...tdStyle, textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      {p.deliveryVerificationStatus === 'Pending' ? (
+                        <button
+                          onClick={() => handleAcceptVerify(p)}
+                          style={{
+                            background: '#059669',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: 6,
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
+                          }}
+                          title="Accept Rider Changes & Verify"
+                        >
+                          <CheckCircle2 style={{ width: 12, height: 12 }} /> Accept
+                        </button>
+                      ) : ['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(p.status) && p.deliveryVerificationStatus !== 'Verified' ? (
+                        <button
+                          onClick={() => handleAcceptVerify(p)}
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#334155',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 6,
+                            padding: '3px 8px',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                          title="Verify Status"
+                        >
+                          Verify
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

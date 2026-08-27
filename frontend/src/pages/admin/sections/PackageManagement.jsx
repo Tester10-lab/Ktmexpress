@@ -481,8 +481,18 @@ const AdminPackages = () => {
                           )}
                         </div>
                         {p.deliveryVerificationStatus === 'Pending' && p.verificationRequests && p.verificationRequests.find(r => r.status === 'Pending') && (
-                          <div className="text-[10px] text-slate-500 mt-1">
-                            Requested by: <span className="font-semibold">{p.verificationRequests.find(r => r.status === 'Pending').requestedByName}</span> ({p.verificationRequests.find(r => r.status === 'Pending').requestedByRole})
+                          <div className="text-[10px] text-slate-600 mt-1 space-y-0.5">
+                            <div>
+                              By: <span className="font-semibold text-slate-800">{p.verificationRequests.find(r => r.status === 'Pending').requestedByName}</span> ({p.verificationRequests.find(r => r.status === 'Pending').requestedByRole})
+                            </div>
+                            <div className="text-amber-800 font-medium italic">
+                              "{p.verificationRequests.find(r => r.status === 'Pending').reason}"
+                            </div>
+                            {p.riderSubmission && (
+                              <div className="text-emerald-700 font-bold text-[10px]">
+                                Proposed: {p.riderSubmission.status} (Rs. {p.riderSubmission.amount})
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -490,16 +500,25 @@ const AdminPackages = () => {
                     <td className="px-6 py-4 text-right font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-1.5 justify-end items-center">
-                        {p.deliveryVerificationStatus !== 'Verified' && ['Delivered', 'Cancelled', 'Returned', 'Exchanged', 'Postponed'].includes(p.status) && (
+                        {p.deliveryVerificationStatus === 'Pending' ? (
+                          <button 
+                            className="py-1 px-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 font-bold flex items-center gap-1 text-xs transition-colors shadow-xs" 
+                            onClick={() => handleQuickVerify(p)} 
+                            title="Accept Rider Changes & Verify"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Accept & Verify</span>
+                          </button>
+                        ) : p.deliveryVerificationStatus !== 'Verified' && ['Delivered', 'Cancelled', 'Returned', 'Exchanged', 'Postponed'].includes(p.status) ? (
                           <button 
                             className="py-1 px-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold flex items-center gap-1 text-xs transition-colors" 
                             onClick={() => handleQuickVerify(p)} 
-                            title="Quick Verify & Accept"
+                            title="Quick Verify"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                             <span>Verify</span>
                           </button>
-                        )}
+                        ) : null}
                         {p.deliveryVerificationStatus !== 'Verified' && (
                           <button 
                             className="py-1 px-2 rounded-lg bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 font-medium flex items-center gap-1 text-xs transition-colors" 
