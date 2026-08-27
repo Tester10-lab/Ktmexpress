@@ -89,78 +89,77 @@ const imageUpload = multer({
   }
 });
 
-// All routes require auth + admin role
-router.use(auth, roleGuard('admin'));
-
-// Apply audit middleware to record admin state changes
+// All routes require authentication and audit logging
+router.use(auth);
 router.use(auditAction);
 
-router.get('/dashboard', getDashboardStats);
-router.get('/analytics', getFinancialAnalytics);
-router.put('/pricing', updatePricing);
+// --- Admin Only: Overview, Financial Analytics & System Settings ---
+router.get('/dashboard', roleGuard('admin'), getDashboardStats);
+router.get('/analytics', roleGuard('admin'), getFinancialAnalytics);
+router.put('/pricing', roleGuard('admin'), updatePricing);
 
 // --- Pricing & System Settings (Admin only) ---
-router.get('/pricing-engine/settings', getGlobalPricingSettings);
-router.get('/pricing-engine/summary', getPricingDashboardSummary);
-router.put('/pricing-engine/settings', validateGlobalSettings, updateGlobalPricingSettings);
-router.post('/settings/logo', imageUpload.single('logo'), uploadLogo);
-router.get('/pricing-engine/outside-valley', getOutsideValleyFees);
-router.post('/pricing-engine/outside-valley', validateOutsideValleyFee, createOutsideValleyFee);
-router.put('/pricing-engine/outside-valley/:id', updateOutsideValleyFee);
-router.delete('/pricing-engine/outside-valley/:id', deleteOutsideValleyFee);
-router.get('/pricing-engine/vendors', getVendorsPricing);
-router.put('/pricing-engine/vendors/:id', updateVendorPricing);
-router.post('/pricing-engine/calculate', previewCalculateFee);
-router.post('/pricing-engine/import-excel', importExcelPricingController);
+router.get('/pricing-engine/settings', roleGuard('admin'), getGlobalPricingSettings);
+router.get('/pricing-engine/summary', roleGuard('admin'), getPricingDashboardSummary);
+router.put('/pricing-engine/settings', roleGuard('admin'), validateGlobalSettings, updateGlobalPricingSettings);
+router.post('/settings/logo', roleGuard('admin'), imageUpload.single('logo'), uploadLogo);
+router.get('/pricing-engine/outside-valley', roleGuard('admin'), getOutsideValleyFees);
+router.post('/pricing-engine/outside-valley', roleGuard('admin'), validateOutsideValleyFee, createOutsideValleyFee);
+router.put('/pricing-engine/outside-valley/:id', roleGuard('admin'), updateOutsideValleyFee);
+router.delete('/pricing-engine/outside-valley/:id', roleGuard('admin'), deleteOutsideValleyFee);
+router.get('/pricing-engine/vendors', roleGuard('admin'), getVendorsPricing);
+router.put('/pricing-engine/vendors/:id', roleGuard('admin'), updateVendorPricing);
+router.post('/pricing-engine/calculate', roleGuard('admin'), previewCalculateFee);
+router.post('/pricing-engine/import-excel', roleGuard('admin'), importExcelPricingController);
 
-// --- Delivery Charge Rules (branch-to-branch) ---
-router.get('/delivery-charges', getAllDeliveryChargeRules);
-router.post('/delivery-charges', createDeliveryChargeRule);
-router.put('/delivery-charges/:id', updateDeliveryChargeRule);
-router.delete('/delivery-charges/:id', deleteDeliveryChargeRule);
-router.patch('/delivery-charges/:id/toggle', toggleDeliveryChargeRule);
+// --- Delivery Charge Rules (Admin only) ---
+router.get('/delivery-charges', roleGuard('admin'), getAllDeliveryChargeRules);
+router.post('/delivery-charges', roleGuard('admin'), createDeliveryChargeRule);
+router.put('/delivery-charges/:id', roleGuard('admin'), updateDeliveryChargeRule);
+router.delete('/delivery-charges/:id', roleGuard('admin'), deleteDeliveryChargeRule);
+router.patch('/delivery-charges/:id/toggle', roleGuard('admin'), toggleDeliveryChargeRule);
 
-// User management
-router.get('/users', getAllUsers);
-router.post('/users', createUser);
-router.put('/users/:id', updateUser);
-router.patch('/users/:id/suspend', suspendUser);
-router.patch('/users/:id/reactivate', reactivateUser);
+// User management (Admin full access; Dispatchers can read user lists for vendor/rider selections)
+router.get('/users', roleGuard('admin', 'dispatcher'), getAllUsers);
+router.post('/users', roleGuard('admin'), createUser);
+router.put('/users/:id', roleGuard('admin'), updateUser);
+router.patch('/users/:id/suspend', roleGuard('admin'), suspendUser);
+router.patch('/users/:id/reactivate', roleGuard('admin'), reactivateUser);
 
-// Package management (CRUD + bulk)
-router.get('/packages', getAllPackagesAdmin);
-router.post('/packages', createPackageForVendor);
-router.post('/packages/bulk', bulkCreatePackagesForVendor);
-router.post('/packages/upload-csv', upload.single('file'), uploadCsvForVendor);
-router.post('/packages/pickup-request', requestPickupAdmin);
-router.put('/packages/:id', updatePackageAdmin);
-router.delete('/packages/:id', deletePackageAdmin);
+// Package management (Admin & Dispatcher CRUD + bulk)
+router.get('/packages', roleGuard('admin', 'dispatcher'), getAllPackagesAdmin);
+router.post('/packages', roleGuard('admin', 'dispatcher'), createPackageForVendor);
+router.post('/packages/bulk', roleGuard('admin', 'dispatcher'), bulkCreatePackagesForVendor);
+router.post('/packages/upload-csv', roleGuard('admin', 'dispatcher'), upload.single('file'), uploadCsvForVendor);
+router.post('/packages/pickup-request', roleGuard('admin', 'dispatcher'), requestPickupAdmin);
+router.put('/packages/:id', roleGuard('admin', 'dispatcher'), updatePackageAdmin);
+router.delete('/packages/:id', roleGuard('admin', 'dispatcher'), deletePackageAdmin);
 
-// COD reconciliation
-router.post('/reconcile/:riderId', reconcileRiderCOD);
+// COD reconciliation (Admin only)
+router.post('/reconcile/:riderId', roleGuard('admin'), reconcileRiderCOD);
 
-// Expenses & Settlements
-router.get('/expenses', getAllExpenses);
-router.put('/expenses/:id/status', updateExpenseStatus);
-router.get('/settlements', getSettlements);
-router.get('/settlements/vendor-balances', getVendorBalances);
-router.post('/settlements/direct-payout', authorize('canVerifyPackages'), directVendorPayout);
-router.put('/settlements/:id', authorize('canVerifyPackages'), updateSettlement);
-router.post('/settlements/verify-cod/:packageId', authorize('canVerifyPackages'), verifyCOD);
-router.post('/settlements/mark-paid', authorize('canVerifyPackages'), markVendorPaid);
-router.get('/settlements/export', exportSettlements);
+// Expenses & Settlements (Admin only)
+router.get('/expenses', roleGuard('admin'), getAllExpenses);
+router.put('/expenses/:id/status', roleGuard('admin'), updateExpenseStatus);
+router.get('/settlements', roleGuard('admin'), getSettlements);
+router.get('/settlements/vendor-balances', roleGuard('admin'), getVendorBalances);
+router.post('/settlements/direct-payout', roleGuard('admin'), authorize('canVerifyPackages'), directVendorPayout);
+router.put('/settlements/:id', roleGuard('admin'), authorize('canVerifyPackages'), updateSettlement);
+router.post('/settlements/verify-cod/:packageId', roleGuard('admin'), authorize('canVerifyPackages'), verifyCOD);
+router.post('/settlements/mark-paid', roleGuard('admin'), authorize('canVerifyPackages'), markVendorPaid);
+router.get('/settlements/export', roleGuard('admin'), exportSettlements);
 
 // Package Comments
-router.post('/packages/:id/comments', addPackageComment);
+router.post('/packages/:id/comments', roleGuard('admin', 'dispatcher'), addPackageComment);
 
 // Operational & Financial Verification endpoints
-router.put('/packages/:id/verification-draft', authorize('canEditVerification'), savePackageVerificationDraft);
-router.post('/packages/:id/verify-action', verifyRateLimiter, authorize('canVerifyPackages'), verifyPackageAdmin);
-router.post('/packages/:id/reopen', reopenRateLimiter, authorize('canReopenVerification'), reopenPackageAdmin);
-router.post('/packages/bulk-verify', bulkVerifyRateLimiter, authorize('canVerifyPackages'), bulkVerifyPackagesAdmin);
+router.put('/packages/:id/verification-draft', roleGuard('admin', 'dispatcher'), authorize('canEditVerification'), savePackageVerificationDraft);
+router.post('/packages/:id/verify-action', roleGuard('admin', 'dispatcher'), verifyRateLimiter, authorize('canVerifyPackages'), verifyPackageAdmin);
+router.post('/packages/:id/reopen', roleGuard('admin', 'dispatcher'), reopenRateLimiter, authorize('canReopenVerification'), reopenPackageAdmin);
+router.post('/packages/bulk-verify', roleGuard('admin', 'dispatcher'), bulkVerifyRateLimiter, authorize('canVerifyPackages'), bulkVerifyPackagesAdmin);
 
 // Daily Excel Export (2 sheets in 1 .xlsx file)
-router.get('/export/daily-excel', exportDailyExcel);
+router.get('/export/daily-excel', roleGuard('admin', 'dispatcher'), exportDailyExcel);
 
 export default router;
 
