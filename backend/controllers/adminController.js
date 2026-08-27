@@ -1454,10 +1454,11 @@ export const verifyPackageAdmin = async (req, res) => {
     const nowStrVal = nowStr(now);
 
     const timelineChanges = [];
+    const pushUpdates = {};
 
     // Financial adjustment logging
     if (!isNaN(difference) && difference !== 0) {
-      pkg.financialAdjustments.push({
+      pushUpdates.financialAdjustments = {
         originalAmount: previousAmount,
         adjustedAmount: targetAmount,
         difference,
@@ -1465,7 +1466,7 @@ export const verifyPackageAdmin = async (req, res) => {
         adjustedBy: req.user?._id || req.user?.id,
         adjustedByName: req.user?.name || 'Admin',
         createdAt: now,
-      });
+      };
       timelineChanges.push({ field: 'amount', before: previousAmount, after: targetAmount });
     }
 
@@ -1473,82 +1474,77 @@ export const verifyPackageAdmin = async (req, res) => {
       timelineChanges.push({ field: 'status', before: previousStatus, after: targetStatus });
     }
 
-    // Apply edits
-    pkg.status = targetStatus;
-    pkg.amount = targetAmount;
-    if (deliveryCharge !== undefined) pkg.deliveryCharge = deliveryCharge;
-    if (comments !== undefined) pkg.comments = comments;
-    if (receiverName !== undefined) pkg.customerName = receiverName;
-    if (receiverPhone !== undefined) pkg.customerPhone = receiverPhone;
-    if (deliveryDate !== undefined) {
-      pkg.deliveryDate = deliveryDate ? new Date(deliveryDate) : null;
-    }
-    pkg.holdReason = holdReason || '';
-    pkg.rejectReason = rejectReason || '';
-    pkg.paymentMethod = paymentMethod || 'Cash';
-    pkg.collectionType = collectionType || '';
+    const setUpdates = {
+      status: targetStatus,
+      amount: targetAmount,
+      deliveryVerificationStatus: 'Verified',
+      verifiedAt: now,
+      verificationCompletedAt: now,
+      activeVerificationPriority: '',
+      verificationDraft: null,
+    };
 
-    // Verify status updates
-    pkg.deliveryVerificationStatus = 'Verified';
-    pkg.verifiedAt = now;
-    pkg.verificationCompletedAt = now;
-    pkg.activeVerificationPriority = '';
+    if (deliveryCharge !== undefined && deliveryCharge !== null && !isNaN(Number(deliveryCharge))) {
+      setUpdates.deliveryCharge = Number(deliveryCharge);
+    }
+    if (comments !== undefined) setUpdates.comments = comments;
+    if (receiverName !== undefined) setUpdates.customerName = receiverName;
+    if (receiverPhone !== undefined) setUpdates.customerPhone = receiverPhone;
+    if (deliveryDate !== undefined) {
+      setUpdates.deliveryDate = deliveryDate ? new Date(deliveryDate) : null;
+    }
+    if (holdReason !== undefined) setUpdates.holdReason = holdReason;
+    if (rejectReason !== undefined) setUpdates.rejectReason = rejectReason;
+    if (paymentMethod !== undefined) setUpdates.paymentMethod = paymentMethod;
+    if (collectionType !== undefined) setUpdates.collectionType = collectionType;
+
     if (pkg.verificationStartedAt) {
-      pkg.verificationDuration = Math.round((now - pkg.verificationStartedAt) / 60000);
+      setUpdates.verificationDuration = Math.round((now - pkg.verificationStartedAt) / 60000);
+    }
+
+    if (targetStatus === 'Delivered') {
+      setUpdates.codVerified = true;
+      setUpdates.codVerificationStatus = 'Verified';
+      setUpdates.settlementStatus = 'Verified';
+    } else {
+      setUpdates.codVerificationStatus = 'Pending';
     }
 
     // Resolve any pending verification requests
     let requesterToNotify = null;
     if (pkg.verificationRequests && pkg.verificationRequests.length > 0) {
-      const pendingRequest = pkg.verificationRequests.find(r => r.status === 'Pending');
-      if (pendingRequest) {
-        pendingRequest.status = 'Resolved';
-        pendingRequest.resolvedBy = req.user?._id || req.user?.id;
-        pendingRequest.resolvedByName = req.user?.name || 'Admin';
-        pendingRequest.resolvedAt = now;
-        pendingRequest.resolutionNotes = reason || customRemarks || 'Verified by admin';
-        requesterToNotify = pendingRequest.requestedBy;
-      }
-    }
-
-    if (targetStatus === 'Delivered') {
-      pkg.codVerified = true;
-      pkg.codVerificationStatus = 'Verified';
-      pkg.settlementStatus = 'Verified';
-    } else {
-      pkg.codVerificationStatus = 'Pending';
-    }
-
-    // Clear Draft
-    pkg.verificationDraft = null;
-
-    // Timeline Log
-    if (timelineChanges.length > 0) {
-      for (const change of timelineChanges) {
-        appendTimelineEvent(pkg, {
-          time: nowStrVal,
-          status: targetStatus,
-          message: `Admin verified & updated ${change.field}: ${change.before} -> ${change.after}. Reason: ${reason || 'Verification'}.`,
-          user: req.user?.name || 'Admin',
-          role: req.user?.role || 'admin',
-          type: 'VERIFIED',
-          changes: [change],
-        });
-      }
-    } else {
-      appendTimelineEvent(pkg, {
-        time: nowStrVal,
-        status: targetStatus,
-        message: `Package verified by admin ${req.user?.name || 'Admin'}. Reason: ${reason || 'Verification'}.`,
-        user: req.user?.name || 'Admin',
-        role: req.user?.role || 'admin',
-        type: 'VERIFIED',
-        changes: [],
+      const updatedRequests = pkg.verificationRequests.map(r => {
+        if (r.status === 'Pending') {
+          requesterToNotify = r.requestedBy;
+          return {
+            ...r.toObject ? r.toObject() : r,
+            status: 'Resolved',
+            resolvedBy: req.user?._id || req.user?.id,
+            resolvedByName: req.user?.name || 'Admin',
+            resolvedAt: now,
+            resolutionNotes: reason || customRemarks || 'Verified by admin'
+          };
+        }
+        return r;
       });
+      setUpdates.verificationRequests = updatedRequests;
     }
 
-    // Push Verification Audit Log
-    pkg.verificationAudit.push({
+    const timelineMsg = timelineChanges.length > 0
+      ? `Admin verified & updated ${timelineChanges.map(c => `${c.field}: ${c.before} -> ${c.after}`).join(', ')}. Reason: ${reason || 'Verification'}.`
+      : `Package verified by admin ${req.user?.name || 'Admin'}. Reason: ${reason || 'Verification'}.`;
+
+    const newTimelineEvent = {
+      time: nowStrVal,
+      status: targetStatus,
+      message: timelineMsg,
+      user: req.user?.name || 'Admin',
+      role: req.user?.role || 'admin',
+      type: 'VERIFIED',
+      changes: timelineChanges,
+    };
+
+    const newAuditLog = {
       riderSubmission: pkg.riderSubmission,
       previousAmount: previousAmount,
       updatedAmount: targetAmount,
@@ -1565,19 +1561,36 @@ export const verifyPackageAdmin = async (req, res) => {
       ipAddress: req.ip || req.connection?.remoteAddress || '127.0.0.1',
       device: 'Desktop',
       browser: 'Web Portal',
-    });
+    };
 
-    await pkg.save();
+    const mongoUpdate = {
+      $set: setUpdates,
+      $push: {
+        timeline: newTimelineEvent,
+        verificationAudit: newAuditLog,
+      }
+    };
+
+    if (pushUpdates.financialAdjustments) {
+      mongoUpdate.$push.financialAdjustments = pushUpdates.financialAdjustments;
+    }
+
+    const updatedPkg = await Package.findByIdAndUpdate(
+      id,
+      mongoUpdate,
+      { new: true, runValidators: false }
+    );
+
     dashboardCache.timestamp = 0;
 
     if (req.io && requesterToNotify) {
       req.io.to(`user_${requesterToNotify}`).emit('notification', {
-        id: `verification_res_${pkg._id}_${Date.now()}`,
+        id: `verification_res_${updatedPkg._id}_${Date.now()}`,
         title: 'Verification Resolved',
-        message: `Your verification request for package ${pkg.trackingCode} has been resolved.`,
+        message: `Your verification request for package ${updatedPkg.trackingCode} has been resolved.`,
         type: 'success',
-        packageId: pkg._id,
-        trackingCode: pkg.trackingCode,
+        packageId: updatedPkg._id,
+        trackingCode: updatedPkg.trackingCode,
         user: req.user?.name || 'Admin',
         role: req.user?.role || 'admin',
         createdAt: new Date().toISOString()
@@ -1585,7 +1598,7 @@ export const verifyPackageAdmin = async (req, res) => {
     }
 
     eventBus.emit('package.verified', {
-      pkg,
+      pkg: updatedPkg,
       reqUser: req.user,
       io: req.io,
       isAdjustment: difference !== 0,
@@ -1594,7 +1607,7 @@ export const verifyPackageAdmin = async (req, res) => {
       reason: reason,
     });
 
-    res.json({ success: true, data: pkg, message: 'Package verified successfully.' });
+    res.json({ success: true, data: updatedPkg, message: 'Package verified successfully.' });
   } catch (error) {
     console.error('Error in verifyPackageAdmin:', error);
     res.status(500).json({ success: false, message: error.message });
