@@ -22,7 +22,8 @@ const SectionLoader = () => (
 import {
   LayoutDashboard, Package, Truck, RotateCcw, Bike, Wallet,
   Search, CheckCircle2, XCircle, Clock, AlertCircle, Eye,
-  ChevronDown, ChevronUp, QrCode, RefreshCw, Filter, Check, X
+  ChevronDown, ChevronUp, QrCode, RefreshCw, Filter, Check, X,
+  Store, ArrowDownLeft, ArrowUpRight
 } from 'lucide-react';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
@@ -1338,7 +1339,9 @@ const ReverseLogistics = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [filter, setFilter] = useState('pending_rider');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedVendors, setSelectedVendors] = useState({});
+  const [selectedRiders, setSelectedRiders] = useState({});
   const { showToast } = useToast();
 
   const fetchData = useCallback(async (silent = false) => {
@@ -1346,49 +1349,94 @@ const ReverseLogistics = () => {
     try {
       const r = await api.get('/dispatcher/packages?status=Returned,Cancelled,Exchanged,Returned to Vendor');
       setPackages(r.data.data || []);
-    } catch { showToast('Failed to load returns', 'error'); }
-    finally { setLoading(false); }
-  }, []);
+    } catch { 
+      showToast('Failed to load return packages', 'error'); 
+    } finally { 
+      setLoading(false); 
+    }
+  }, [showToast]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { 
+    fetchData(); 
+  }, [fetchData]);
 
   const confirmStep = async (packageId, type) => {
     setActionLoading(s => ({ ...s, [packageId]: type }));
     try {
       await api.put('/dispatcher/confirm-return', { packageId, type });
-      showToast(`✓ Rider return confirmed!`, 'success');
+      showToast(type === 'rider' ? '✓ Inbound package received from rider' : '✓ Returned to vendor signoff complete', 'success');
       fetchData(true);
-    } catch (e) { showToast(e.message || 'Failed', 'error'); }
-    finally { setActionLoading(s => ({ ...s, [packageId]: null })); }
+    } catch (e) { 
+      showToast(e.response?.data?.message || e.message || 'Action failed', 'error'); 
+    } finally { 
+      setActionLoading(s => ({ ...s, [packageId]: null })); 
+    }
+  };
+
+  const bulkRiderReceive = async (riderKey, pkgIds) => {
+    setActionLoading(s => ({ ...s, [riderKey]: 'bulk_rider' }));
+    try {
+      for (const id of pkgIds) {
+        await api.put('/dispatcher/confirm-return', { packageId: id, type: 'rider' });
+      }
+      showToast(`✓ Received ${pkgIds.length} return package(s) from rider`, 'success');
+      fetchData(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Failed to receive packages', 'error');
+    } finally {
+      setActionLoading(s => ({ ...s, [riderKey]: null }));
+    }
   };
 
   const bulkVendorHandover = async (vendorId, packageIds) => {
     setActionLoading(s => ({ ...s, [vendorId]: 'bulk_vendor' }));
     try {
       await api.put('/dispatcher/bulk-vendor-handover', { packageIds });
-      showToast(`✓ Bulk handover complete!`, 'success');
+      showToast(`✓ Handover of ${packageIds.length} package(s) to vendor complete!`, 'success');
       fetchData(true);
-    } catch (e) { showToast(e.message || 'Failed', 'error'); }
-    finally { setActionLoading(s => ({ ...s, [vendorId]: null })); }
+    } catch (e) { 
+      showToast(e.response?.data?.message || e.message || 'Handover failed', 'error'); 
+    } finally { 
+      setActionLoading(s => ({ ...s, [vendorId]: null })); 
+    }
   };
 
+  // Filter partitions
   const pendingRider = packages.filter(p => !p.rtvSignoff?.riderReturned);
   const pendingVendor = packages.filter(p => p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived);
   const complete = packages.filter(p => p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived);
 
+  // Search filtering
+  const applySearch = (list) => {
+    if (!searchQuery.trim()) return list;
+    const q = searchQuery.toLowerCase();
+    return list.filter(p => 
+      p.trackingCode?.toLowerCase().includes(q) ||
+      p.invoiceId?.toLowerCase().includes(q) ||
+      p.customerName?.toLowerCase().includes(q) ||
+      p.customerPhone?.toLowerCase().includes(q) ||
+      (p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '').toLowerCase().includes(q) ||
+      (p.riderId?.name || '').toLowerCase().includes(q)
+    );
+  };
+
   // Group pendingRider by Rider
-  const riderGroups = pendingRider.reduce((acc, p) => {
-    const riderName = p.riderId?.name || 'Postponed';
-    if (!acc[riderName]) acc[riderName] = [];
-    acc[riderName].push(p);
+  const filteredPendingRider = applySearch(pendingRider);
+  const riderGroups = filteredPendingRider.reduce((acc, p) => {
+    const riderName = p.riderId?.name || 'Unassigned / Postponed';
+    const riderId = p.riderId?._id || 'unassigned';
+    if (!acc[riderName]) acc[riderName] = { riderId, riderName, packages: [] };
+    acc[riderName].packages.push(p);
     return acc;
   }, {});
 
   // Group pendingVendor by Vendor
-  const vendorGroups = pendingVendor.reduce((acc, p) => {
+  const filteredPendingVendor = applySearch(pendingVendor);
+  const vendorGroups = filteredPendingVendor.reduce((acc, p) => {
     const vendorId = p.vendorId?._id || 'unknown';
     const shopName = p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || 'Unknown Vendor';
-    if (!acc[vendorId]) acc[vendorId] = { shopName, packages: [] };
+    const contact = p.vendorId?.contact || p.vendorId?.email || '';
+    if (!acc[vendorId]) acc[vendorId] = { shopName, contact, packages: [] };
     acc[vendorId].packages.push(p);
     return acc;
   }, {});
@@ -1397,115 +1445,487 @@ const ReverseLogistics = () => {
     setSelectedVendors(prev => ({ ...prev, [vId]: !prev[vId] }));
   };
 
-  const renderTable = (pkgs, hideRiderAction = false) => (
-    <div style={{ overflowX: 'auto', marginTop: 10 }}>
-      <table style={tableStyle}>
-        <thead>
-          <tr>
-            <th style={thStyle}>Tracking</th>
-            <th style={thStyle}>Customer</th>
-            <th style={thStyle}>Vendor Shop</th>
-            <th style={thStyle}>Return Status</th>
-            <th style={thStyle}>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pkgs.map(p => (
-            <tr key={p._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-              <td style={tdStyle}><TrackingLink code={p.trackingCode} /></td>
-              <td style={tdStyle}>{p.customerName}</td>
-              <td style={tdStyle}>{(p.vendorId?.vendorMeta?.shopName || p.vendorId?.name) || '—'}</td>
-              <td style={tdStyle}><StatusBadge status={p.status} /></td>
-              <td style={tdStyle}>
-                {!p.rtvSignoff?.riderReturned && !hideRiderAction && (
-                  <ActionBtn onClick={() => confirmStep(p._id, 'rider')} disabled={actionLoading[p._id]} variant="warning" size="sm">
-                    {actionLoading[p._id] ? '...' : '✓ Rider Returned'}
-                  </ActionBtn>
-                )}
-                {p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived && (
-                  <span style={{ color: '#059669', fontWeight: 600, fontSize: 12 }}>✓ RTV Complete</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  const toggleRider = (rName) => {
+    setSelectedRiders(prev => ({ ...prev, [rName]: !prev[rName] }));
+  };
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-        {[
-          { key: 'pending_rider', label: 'Warehouse Receive (From Rider)', count: pendingRider.length, color: '#f59e0b' },
-          { key: 'pending_vendor', label: 'Vendor Handover', count: pendingVendor.length, color: '#3b82f6' },
-          { key: 'complete', label: 'Complete', count: complete.length, color: '#10b981' },
-          { key: 'all', label: 'All', count: packages.length, color: '#6b7280' },
-        ].map(s => (
-          <button key={s.key} onClick={() => setFilter(s.key)} style={{ padding: '7px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s', background: filter === s.key ? s.color : 'white', color: filter === s.key ? 'white' : s.color, border: `2px solid ${s.color}`, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {s.label} <span style={{ background: filter === s.key ? 'rgba(255,255,255,0.3)' : s.color + '20', padding: '1px 7px', borderRadius: 10 }}>{s.count}</span>
-          </button>
-        ))}
-        <div style={{ marginLeft: 'auto' }}>
-          <ActionBtn onClick={fetchData} variant="ghost">↻ Refresh</ActionBtn>
+    <div className="space-y-6 animate-fadeIn">
+      {/* ── Top Stat Cards ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Returns (RTV)</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{packages.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Returned, Cancelled & Exchanged</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+            <RotateCcw className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-500">Inbound From Riders</p>
+            <p className="text-2xl font-bold text-amber-600 mt-1">{pendingRider.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Awaiting warehouse check-in</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <ArrowDownLeft className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-sky-500">Ready for Vendor</p>
+            <p className="text-2xl font-bold text-sky-600 mt-1">{pendingVendor.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Checked in, ready for handover</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+            <ArrowUpRight className="w-6 h-6" />
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500">Handover Complete</p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">{complete.length}</p>
+            <p className="text-xs text-slate-500 mt-1">Returned to vendor verified</p>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
         </div>
       </div>
 
-      <div style={cardStyle}>
-        {loading ? <div style={{ padding: 20 }}><Spinner /></div> : (
-          <>
-            {filter === 'pending_rider' && (
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: '#1f2937' }}>Receive from Riders</h3>
-                {Object.keys(riderGroups).length === 0 ? <EmptyState message="No packages waiting from riders." icon="↩️" /> : 
-                  Object.entries(riderGroups).map(([riderName, pkgs]) => (
-                    <div key={riderName} style={{ marginBottom: 20, border: '1px solid #e5e7eb', borderRadius: 8, padding: 15 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: '#374151', marginBottom: 10 }}>🛵 Rider: {riderName} ({pkgs.length})</div>
-                      {renderTable(pkgs)}
-                    </div>
-                  ))
-                }
-              </div>
-            )}
+      {/* ── Filter Tabs & Search Bar ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+          {/* Navigation Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            {[
+              { key: 'pending_rider', label: 'Receive from Rider', count: pendingRider.length, icon: Bike },
+              { key: 'pending_vendor', label: 'Handover to Vendor', count: pendingVendor.length, icon: Store },
+              { key: 'complete', label: 'Completed RTV', count: complete.length, icon: CheckCircle2 },
+              { key: 'all', label: 'All Returns', count: packages.length, icon: RotateCcw },
+            ].map(tab => {
+              const Icon = tab.icon;
+              const active = filter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                    active
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200/60'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-slate-500'}`} />
+                  <span>{tab.label}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                    active ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-            {filter === 'pending_vendor' && (
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: '#1f2937' }}>Handover to Vendors</h3>
-                {Object.keys(vendorGroups).length === 0 ? <EmptyState message="No packages waiting for vendor handover." icon="📦" /> : 
-                  Object.entries(vendorGroups).map(([vendorId, { shopName, packages: pkgs }]) => (
-                    <div key={vendorId} style={{ marginBottom: 15, border: '1px solid #e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-                      <div 
-                        onClick={() => toggleVendor(vendorId)}
-                        style={{ padding: '12px 15px', background: '#f9fafb', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                      >
-                        <div style={{ fontWeight: 700, color: '#1f2937' }}>🏢 {shopName} <span style={{ color: '#6b7280', fontSize: 12, marginLeft: 8 }}>{pkgs.length} packages</span></div>
-                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                          <ActionBtn onClick={(e) => { e.stopPropagation(); bulkVendorHandover(vendorId, pkgs.map(p => p._id)); }} disabled={actionLoading[vendorId]} variant="success" size="sm">
-                            {actionLoading[vendorId] ? 'Handing over...' : `Handover All (${pkgs.length})`}
-                          </ActionBtn>
-                          <span style={{ fontSize: 12 }}>{selectedVendors[vendorId] ? '▲' : '▼'}</span>
+          {/* Search & Refresh */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1 md:w-64">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search tracking, shop, customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-all"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={() => fetchData()}
+              disabled={loading}
+              className="p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 rounded-xl transition-all flex items-center justify-center shrink-0"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-slate-900' : ''}`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main View Container ── */}
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-16 flex flex-col items-center justify-center text-center">
+          <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin mb-3"></div>
+          <p className="text-xs font-semibold text-slate-500">Loading reverse logistics data...</p>
+        </div>
+      ) : (
+        <>
+          {/* TAB 1: RECEIVE FROM RIDERS */}
+          {filter === 'pending_rider' && (
+            <div className="space-y-4">
+              {Object.keys(riderGroups).length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900">All Inbound Returns Received</h4>
+                  <p className="text-xs text-slate-500 mt-1">No packages are currently waiting to be checked in from delivery riders.</p>
+                </div>
+              ) : (
+                Object.entries(riderGroups).map(([riderName, { riderId, packages: pkgs }]) => {
+                  const isExpanded = selectedRiders[riderName] !== false; // expanded by default
+                  return (
+                    <div key={riderName} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      {/* Rider Header */}
+                      <div className="px-5 py-4 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer select-none"
+                          onClick={() => toggleRider(riderName)}
+                        >
+                          <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm">
+                            <Bike className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-slate-900">{riderName}</h4>
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">
+                                {pkgs.length} return{pkgs.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500">Rider physical return check-in</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => bulkRiderReceive(riderName, pkgs.map(p => p._id))}
+                            disabled={actionLoading[riderName] === 'bulk_rider'}
+                            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            {actionLoading[riderName] === 'bulk_rider' ? 'Receiving...' : `Receive All (${pkgs.length})`}
+                          </button>
+                          <button
+                            onClick={() => toggleRider(riderName)}
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors"
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
                         </div>
                       </div>
-                      {selectedVendors[vendorId] && (
-                        <div style={{ padding: 15 }}>
-                          {renderTable(pkgs, true)}
+
+                      {/* Package Table */}
+                      {isExpanded && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="border-b border-slate-100 bg-slate-50/40 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                                <th className="py-3 px-4">Tracking & Invoice</th>
+                                <th className="py-3 px-4">Customer Details</th>
+                                <th className="py-3 px-4">Vendor Shop</th>
+                                <th className="py-3 px-4">Status</th>
+                                <th className="py-3 px-4">Return Reason</th>
+                                <th className="py-3 px-4 text-right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {pkgs.map(p => (
+                                <tr key={p._id} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="py-3 px-4 font-medium">
+                                    <TrackingLink code={p.trackingCode} />
+                                    {p.invoiceId && (
+                                      <span className="block text-[11px] text-slate-400 font-mono mt-0.5">
+                                        INV: {p.invoiceId}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-semibold text-slate-800">{p.customerName || '—'}</div>
+                                    <div className="text-slate-500 text-[11px]">{p.customerPhone || '—'}</div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-semibold text-slate-800">
+                                      {p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—'}
+                                    </div>
+                                    <div className="text-slate-400 text-[11px] truncate max-w-[150px]">
+                                      {p.address || ''}
+                                    </div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <StatusBadge status={p.status} />
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                                      {p.comments?.[p.comments.length - 1]?.text || (typeof p.comments === 'string' ? p.comments : '') || 'Customer return'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <button
+                                      onClick={() => confirmStep(p._id, 'rider')}
+                                      disabled={actionLoading[p._id] === 'rider'}
+                                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      {actionLoading[p._id] === 'rider' ? 'Checking in...' : 'Confirm Received'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
-                  ))
-                }
-              </div>
-            )}
+                  );
+                })
+              )}
+            </div>
+          )}
 
-            {(filter === 'complete' || filter === 'all') && (
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 15, color: '#1f2937' }}>{filter === 'complete' ? 'Completed RTV' : 'All Reverse Logistics'}</h3>
-                {renderTable(filter === 'complete' ? complete : packages)}
+          {/* TAB 2: VENDOR HANDOVER */}
+          {filter === 'pending_vendor' && (
+            <div className="space-y-4">
+              {Object.keys(vendorGroups).length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-12 text-center">
+                  <div className="w-12 h-12 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center mx-auto mb-3">
+                    <Store className="w-6 h-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900">No Packages Pending Vendor Return</h4>
+                  <p className="text-xs text-slate-500 mt-1">All checked-in return packages have been handed back to their respective vendors.</p>
+                </div>
+              ) : (
+                Object.entries(vendorGroups).map(([vendorId, { shopName, contact, packages: pkgs }]) => {
+                  const isExpanded = selectedVendors[vendorId] !== false; // expanded by default
+                  return (
+                    <div key={vendorId} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+                      {/* Vendor Header */}
+                      <div className="px-5 py-4 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer select-none"
+                          onClick={() => toggleVendor(vendorId)}
+                        >
+                          <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-800 flex items-center justify-center font-bold text-sm">
+                            <Store className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-slate-900">{shopName}</h4>
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-100 text-sky-800">
+                                {pkgs.length} item{pkgs.length !== 1 ? 's' : ''} to return
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-500">{contact || 'Vendor Store'}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => bulkVendorHandover(vendorId, pkgs.map(p => p._id))}
+                            disabled={actionLoading[vendorId] === 'bulk_vendor'}
+                            className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs flex items-center gap-1.5"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            {actionLoading[vendorId] === 'bulk_vendor' ? 'Handing over...' : `Handover All to Vendor (${pkgs.length})`}
+                          </button>
+                          <button
+                            onClick={() => toggleVendor(vendorId)}
+                            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors"
+                          >
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Package Table */}
+                      {isExpanded && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                              <tr className="border-b border-slate-100 bg-slate-50/40 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                                <th className="py-3 px-4">Tracking & Invoice</th>
+                                <th className="py-3 px-4">Customer</th>
+                                <th className="py-3 px-4">Status</th>
+                                <th className="py-3 px-4">Return Reason</th>
+                                <th className="py-3 px-4">Warehouse Checked-in</th>
+                                <th className="py-3 px-4 text-right">Action</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {pkgs.map(p => (
+                                <tr key={p._id} className="hover:bg-slate-50/60 transition-colors">
+                                  <td className="py-3 px-4 font-medium">
+                                    <TrackingLink code={p.trackingCode} />
+                                    {p.invoiceId && (
+                                      <span className="block text-[11px] text-slate-400 font-mono mt-0.5">
+                                        INV: {p.invoiceId}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <div className="font-semibold text-slate-800">{p.customerName || '—'}</div>
+                                    <div className="text-slate-500 text-[11px]">{p.customerPhone || '—'}</div>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <StatusBadge status={p.status} />
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
+                                      {p.comments?.[p.comments.length - 1]?.text || (typeof p.comments === 'string' ? p.comments : '') || 'Return to Vendor'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4">
+                                    <span className="inline-flex items-center gap-1 text-emerald-700 font-medium text-[11px]">
+                                      <CheckCircle2 className="w-3.5 h-3.5" /> Received
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-4 text-right">
+                                    <button
+                                      onClick={() => confirmStep(p._id, 'vendor')}
+                                      disabled={actionLoading[p._id] === 'vendor'}
+                                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      {actionLoading[p._id] === 'vendor' ? 'Processing...' : 'Handover to Vendor'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* TAB 3 & 4: COMPLETED & ALL */}
+          {(filter === 'complete' || filter === 'all') && (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {filter === 'complete' ? 'Completed Reverse Logistics' : 'All Return Packages'}
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    {filter === 'complete' 
+                      ? 'Packages with completed rider return and vendor handover' 
+                      : 'Complete audit log of all return-path shipments'}
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200/80">
+                  {applySearch(filter === 'complete' ? complete : packages).length} total
+                </span>
               </div>
-            )}
-          </>
-        )}
-      </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-slate-50/40 text-slate-500 font-semibold uppercase tracking-wider text-[10px]">
+                      <th className="py-3 px-4">Tracking Code</th>
+                      <th className="py-3 px-4">Customer</th>
+                      <th className="py-3 px-4">Vendor Shop</th>
+                      <th className="py-3 px-4">Assigned Rider</th>
+                      <th className="py-3 px-4">Current Status</th>
+                      <th className="py-3 px-4">RTV Stage</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {applySearch(filter === 'complete' ? complete : packages).length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-12 text-center text-slate-400">
+                          No packages matching your criteria.
+                        </td>
+                      </tr>
+                    ) : (
+                      applySearch(filter === 'complete' ? complete : packages).map(p => (
+                        <tr key={p._id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3 px-4 font-medium">
+                            <TrackingLink code={p.trackingCode} />
+                            {p.invoiceId && (
+                              <span className="block text-[11px] text-slate-400 font-mono mt-0.5">
+                                INV: {p.invoiceId}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-800">{p.customerName || '—'}</div>
+                            <div className="text-slate-500 text-[11px]">{p.customerPhone || '—'}</div>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-slate-800">
+                            {p.vendorId?.vendorMeta?.shopName || p.vendorId?.name || '—'}
+                          </td>
+                          <td className="py-3 px-4 text-slate-600">
+                            {p.riderId?.name || 'Unassigned'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <StatusBadge status={p.status} />
+                          </td>
+                          <td className="py-3 px-4">
+                            {p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold text-[11px] border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3" /> Returned to Vendor
+                              </span>
+                            ) : p.rtvSignoff?.riderReturned ? (
+                              <span className="inline-flex items-center gap-1 text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full font-semibold text-[11px] border border-sky-200">
+                                <Clock className="w-3 h-3" /> In Warehouse (Ready for Vendor)
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-semibold text-[11px] border border-amber-200">
+                                <Clock className="w-3 h-3" /> Inbound from Rider
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {!p.rtvSignoff?.riderReturned && (
+                              <button
+                                onClick={() => confirmStep(p._id, 'rider')}
+                                disabled={actionLoading[p._id] === 'rider'}
+                                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1"
+                              >
+                                Receive
+                              </button>
+                            )}
+                            {p.rtvSignoff?.riderReturned && !p.rtvSignoff?.vendorReceived && (
+                              <button
+                                onClick={() => confirmStep(p._id, 'vendor')}
+                                disabled={actionLoading[p._id] === 'vendor'}
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1"
+                              >
+                                Handover
+                              </button>
+                            )}
+                            {p.rtvSignoff?.riderReturned && p.rtvSignoff?.vendorReceived && (
+                              <span className="text-emerald-600 font-semibold text-xs">✓ Complete</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 };
