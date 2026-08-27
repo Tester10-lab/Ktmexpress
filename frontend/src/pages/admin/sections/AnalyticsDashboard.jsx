@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../../api/axios';
 import MetricCard from '../../../components/MetricCard';
-import QrScanner from '../../../components/QrScanner';
 import { useToast } from '../../../store/ToastContext';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area,
@@ -11,7 +10,7 @@ import {
 import {
   Package, CheckCircle2, XCircle, AlertTriangle, Truck, Users,
   Wallet, Clock, ArrowUpRight, TrendingUp, RefreshCw, DollarSign,
-  BarChart3, Activity, MapPin, ShieldCheck, Camera
+  BarChart3, Activity, MapPin, ShieldCheck
 } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6', '#84cc16'];
@@ -41,20 +40,8 @@ const AnalyticsDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastRefresh, setLastRefresh] = useState(null);
-  const [scannerOpen, setScannerOpen] = useState(false);
   const navigate = useNavigate();
   const { showToast } = useToast();
-
-  const handleScanSuccess = async (trackingCode) => {
-    try {
-      const res = await api.patch(`/packages/${trackingCode}/warehouse-arrival`);
-      showToast(res.data.message || 'Arrival confirmed!', 'success');
-      // Intentionally not closing scannerOpen to allow rapid scanning
-      fetchDashboard();
-    } catch (e) {
-      showToast(e.message || 'Failed to confirm arrival', 'error');
-    }
-  };
 
   const fetchDashboard = async () => {
     try {
@@ -146,22 +133,11 @@ const AnalyticsDashboard = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setScannerOpen(true)} className="btn-primary btn-sm flex items-center gap-2">
-            <Camera className="w-4 h-4" /> Scan Arrival
-          </button>
           <button onClick={fetchDashboard} className="btn-secondary btn-sm flex items-center gap-2">
             <RefreshCw className="w-4 h-4" /> Refresh
           </button>
         </div>
       </div>
-
-      {scannerOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md h-[90vh] sm:h-auto max-h-[800px]" onClick={e => e.stopPropagation()}>
-            <QrScanner onScanSuccess={handleScanSuccess} onClose={() => setScannerOpen(false)} />
-          </div>
-        </div>
-      )}
 
       {/* ─── KPI Section: Today ───────────────────────────────────── */}
       <div>
@@ -173,8 +149,12 @@ const AnalyticsDashboard = () => {
           <MetricCard title="Deliveries Today" value={data.todayDeliveries ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
           <MetricCard title="COD Today" value={`Rs. ${fmt(data.todayCOD ?? 0)}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
           <MetricCard title="Orders This Month" value={data.monthPackages ?? 0} color="purple" icon={<TrendingUp className="w-5 h-5 text-purple-600" />} />
-          <MetricCard title="Pending Expenses" value={data.todayExpenses ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
-          <MetricCard title="COD Pending" value={`Rs. ${fmt(data.codPending ?? 0)}`} color="danger" icon={<Clock className="w-5 h-5 text-red-600" />} />
+          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/expenses')}>
+            <MetricCard title="Pending Expenses" value={data.todayExpenses ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
+          </div>
+          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/settlements')}>
+            <MetricCard title="COD Pending" value={`Rs. ${fmt(data.codPending ?? 0)}`} color="danger" icon={<Clock className="w-5 h-5 text-red-600" />} />
+          </div>
         </div>
       </div>
 
@@ -182,24 +162,12 @@ const AnalyticsDashboard = () => {
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Delivery Overview</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Total Packages" value={data.totalPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
-          </div>
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Delivered" value={data.delivered ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
-          </div>
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Pending" value={data.pending ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
-          </div>
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Out for Delivery" value={data.outForDelivery ?? 0} color="info" icon={<Truck className="w-5 h-5 text-sky-600" />} />
-          </div>
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Cancelled" value={data.cancelled ?? 0} color="danger" icon={<XCircle className="w-5 h-5 text-red-600" />} />
-          </div>
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/packages')}>
-            <MetricCard title="Returned" value={data.returned ?? 0} color="purple" icon={<XCircle className="w-5 h-5 text-purple-600" />} />
-          </div>
+          <MetricCard title="Total Packages" value={data.totalPackages ?? 0} color="primary" icon={<Package className="w-5 h-5 text-brand-600" />} />
+          <MetricCard title="Delivered" value={data.delivered ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
+          <MetricCard title="Pending" value={data.pending ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
+          <MetricCard title="Out for Delivery" value={data.outForDelivery ?? 0} color="info" icon={<Truck className="w-5 h-5 text-sky-600" />} />
+          <MetricCard title="Cancelled" value={data.cancelled ?? 0} color="danger" icon={<XCircle className="w-5 h-5 text-red-600" />} />
+          <MetricCard title="Returned" value={data.returned ?? 0} color="purple" icon={<XCircle className="w-5 h-5 text-purple-600" />} />
         </div>
       </div>
 
@@ -209,7 +177,9 @@ const AnalyticsDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <MetricCard title="Total Revenue" value={`Rs. ${fmt(data.totalRevenue ?? 0)}`} color="primary" icon={<Wallet className="w-5 h-5 text-brand-600" />} />
           <MetricCard title="Delivery Revenue" value={`Rs. ${fmt(data.totalDeliveryCharges ?? 0)}`} color="success" icon={<ArrowUpRight className="w-5 h-5 text-emerald-600" />} />
-          <MetricCard title="Vendor Payable" value={`Rs. ${fmt(data.vendorPayable ?? 0)}`} color="warning" icon={<DollarSign className="w-5 h-5 text-amber-600" />} />
+          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/settlements')}>
+            <MetricCard title="Vendor Payable" value={`Rs. ${fmt(data.vendorPayable ?? 0)}`} color="warning" icon={<DollarSign className="w-5 h-5 text-amber-600" />} />
+          </div>
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/users')}>
             <MetricCard title="Active Vendors" value={data.activeVendors ?? 0} color="purple" icon={<Users className="w-5 h-5 text-purple-600" />} />
           </div>
