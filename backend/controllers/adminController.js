@@ -216,24 +216,13 @@ export const verifyCOD = async (req, res) => {
 
 // POST /api/admin/settlements/mark-paid
 export const markVendorPaid = async (req, res) => {
-  let session = null;
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-  } catch (e) {
-    session = null;
-  }
-
   try {
     const { packageIds, reference, paymentMethod } = req.body;
     if (!packageIds || !packageIds.length) return res.status(400).json({ success: false, message: 'No packages selected' });
 
-    const packages = session
-      ? await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } }).session(session)
-      : await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } });
+    const packages = await Package.find({ _id: { $in: packageIds }, status: 'Delivered', vendorPaid: { $ne: true } });
 
     if (packages.length === 0) {
-      if (session) await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'No eligible packages found' });
     }
 
@@ -252,14 +241,8 @@ export const markVendorPaid = async (req, res) => {
         message: `Vendor paid Rs. ${pkg.vendorReceivable}${reference ? ` (Ref: ${reference})` : ''}`,
         user: req.user?.name || 'Admin',
       });
-      if (session) {
-        await pkg.save({ session });
-      } else {
-        await pkg.save();
-      }
+      await pkg.save();
     }
-
-    if (session) await session.commitTransaction();
 
     // Invalidate dashboard cache
     dashboardCache.timestamp = 0;
@@ -270,10 +253,8 @@ export const markVendorPaid = async (req, res) => {
       data: { count: packages.length }
     });
   } catch (error) {
-    if (session) await session.abortTransaction();
+    console.error('Error in markVendorPaid:', error);
     res.status(500).json({ success: false, message: error.message });
-  } finally {
-    if (session) session.endSession();
   }
 };
 
@@ -1435,19 +1416,9 @@ export const savePackageVerificationDraft = async (req, res) => {
 
 // POST /api/v1/admin/packages/:id/verify-action
 export const verifyPackageAdmin = async (req, res) => {
-  let session = null;
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-  } catch (e) {
-    console.warn(`[WARN] MongoDB transaction failed in verifyPackageAdmin (likely no replica set). Proceeding without atomicity: ${e.message}`);
-    session = null;
-  }
-
   try {
     const { id } = req.params;
     const {
-      version,
       status,
       amount,
       deliveryCharge,
@@ -1463,18 +1434,17 @@ export const verifyPackageAdmin = async (req, res) => {
       customRemarks,
     } = req.body;
 
-    const pkg = await Package.findById(id).session(session ? session : null);
+    const pkg = await Package.findById(id);
     if (!pkg) {
-      if (session) await session.abortTransaction();
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
     const isEditVerified = pkg.deliveryVerificationStatus === 'Verified';
 
-    const targetStatus = status || pkg.riderSubmission?.status || pkg.status;
+    const targetStatus = status || pkg.riderSubmission?.status || pkg.status || 'Delivered';
     const targetAmount = (amount !== undefined && amount !== null && !isNaN(Number(amount)))
       ? Number(amount)
-      : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount);
+      : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : (pkg.amount || 0));
 
     const previousAmount = Number(isEditVerified ? pkg.amount : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount)) || 0;
     const previousStatus = isEditVerified ? pkg.status : (pkg.riderSubmission?.status || pkg.status);
@@ -1492,8 +1462,8 @@ export const verifyPackageAdmin = async (req, res) => {
         adjustedAmount: targetAmount,
         difference,
         reason: reason || 'Adjustment',
-        adjustedBy: req.user._id,
-        adjustedByName: req.user.name,
+        adjustedBy: req.user?._id || req.user?.id,
+        adjustedByName: req.user?.name || 'Admin',
         createdAt: now,
       });
       timelineChanges.push({ field: 'amount', before: previousAmount, after: targetAmount });
@@ -1533,15 +1503,15 @@ export const verifyPackageAdmin = async (req, res) => {
       const pendingRequest = pkg.verificationRequests.find(r => r.status === 'Pending');
       if (pendingRequest) {
         pendingRequest.status = 'Resolved';
-        pendingRequest.resolvedBy = req.user._id;
-        pendingRequest.resolvedByName = req.user.name;
+        pendingRequest.resolvedBy = req.user?._id || req.user?.id;
+        pendingRequest.resolvedByName = req.user?.name || 'Admin';
         pendingRequest.resolvedAt = now;
         pendingRequest.resolutionNotes = reason || customRemarks || 'Verified by admin';
         requesterToNotify = pendingRequest.requestedBy;
       }
     }
 
-    if (status === 'Delivered') {
+    if (targetStatus === 'Delivered') {
       pkg.codVerified = true;
       pkg.codVerificationStatus = 'Verified';
       pkg.settlementStatus = 'Verified';
@@ -1557,10 +1527,10 @@ export const verifyPackageAdmin = async (req, res) => {
       for (const change of timelineChanges) {
         appendTimelineEvent(pkg, {
           time: nowStrVal,
-          status: status,
-          message: `Admin verified & updated ${change.field}: ${change.before} -> ${change.after}. Reason: ${reason}.`,
-          user: req.user.name,
-          role: req.user.role,
+          status: targetStatus,
+          message: `Admin verified & updated ${change.field}: ${change.before} -> ${change.after}. Reason: ${reason || 'Verification'}.`,
+          user: req.user?.name || 'Admin',
+          role: req.user?.role || 'admin',
           type: 'VERIFIED',
           changes: [change],
         });
@@ -1568,55 +1538,37 @@ export const verifyPackageAdmin = async (req, res) => {
     } else {
       appendTimelineEvent(pkg, {
         time: nowStrVal,
-        status: status,
-        message: `Package verified by admin ${req.user.name}. Reason: ${reason}.`,
-        user: req.user.name,
-        role: req.user.role,
+        status: targetStatus,
+        message: `Package verified by admin ${req.user?.name || 'Admin'}. Reason: ${reason || 'Verification'}.`,
+        user: req.user?.name || 'Admin',
+        role: req.user?.role || 'admin',
         type: 'VERIFIED',
         changes: [],
       });
-    }
-
-    // User-agent audit parsing
-    const ua = req.headers['user-agent'] || '';
-    let browser = 'Unknown Browser';
-    let device = 'Desktop';
-    if (ua.includes('Chrome')) browser = 'Chrome';
-    else if (ua.includes('Safari')) browser = 'Safari';
-    else if (ua.includes('Firefox')) browser = 'Firefox';
-    else if (ua.includes('Edge')) browser = 'Edge';
-
-    if (ua.includes('Mobi') || ua.includes('Android') || ua.includes('iPhone')) {
-      device = 'Mobile';
     }
 
     // Push Verification Audit Log
     pkg.verificationAudit.push({
       riderSubmission: pkg.riderSubmission,
       previousAmount: previousAmount,
-      updatedAmount: amount,
-      difference,
+      updatedAmount: targetAmount,
+      difference: !isNaN(difference) ? difference : 0,
       previousStatus: previousStatus,
-      updatedStatus: status,
-      approvedBy: req.user._id,
-      approvedByName: req.user.name,
+      updatedStatus: targetStatus,
+      approvedBy: req.user?._id || req.user?.id,
+      approvedByName: req.user?.name || 'Admin',
       editTime: now,
       verificationTime: now,
-      reason,
+      reason: reason || 'System correction',
       customRemarks: customRemarks || '',
       action: isEditVerified ? 'Edit & Verify' : 'Verify',
       ipAddress: req.ip || req.connection?.remoteAddress || '127.0.0.1',
-      device,
-      browser,
+      device: 'Desktop',
+      browser: 'Web Portal',
     });
 
-    await pkg.save(session ? { session } : {});
+    await pkg.save();
     dashboardCache.timestamp = 0;
-
-    if (session) {
-      await session.commitTransaction();
-      session.endSession();
-    }
 
     if (req.io && requesterToNotify) {
       req.io.to(`user_${requesterToNotify}`).emit('notification', {
@@ -1626,8 +1578,8 @@ export const verifyPackageAdmin = async (req, res) => {
         type: 'success',
         packageId: pkg._id,
         trackingCode: pkg.trackingCode,
-        user: req.user.name,
-        role: req.user.role,
+        user: req.user?.name || 'Admin',
+        role: req.user?.role || 'admin',
         createdAt: new Date().toISOString()
       });
     }
@@ -1638,41 +1590,27 @@ export const verifyPackageAdmin = async (req, res) => {
       io: req.io,
       isAdjustment: difference !== 0,
       originalRiderAmount: previousAmount,
-      finalAmount: amount,
+      finalAmount: targetAmount,
       reason: reason,
     });
 
     res.json({ success: true, data: pkg, message: 'Package verified successfully.' });
   } catch (error) {
-    if (session) {
-      await session.abortTransaction();
-      session.endSession();
-    }
+    console.error('Error in verifyPackageAdmin:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // POST /api/v1/admin/packages/:id/reopen
 export const reopenPackageAdmin = async (req, res) => {
-  let session = null;
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-  } catch (e) {
-    console.warn(`[WARN] MongoDB transaction failed in reopenPackageAdmin (likely no replica set). Proceeding without atomicity: ${e.message}`);
-    session = null;
-  }
-
   try {
     const { id } = req.params;
-    const pkg = await Package.findById(id).session(session ? session : null);
+    const pkg = await Package.findById(id);
     if (!pkg) {
-      if (session) await session.abortTransaction();
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
     if (pkg.deliveryVerificationStatus !== 'Verified') {
-      if (session) await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'Package is not verified yet.' });
     }
 
@@ -1717,41 +1655,23 @@ export const reopenPackageAdmin = async (req, res) => {
       browser: 'Admin Portal',
     });
 
-    await pkg.save(session ? { session } : {});
+    await pkg.save();
     dashboardCache.timestamp = 0;
-
-    if (session) {
-      await session.commitTransaction();
-      session.endSession();
-    }
 
     eventBus.emit('package.reopened', { pkg, reqUser: req.user, io: req.io });
 
     res.json({ success: true, data: pkg, message: 'Package verification reopened successfully.' });
   } catch (error) {
-    if (session) {
-      await session.abortTransaction();
-      session.endSession();
-    }
+    console.error('Error in reopenPackageAdmin:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // POST /api/v1/admin/packages/bulk-verify
 export const bulkVerifyPackagesAdmin = async (req, res) => {
-  let session = null;
-  try {
-    session = await mongoose.startSession();
-    session.startTransaction();
-  } catch (e) {
-    console.warn(`[WARN] MongoDB transaction failed in bulkVerifyPackagesAdmin (likely no replica set). Proceeding without atomicity: ${e.message}`);
-    session = null;
-  }
-
   try {
     const { packageIds } = req.body;
     if (!Array.isArray(packageIds) || packageIds.length === 0) {
-      if (session) await session.abortTransaction();
       return res.status(400).json({ success: false, message: 'No package IDs provided.' });
     }
 
@@ -1759,31 +1679,29 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
     const now = new Date();
     const nowStrVal = nowStr(now);
 
-    const packages = await Package.find({ _id: { $in: packageIds } }).session(session ? session : null);
+    const packages = await Package.find({ _id: { $in: packageIds } });
     
     if (packages.length !== packageIds.length) {
-      if (session) await session.abortTransaction();
       return res.status(404).json({ success: false, message: 'Some packages were not found.' });
     }
 
     for (const pkg of packages) {
-
       if (pkg.deliveryVerificationStatus === 'Verified') {
         continue; // Skip already verified packages
       }
 
       const draft = pkg.verificationDraft;
-      const status = draft?.status || pkg.riderSubmission?.status || pkg.status;
-      const amount = draft?.amount !== undefined ? draft.amount : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount);
+      const status = draft?.status || pkg.riderSubmission?.status || pkg.status || 'Delivered';
+      const amount = draft?.amount !== undefined ? draft.amount : (pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : (pkg.amount || 0));
       const deliveryCharge = draft?.deliveryCharge !== undefined ? draft.deliveryCharge : pkg.deliveryCharge;
       const comments = draft?.comments !== undefined ? draft.comments : (pkg.riderSubmission?.comments || pkg.comments);
 
-      const originalRiderAmount = pkg.riderSubmission?.amount || pkg.amount;
+      const originalRiderAmount = pkg.riderSubmission?.amount || pkg.amount || 0;
       const difference = amount - originalRiderAmount;
 
       const timelineChanges = [];
 
-      if (difference !== 0) {
+      if (!isNaN(difference) && difference !== 0) {
         pkg.financialAdjustments.push({
           originalAmount: originalRiderAmount,
           adjustedAmount: amount,
@@ -1863,7 +1781,7 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
         riderSubmission: pkg.riderSubmission,
         previousAmount: originalRiderAmount,
         updatedAmount: amount,
-        difference,
+        difference: !isNaN(difference) ? difference : 0,
         previousStatus: pkg.riderSubmission?.status || pkg.status,
         updatedStatus: status,
         approvedBy: req.user._id,
@@ -1878,16 +1796,11 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
         browser: 'Admin Portal',
       });
 
-      await pkg.save(session ? { session } : {});
+      await pkg.save();
       verifiedPackages.push(pkg);
     }
 
-    if (session) {
-      await session.commitTransaction();
-      session.endSession();
-    }
-
-    // Trigger events after successful transaction commit
+    // Trigger events after save
     for (const pkg of verifiedPackages) {
       eventBus.emit('package.verified', {
         pkg,
@@ -1907,10 +1820,7 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
       message: `Successfully bulk verified ${verifiedPackages.length} packages.`,
     });
   } catch (error) {
-    if (session) {
-      await session.abortTransaction();
-      session.endSession();
-    }
+    console.error('Error in bulkVerifyPackagesAdmin:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
