@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
@@ -11,7 +11,14 @@ import TrackingLink from '../../components/TrackingLink';
 import SearchPanel from '../../components/SearchPanel';
 import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
 import PackageTimeline from '../../components/PackageTimeline';
-import PackageManagement from '../admin/sections/PackageManagement';
+
+const PackageManagement = lazy(() => import('../admin/sections/PackageManagement'));
+
+const SectionLoader = () => (
+  <div className="flex items-center justify-center p-16">
+    <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
+  </div>
+);
 import {
   LayoutDashboard, Package, Truck, RotateCcw, Bike, Wallet,
   Search, CheckCircle2, XCircle, Clock, AlertCircle, Eye,
@@ -2318,16 +2325,18 @@ const DispatcherDashboard = () => {
       notifications={notifications}
       onNotificationClick={handleNotificationClick}
     >
-      <Routes>
-        <Route path="/" element={<DispatcherHome />} />
-        <Route path="/packages" element={<PackageManagement />} />
-        <Route path="/tasks" element={<CombinedTasks />} />
-        <Route path="/scan-station" element={<ScanStation role="dispatcher" />} />
-        <Route path="/inbound-scan" element={<InboundScan />} />
-        <Route path="/reverse-logistics" element={<ReverseLogistics />} />
-        <Route path="/riders" element={<ActiveRiders />} />
-        <Route path="/handovers" element={<CodHandovers />} />
-      </Routes>
+      <Suspense fallback={<SectionLoader />}>
+        <Routes>
+          <Route path="/" element={<DispatcherHome />} />
+          <Route path="/packages" element={<PackageManagement />} />
+          <Route path="/tasks" element={<CombinedTasks />} />
+          <Route path="/scan-station" element={<ScanStation role="dispatcher" />} />
+          <Route path="/inbound-scan" element={<InboundScan />} />
+          <Route path="/reverse-logistics" element={<ReverseLogistics />} />
+          <Route path="/riders" element={<ActiveRiders />} />
+          <Route path="/handovers" element={<CodHandovers />} />
+        </Routes>
+      </Suspense>
     </AppShell>
   );
 };

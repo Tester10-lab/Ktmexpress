@@ -269,29 +269,29 @@ const packageSchema = new mongoose.Schema(
 );
 
 // ─── Indexes ────────────────────────────────────────────────────────────────
-packageSchema.index({ vendorId: 1, status: 1 });
-packageSchema.index({ riderId: 1, status: 1 });
-packageSchema.index({ status: 1 });
-packageSchema.index({ createdAt: -1 });
-packageSchema.index({ invoiceId: 1 });
-packageSchema.index({ deletedAt: 1 });
-packageSchema.index({ status: 1, createdAt: -1 });
 packageSchema.index({ trackingCode: 1, deletedAt: 1 });
-// Analytics indexes
-packageSchema.index({ status: 1, updatedAt: -1 });
+packageSchema.index({ invoiceId: 1, vendorId: 1 });
+packageSchema.index({ deletedAt: 1 });
+
+// High-speed query, filter & sorting compound indexes
+packageSchema.index({ status: 1, createdAt: -1 });
 packageSchema.index({ vendorId: 1, createdAt: -1, status: 1 });
+packageSchema.index({ riderId: 1, createdAt: -1, status: 1 });
+packageSchema.index({ status: 1, updatedAt: -1 });
 packageSchema.index({ riderId: 1, status: 1, updatedAt: -1 });
+
 // Settlement indexes
 packageSchema.index({ settlementStatus: 1, vendorId: 1 });
 packageSchema.index({ codVerified: 1, vendorPaid: 1 });
+
 // Verification indexes
-packageSchema.index({ deliveryVerificationStatus: 1 });
+packageSchema.index({ deliveryVerificationStatus: 1, createdAt: -1 });
+packageSchema.index({ deliveryVerificationStatus: 1, status: 1 });
 packageSchema.index({ codVerificationStatus: 1 });
 packageSchema.index({ verifiedAt: -1 });
+
 // Compound indexes for settlement page queries
 packageSchema.index({ vendorId: 1, status: 1, cashReconciled: 1, vendorPaid: 1, isSettling: 1 });
-// Compound index for verification + status filtering
-packageSchema.index({ deliveryVerificationStatus: 1, status: 1 });
 
 // Soft delete query middleware
 const excludeSoftDeleted = function(next) {

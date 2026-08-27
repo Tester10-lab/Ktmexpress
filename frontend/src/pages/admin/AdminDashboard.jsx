@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import api from '../../api/axios';
@@ -6,13 +6,19 @@ import {
   LayoutDashboard, Wallet, Receipt, Users, Settings2, BarChart3
 } from 'lucide-react';
 
-import AnalyticsDashboard from './sections/AnalyticsDashboard';
-import SettlementPanel from './sections/SettlementPanel';
-import ExpenseLog from './sections/ExpenseLog';
-import UserManagement from './sections/UserManagement';
-import PricingEngine from './PricingEngine';
-import CodReconciliation from './sections/CodReconciliation';
-import FinancialAnalytics from './sections/FinancialAnalytics';
+const AnalyticsDashboard = lazy(() => import('./sections/AnalyticsDashboard'));
+const SettlementPanel = lazy(() => import('./sections/SettlementPanel'));
+const ExpenseLog = lazy(() => import('./sections/ExpenseLog'));
+const UserManagement = lazy(() => import('./sections/UserManagement'));
+const PricingEngine = lazy(() => import('./PricingEngine'));
+const CodReconciliation = lazy(() => import('./sections/CodReconciliation'));
+const FinancialAnalytics = lazy(() => import('./sections/FinancialAnalytics'));
+
+const SectionLoader = () => (
+  <div className="flex items-center justify-center p-16">
+    <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
+  </div>
+);
 
 // Nav icons
 const navLinks = [
@@ -111,16 +117,18 @@ const AdminDashboard = () => {
       notifications={notifications}
       onNotificationClick={handleNotificationClick}
     >
-      <Routes>
-        <Route path="/" element={<AnalyticsDashboard />} />
-        <Route path="/settlements" element={<SettlementPanel />} />
-        <Route path="/expenses" element={<ExpenseLog />} />
-        <Route path="/users" element={<UserManagement />} />
-        <Route path="/pricing-engine" element={<PricingEngine />} />
-        <Route path="/pricing" element={<PricingEngine />} />
-        <Route path="/handovers" element={<CodReconciliation />} />
-        <Route path="/reports" element={<FinancialAnalytics />} />
-      </Routes>
+      <Suspense fallback={<SectionLoader />}>
+        <Routes>
+          <Route path="/" element={<AnalyticsDashboard />} />
+          <Route path="/settlements" element={<SettlementPanel />} />
+          <Route path="/expenses" element={<ExpenseLog />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/pricing-engine" element={<PricingEngine />} />
+          <Route path="/pricing" element={<PricingEngine />} />
+          <Route path="/handovers" element={<CodReconciliation />} />
+          <Route path="/reports" element={<FinancialAnalytics />} />
+        </Routes>
+      </Suspense>
     </AppShell>
   );
 };
