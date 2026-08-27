@@ -1964,6 +1964,27 @@ const ActiveRiders = () => {
     }
   };
 
+  const handleVerifyDelivery = async (pkg) => {
+    if (!window.confirm(`Accept & Verify delivery for tracking code ${pkg.trackingCode}?`)) return;
+    try {
+      const payload = {
+        version: pkg.__v,
+        status: pkg.riderSubmission?.status || pkg.status,
+        amount: pkg.riderSubmission?.amount !== undefined ? pkg.riderSubmission.amount : pkg.amount,
+        deliveryCharge: pkg.deliveryCharge,
+        comments: pkg.riderSubmission?.comments || pkg.comments,
+        paymentMethod: pkg.paymentMethod || 'Cash',
+        reason: 'Dispatcher verification',
+        customRemarks: 'Verified and accepted by Dispatcher'
+      };
+      await api.post(`/packages/${pkg._id}/verify-action`, payload);
+      showToast(`✓ Package ${pkg.trackingCode} verified and accepted!`, 'success');
+      if (selectedRider) fetchRiderHistory(selectedRider._id, historyFilters);
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || "Failed to verify package", "error");
+    }
+  };
+
   const fetchRiders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
@@ -2253,15 +2274,39 @@ const ActiveRiders = () => {
                                     </td>
                                     <td style={{ ...tdStyle, textAlign: 'right' }}>
                                       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-                                        {['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(p.status) && p.deliveryVerificationStatus !== 'Pending' && p.deliveryVerificationStatus !== 'Verified' && (
+                                        {p.deliveryVerificationStatus === 'Pending' ? (
                                           <button 
-                                            onClick={() => setVerificationModal({ open: true, pkgId: p._id, reason: '', comment: '' })}
-                                            style={{ background: 'none', border: 'none', color: '#d97706', fontWeight: 700, cursor: 'pointer', padding: 0 }}
-                                            title="Request Verification"
+                                            onClick={() => handleVerifyDelivery(p)}
+                                            style={{ 
+                                              background: '#ecfdf5', 
+                                              border: '1px solid #a7f3d0', 
+                                              color: '#047857', 
+                                              fontWeight: 700, 
+                                              cursor: 'pointer', 
+                                              padding: '4px 10px',
+                                              borderRadius: '6px',
+                                              fontSize: '11px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '4px'
+                                            }}
+                                            title="Accept & Verify Rider Submission"
                                           >
-                                            Verify?
+                                            <CheckCircle2 style={{ width: 12, height: 12 }} /> Accept & Verify
                                           </button>
-                                        )}
+                                        ) : p.deliveryVerificationStatus === 'Verified' ? (
+                                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#059669', background: '#ecfdf5', padding: '2px 8px', borderRadius: '4px', border: '1px solid #a7f3d0' }}>
+                                            ✓ Verified
+                                          </span>
+                                        ) : ['Delivered', 'Cancelled', 'Returned', 'Exchanged'].includes(p.status) ? (
+                                          <button 
+                                            onClick={() => handleVerifyDelivery(p)}
+                                            style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#334155', fontWeight: 600, cursor: 'pointer', padding: '3px 8px', borderRadius: '6px', fontSize: '11px' }}
+                                            title="Verify Status"
+                                          >
+                                            Verify
+                                          </button>
+                                        ) : null}
                                         <button 
                                           onClick={() => toggleTimeline(p._id)}
                                           style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 700, cursor: 'pointer', padding: 0 }}

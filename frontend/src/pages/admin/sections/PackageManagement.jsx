@@ -16,6 +16,8 @@ import {
 
 import { VerificationStatusBadge, VerificationPriorityBadge } from '../../../components/verification/VerificationRequestBadge';
 import { VerificationAudit } from '../../../components/verification/VerificationAudit';
+import { VerificationModal } from '../../../components/verification/VerificationModal';
+import { useVerification } from '../../../components/verification/useVerification';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
@@ -96,6 +98,31 @@ const AdminPackages = () => {
       })
       .catch(() => showToast('Failed to load packages', 'error'))
       .finally(() => setLoading(false));
+  };
+
+  const {
+    verificationModal,
+    setVerificationModal,
+    currentPkg,
+    form: verificationForm,
+    setForm: setVerificationForm,
+    openVerificationModal,
+    handleSaveDraft,
+    handleVerify,
+    handleQuickVerify
+  } = useVerification(fetchPackages, showToast);
+
+  const handleBulkVerify = async () => {
+    if (!selected.length) return;
+    if (!window.confirm(`Verify and accept delivery for all ${selected.length} selected package(s)?`)) return;
+    try {
+      await api.post('/packages/bulk-verify', { packageIds: selected });
+      showToast(`Successfully verified ${selected.length} package(s)!`, 'success');
+      setSelected([]);
+      fetchPackages(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Bulk verify failed', 'error');
+    }
   };
 
   const fetchVendors = () => {
@@ -380,6 +407,29 @@ const AdminPackages = () => {
           </div>
         )}
       
+        {/* Bulk Action Bar */}
+        {selected.length > 0 && (
+          <div className="bg-emerald-50/90 border-b border-emerald-200 px-6 py-2.5 flex items-center justify-between animate-fadeIn">
+            <span className="text-xs font-bold text-emerald-900">
+              ✓ {selected.length} package{selected.length !== 1 ? 's' : ''} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleBulkVerify}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" /> Bulk Verify & Accept ({selected.length})
+              </button>
+              <button 
+                onClick={() => setSelected([])}
+                className="px-2.5 py-1.5 bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
+              >
+                Deselect
+              </button>
+            </div>
+          </div>
+        )}
+      
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-semibold uppercase text-xs">
@@ -439,7 +489,26 @@ const AdminPackages = () => {
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">Rs. {p.amount?.toLocaleString()}</td>
                     <td className="px-6 py-4">
-                      <div className="flex gap-2 justify-end">
+                      <div className="flex gap-1.5 justify-end items-center">
+                        {p.deliveryVerificationStatus !== 'Verified' && ['Delivered', 'Cancelled', 'Returned', 'Exchanged', 'Postponed'].includes(p.status) && (
+                          <button 
+                            className="py-1 px-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold flex items-center gap-1 text-xs transition-colors" 
+                            onClick={() => handleQuickVerify(p)} 
+                            title="Quick Verify & Accept"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Verify</span>
+                          </button>
+                        )}
+                        {p.deliveryVerificationStatus !== 'Verified' && (
+                          <button 
+                            className="py-1 px-2 rounded-lg bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100 font-medium flex items-center gap-1 text-xs transition-colors" 
+                            onClick={() => openVerificationModal(p)} 
+                            title="Edit & Verify"
+                          >
+                            <Sliders className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button className="btn-secondary btn-sm p-2" onClick={() => openEdit(p)} title="Edit">
                           <Edit2 className="w-4 h-4" />
                         </button>
@@ -700,6 +769,18 @@ const AdminPackages = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Verification Modal */}
+      {verificationModal && (
+        <VerificationModal 
+          currentPkg={currentPkg} 
+          form={verificationForm} 
+          setForm={setVerificationForm} 
+          setVerificationModal={setVerificationModal} 
+          handleSaveDraft={handleSaveDraft} 
+          handleVerify={handleVerify} 
+        />
       )}
     </>
   );
