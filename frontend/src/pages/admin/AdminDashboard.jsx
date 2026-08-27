@@ -3,10 +3,11 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import api from '../../api/axios';
 import { 
-  LayoutDashboard, Wallet, Receipt, Users, Settings2, BarChart3
+  LayoutDashboard, Wallet, Receipt, Users, Settings2, BarChart3, Package
 } from 'lucide-react';
 
 const AnalyticsDashboard = lazy(() => import('./sections/AnalyticsDashboard'));
+const PackageManagement = lazy(() => import('./sections/PackageManagement'));
 const SettlementPanel = lazy(() => import('./sections/SettlementPanel'));
 const ExpenseLog = lazy(() => import('./sections/ExpenseLog'));
 const UserManagement = lazy(() => import('./sections/UserManagement'));
@@ -23,6 +24,7 @@ const SectionLoader = () => (
 // Nav icons
 const navLinks = [
   { name: 'Dashboard', path: '/admin', exact: true, icon: <LayoutDashboard className="w-5 h-5" /> },
+  { name: 'All Packages', path: '/admin/packages', icon: <Package className="w-5 h-5" /> },
   { name: 'Settlements', path: '/admin/settlements', icon: <Wallet className="w-5 h-5" /> },
   { name: 'Rider Expenses', path: '/admin/expenses', icon: <Receipt className="w-5 h-5" /> },
   { name: 'Manage Users', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
@@ -33,6 +35,7 @@ const navLinks = [
 
 const titleMap = {
   '/admin': 'Global Dashboard',
+  '/admin/packages': 'All Packages Management',
   '/admin/settlements': 'Vendor Settlements',
   '/admin/expenses': 'Rider Expenses',
   '/admin/users': 'User Management',
@@ -120,6 +123,7 @@ const AdminDashboard = () => {
       <Suspense fallback={<SectionLoader />}>
         <Routes>
           <Route path="/" element={<AnalyticsDashboard />} />
+          <Route path="/packages" element={<PackageManagement />} />
           <Route path="/settlements" element={<SettlementPanel />} />
           <Route path="/expenses" element={<ExpenseLog />} />
           <Route path="/users" element={<UserManagement />} />
