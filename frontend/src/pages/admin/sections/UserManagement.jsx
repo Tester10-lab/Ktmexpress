@@ -23,6 +23,7 @@ const EditUserModal = memo(({ user, onClose, onSave }) => {
         status: user.status,
         shopName: user.vendorMeta?.shopName || '',
         monthlyTarget: user.riderMeta?.monthlyTarget || 0,
+        password: '',
       });
     }
   }, [user?._id]);
@@ -91,6 +92,18 @@ const EditUserModal = memo(({ user, onClose, onSave }) => {
                   <input type="number" min="0" className="input-field" value={form.monthlyTarget} onChange={e => handleChange('monthlyTarget', e.target.value)} />
                 </div>
               )}
+              <div className="col-span-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Reset Password <span className="text-xs font-normal text-slate-500">(leave blank to keep current)</span>
+                </label>
+                <input 
+                  type="password" 
+                  className="input-field" 
+                  placeholder="Enter new password (min 6 characters)" 
+                  value={form.password || ''} 
+                  onChange={e => handleChange('password', e.target.value)} 
+                />
+              </div>
             </div>
             <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
               <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>

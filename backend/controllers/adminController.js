@@ -516,13 +516,21 @@ export const createUser = async (req, res) => {
 // PUT /api/admin/users/:id - Update user details
 export const updateUser = async (req, res) => {
   try {
-    const { name, contact, status, vendorMeta, riderMeta } = req.body;
+    const { name, contact, status, vendorMeta, riderMeta, password } = req.body;
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found.' });
 
     if (name) user.name = name;
     if (contact !== undefined) user.contact = contact;
     if (status) user.status = status;
+    if (password && password.trim()) {
+      if (password.trim().length < 6) {
+        return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long.' });
+      }
+      user.password = password.trim();
+      user.loginAttempts = 0;
+      user.lockUntil = undefined;
+    }
     if (vendorMeta && user.role === 'vendor') {
       user.vendorMeta = { ...user.vendorMeta, ...vendorMeta };
     }
@@ -530,8 +538,8 @@ export const updateUser = async (req, res) => {
       user.riderMeta = { ...user.riderMeta, ...riderMeta };
     }
 
-    await user.save({ validateModifiedOnly: true });
-    res.json({ success: true, data: { id: user._id, name: user.name, email: user.email, role: user.role, contact: user.contact, status: user.status, vendorMeta: user.vendorMeta, riderMeta: user.riderMeta } });
+    await user.save();
+    res.json({ success: true, message: 'User updated successfully.', data: { id: user._id, name: user.name, email: user.email, role: user.role, contact: user.contact, status: user.status, vendorMeta: user.vendorMeta, riderMeta: user.riderMeta } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

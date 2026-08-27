@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import { login } from '../../controllers/authController.js';
+import { login, changePassword } from '../../controllers/authController.js';
 import User from '../../models/User.js';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
@@ -7,6 +7,7 @@ import mongoose from 'mongoose';
 jest.setTimeout(30000);
 
 let mongoServer;
+let testUser;
 
 describe('authController - login unit', () => {
   let req, res, next;
@@ -20,7 +21,7 @@ describe('authController - login unit', () => {
     await mongoose.connect(uri);
     process.env.JWT_SECRET = 'testsecret';
     
-    await User.create({
+    testUser = await User.create({
       name: 'Test Vendor',
       email: 'test@example.com',
       password: 'password123',
@@ -39,7 +40,9 @@ describe('authController - login unit', () => {
       body: {
         email: 'test@example.com',
         password: 'password123'
-      }
+      },
+      headers: {},
+      user: { id: testUser._id }
     };
     res = {
       status: jest.fn().mockReturnThis(),
@@ -79,5 +82,39 @@ describe('authController - login unit', () => {
         role: 'vendor'
       })
     }));
+  });
+
+  describe('changePassword', () => {
+    it('should reject if current or new password missing', async () => {
+      req.body = { currentPassword: '', newPassword: '' };
+      await changePassword(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('should reject if new password < 6 chars', async () => {
+      req.body = { currentPassword: 'password123', newPassword: '123' };
+      await changePassword(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('should reject if current password is wrong', async () => {
+      req.body = { currentPassword: 'wrongpassword', newPassword: 'newpassword123' };
+      await changePassword(req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it('should successfully update password with valid credentials', async () => {
+      req.body = { currentPassword: 'password123', newPassword: 'newpassword123' };
+      await changePassword(req, res);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+        success: true,
+        message: 'Password changed successfully.'
+      }));
+
+      // Verify new password works
+      const u = await User.findById(testUser._id).select('+password');
+      const isMatch = await u.comparePassword('newpassword123');
+      expect(isMatch).toBe(true);
+    });
   });
 });

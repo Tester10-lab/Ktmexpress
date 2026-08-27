@@ -8,7 +8,8 @@ import {
   refreshToken,
   logout,
   forgotPassword,
-  resetPassword 
+  resetPassword,
+  changePassword 
 } from '../controllers/authController.js';
 
 // Public routes
@@ -19,7 +20,8 @@ router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
 router.put('/reset-password/:token', resetPassword);
 
-// Protected route
+// Protected routes
 router.get('/profile', auth, getProfile);
+router.put('/change-password', auth, changePassword);
 
 export default router;
