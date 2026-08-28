@@ -1487,7 +1487,18 @@ export const verifyPackageAdmin = async (req, res) => {
     if (deliveryCharge !== undefined && deliveryCharge !== null && !isNaN(Number(deliveryCharge))) {
       setUpdates.deliveryCharge = Number(deliveryCharge);
     }
-    if (comments !== undefined) setUpdates.comments = comments;
+    if (comments !== undefined && comments !== null) {
+      if (typeof comments === 'string' && comments.trim()) {
+        pushUpdates.comments = {
+          text: comments.trim(),
+          user: req.user?.name || 'Admin',
+          role: req.user?.role || 'admin',
+          createdAt: now,
+        };
+      } else if (Array.isArray(comments)) {
+        setUpdates.comments = comments;
+      }
+    }
     if (receiverName !== undefined) setUpdates.customerName = receiverName;
     if (receiverPhone !== undefined) setUpdates.customerPhone = receiverPhone;
     if (deliveryDate !== undefined) {
@@ -1573,6 +1584,9 @@ export const verifyPackageAdmin = async (req, res) => {
 
     if (pushUpdates.financialAdjustments) {
       mongoUpdate.$push.financialAdjustments = pushUpdates.financialAdjustments;
+    }
+    if (pushUpdates.comments) {
+      mongoUpdate.$push.comments = pushUpdates.comments;
     }
 
     const updatedPkg = await Package.findByIdAndUpdate(
@@ -1735,7 +1749,17 @@ export const bulkVerifyPackagesAdmin = async (req, res) => {
       pkg.status = status;
       pkg.amount = amount;
       pkg.deliveryCharge = deliveryCharge;
-      pkg.comments = comments;
+      if (comments && typeof comments === 'string' && comments.trim()) {
+        if (!Array.isArray(pkg.comments)) pkg.comments = [];
+        pkg.comments.push({
+          text: comments.trim(),
+          user: req.user?.name || 'Admin',
+          role: req.user?.role || 'admin',
+          createdAt: now,
+        });
+      } else if (Array.isArray(comments)) {
+        pkg.comments = comments;
+      }
 
       if (draft) {
         pkg.customerName = draft.receiverName || pkg.customerName;

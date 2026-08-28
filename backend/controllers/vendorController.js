@@ -303,10 +303,11 @@ export const updatePackage = async (req, res) => {
       updates.push('Address');
       pkg.address = address;
     }
-    if (comments !== undefined && comments !== pkg.comments) {
-      changes.push({ field: 'Comments', before: pkg.comments, after: comments });
+    if (comments !== undefined && comments !== null && typeof comments === 'string' && comments.trim()) {
+      changes.push({ field: 'Comments', before: 'Updated comments', after: comments.trim() });
       updates.push('Comments');
-      pkg.comments = comments;
+      if (!Array.isArray(pkg.comments)) pkg.comments = [];
+      pkg.comments.push({ text: comments.trim(), user: req.user.name || 'Vendor', role: 'vendor', createdAt: new Date() });
     }
     if (outOfValley !== undefined && outOfValley !== pkg.outOfValley) {
       changes.push({ field: 'Out of Valley', before: pkg.outOfValley, after: outOfValley });
@@ -456,9 +457,8 @@ export const addComment = async (req, res) => {
     const { text } = req.body;
     
     const pkg = await Package.findOne({ _id: req.params.id, vendorId });
-    if (!pkg) return res.status(404).json({ success: false, message: 'Package not found' });
-
-    pkg.comments = pkg.comments ? `${pkg.comments}\n[${req.user.name}]: ${text}` : `[${req.user.name}]: ${text}`;
+    if (!Array.isArray(pkg.comments)) pkg.comments = [];
+    pkg.comments.push({ text: text.trim(), user: req.user.name || 'Vendor', role: 'vendor', createdAt: new Date() });
     await pkg.save();
     
     res.json({ success: true, data: pkg });
