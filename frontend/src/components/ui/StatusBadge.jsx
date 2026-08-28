@@ -12,15 +12,21 @@ export function StatusBadge({ status, className = '' }) {
     'Pending': 'bg-amber-50 text-amber-700 border-amber-200',
     'Pick Up Requested': 'bg-indigo-50 text-indigo-700 border-indigo-200',
     'Picked Up': 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    'In Warehouse': 'bg-slate-50 text-slate-700 border-slate-200',
-    'Out for Delivery': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+    'In Warehouse': 'bg-purple-50 text-purple-700 border-purple-200',
+    'Arrived': 'bg-purple-50 text-purple-700 border-purple-200',
+    'Out for Delivery': 'bg-sky-50 text-sky-700 border-sky-200',
+    'Dispatched': 'bg-sky-50 text-sky-700 border-sky-200',
     'Postponed': 'bg-amber-50 text-amber-700 border-amber-200',
     'Exchanged': 'bg-emerald-50 text-emerald-700 border-emerald-200',
   };
 
+  let label = status;
+  if (status === 'Out for Delivery') label = 'Dispatched';
+  if (status === 'In Warehouse') label = 'Arrived';
+
   return (
-    <span className={`${base} ${styles[status] || 'bg-slate-50 text-slate-700 border-slate-200'} ${className}`}>
-      {status}
+    <span className={`${base} ${styles[status] || styles[label] || 'bg-slate-50 text-slate-700 border-slate-200'} ${className}`}>
+      {label}
     </span>
   );
 }

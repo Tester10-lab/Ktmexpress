@@ -49,11 +49,16 @@ function statusBadge(status) {
     'Pending': 'bg-amber-50 text-amber-700 border-amber-200',
     'Pick Up Requested': 'bg-amber-50 text-amber-700 border-amber-200',
     'Picked Up': 'bg-brand-50 text-brand-700 border-brand-200',
-    'In Warehouse': 'bg-brand-50 text-brand-700 border-brand-200',
+    'In Warehouse': 'bg-purple-50 text-purple-700 border-purple-200',
+    'Arrived': 'bg-purple-50 text-purple-700 border-purple-200',
     'Out for Delivery': 'bg-brand-50 text-brand-700 border-brand-200',
+    'Dispatched': 'bg-brand-50 text-brand-700 border-brand-200',
     'Postponed': 'bg-amber-50 text-amber-700 border-amber-200'
   };
-  return <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>{status}</span>;
+  let label = status;
+  if (status === 'Out for Delivery') label = 'Dispatched';
+  if (status === 'In Warehouse') label = 'Arrived';
+  return <span className={`${base} ${styles[status] || styles[label] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>{label}</span>;
 }
 
 const PackageRow = React.memo(({ pkg, isSelected, handleSelect, setViewPackageDetails, setCommentModal, setEditMode, setEditPackageId, setCreateForm, setDrawerOpen }) => {

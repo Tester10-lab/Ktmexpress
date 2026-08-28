@@ -53,8 +53,10 @@ function StatusBadge({ status }) {
   const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
   const styles = {
     'Delivered':           'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'In Warehouse':        'bg-slate-100 text-slate-800 border-slate-300',
+    'In Warehouse':        'bg-purple-50 text-purple-700 border-purple-200',
+    'Arrived':             'bg-purple-50 text-purple-700 border-purple-200',
     'Out for Delivery':    'bg-sky-50 text-sky-700 border-sky-200',
+    'Dispatched':          'bg-sky-50 text-sky-700 border-sky-200',
     'Picked Up':           'bg-amber-50 text-amber-700 border-amber-200',
     'Pick Up Requested':   'bg-amber-50 text-amber-700 border-amber-200',
     'Postponed':           'bg-orange-50 text-orange-700 border-orange-200',
@@ -64,11 +66,14 @@ function StatusBadge({ status }) {
     'Pending':             'bg-amber-50 text-amber-700 border-amber-200',
     'Hold':                'bg-rose-50 text-rose-700 border-rose-200',
   };
+  let label = status;
+  if (status === 'Out for Delivery') label = 'Dispatched';
+  if (status === 'In Warehouse') label = 'Arrived';
   return (
-    <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+    <span className={`${base} ${styles[status] || styles[label] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
       {status === 'Delivered' && '✓ '}
       {status === 'Cancelled' && '✕ '}
-      {status}
+      {label}
     </span>
   );
 }
@@ -436,9 +441,9 @@ const DispatcherHome = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 24 }}>
         {[
           { label: 'Pickups', value: s.pickupsPending || 0, color: '#f59e0b', icon: '🚚', path: '/dispatcher/tasks' },
-          { label: 'In Warehouse', value: s.inWarehouse || 0, color: '#8b5cf6', icon: '🏭', path: '/dispatcher/inbound-scan' },
+          { label: 'Arrived', value: s.inWarehouse || 0, color: '#8b5cf6', icon: '🏬', path: '/dispatcher/inbound-scan' },
           { label: 'Unassigned', value: s.unassigned || 0, color: '#64748b', icon: '📋', path: '/dispatcher/tasks' },
-          { label: 'Out for Delivery', value: s.outForDelivery || 0, color: '#06b6d4', icon: '📦', path: '/dispatcher/tasks' },
+          { label: 'Dispatched', value: s.outForDelivery || 0, color: '#06b6d4', icon: '🚀', path: '/dispatcher/tasks' },
           { label: 'Postponed', value: s.postponed || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/tasks' },
           { label: 'Returns Pending', value: s.returnedPending || 0, color: '#6b7280', icon: '↩️', path: '/dispatcher/reverse-logistics' },
           { label: 'Active Riders', value: s.activeRiders || 0, color: '#10b981', icon: '🏍️', path: '/dispatcher/riders' },
@@ -526,8 +531,8 @@ const DispatcherHome = () => {
                 }}
               >
                 <option value="all">All Statuses ({packages.length})</option>
-                <option value="In Warehouse">🏬 In Warehouse ({countInWarehouse})</option>
-                <option value="Out for Delivery">🚀 Out for Delivery ({countOutForDelivery})</option>
+                <option value="In Warehouse">🏬 Arrived ({countInWarehouse})</option>
+                <option value="Out for Delivery">🚀 Dispatched ({countOutForDelivery})</option>
                 <option value="Delivered">✅ Delivered ({countDelivered})</option>
                 <option value="Postponed">⚠️ Postponed ({countPostponed})</option>
                 <option value="Pick Up Requested">🚚 Pick Up Requested</option>
@@ -595,8 +600,8 @@ const DispatcherHome = () => {
             {[
               { id: 'all', label: 'All', count: packages.length, color: '#3b82f6' },
               { id: 'verification_pending', label: '⏳ Verification Pending', count: countVerificationPending, color: '#d97706' },
-              { id: 'In Warehouse', label: 'In Warehouse', count: countInWarehouse, color: '#8b5cf6' },
-              { id: 'Out for Delivery', label: 'Out for Delivery', count: countOutForDelivery, color: '#0284c7' },
+              { id: 'In Warehouse', label: 'Arrived', count: countInWarehouse, color: '#8b5cf6' },
+              { id: 'Out for Delivery', label: 'Dispatched', count: countOutForDelivery, color: '#0284c7' },
               { id: 'Delivered', label: 'Delivered', count: countDelivered, color: '#10b981' },
               { id: 'Postponed', label: 'Postponed', count: countPostponed, color: '#ef4444' },
               { id: 'Pick Up Requested', label: 'Pickups', count: countPickups, color: '#f59e0b' },
