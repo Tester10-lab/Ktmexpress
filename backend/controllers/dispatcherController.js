@@ -283,7 +283,7 @@ export const bulkStatusUpdate = async (req, res) => {
   try {
     const { packageIds, status } = req.body;
 
-    const validStatuses = ['In Warehouse', 'Out for Delivery', 'Delivered', 'Picked Up', 'Postponed', 'Cancelled', 'Returned'];
+    const validStatuses = ['In Warehouse', 'Arrived', 'Out for Delivery', 'Dispatched', 'Delivered', 'Picked Up', 'Postponed', 'Cancelled', 'Returned'];
     if (!packageIds?.length) {
       return res.status(400).json({ success: false, message: 'No packages selected.' });
     }
@@ -307,12 +307,18 @@ export const bulkStatusUpdate = async (req, res) => {
       let timelineStatus = status;
       let timelineMsg = `Status changed to "${status}" via dispatcher action`;
 
-      if (status === 'In Warehouse') {
-        timelineStatus = 'Arrived in Warehouse';
-        timelineMsg = `Package arrived at central warehouse`;
+      if (status === 'Arrived') {
+        timelineStatus = 'Arrived';
+        timelineMsg = `Package arrived at warehouse`;
+      } else if (status === 'In Warehouse') {
+        timelineStatus = 'In Warehouse';
+        timelineMsg = `Package checked into warehouse storage`;
+      } else if (status === 'Dispatched') {
+        timelineStatus = 'Dispatched';
+        timelineMsg = `Package dispatched`;
       } else if (status === 'Out for Delivery') {
-        timelineStatus = 'Dispatched / Out for Delivery';
-        timelineMsg = `Package dispatched for delivery route`;
+        timelineStatus = 'Out for Delivery';
+        timelineMsg = `Package out for delivery with rider`;
       } else if (status === 'Delivered') {
         timelineStatus = 'Delivered';
         timelineMsg = `Package delivered`;
@@ -328,7 +334,7 @@ export const bulkStatusUpdate = async (req, res) => {
       await pkg.save();
       updatedTrackingCodes.push(pkg.trackingCode);
 
-      if (['In Warehouse', 'Delivered'].includes(status)) {
+      if (['In Warehouse', 'Arrived', 'Delivered'].includes(status)) {
         await PickupRequest.updateMany(
           { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
           { status: 'completed', completedAt: new Date() }
@@ -367,16 +373,26 @@ export const updateDispatcherPackageStatus = async (req, res) => {
     let timelineStatus = status;
     let timelineMsg = comments || `Status updated to "${status}" by Dispatcher`;
 
-    if (status === 'In Warehouse') {
-      timelineStatus = 'Arrived in Warehouse';
-      timelineMsg = comments || 'Package arrived and checked in at Warehouse';
+    if (status === 'Arrived') {
+      timelineStatus = 'Arrived';
+      timelineMsg = comments || 'Package arrived at warehouse';
       await PickupRequest.updateMany(
         { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
         { status: 'completed', completedAt: new Date() }
       );
+    } else if (status === 'In Warehouse') {
+      timelineStatus = 'In Warehouse';
+      timelineMsg = comments || 'Package stored in warehouse';
+      await PickupRequest.updateMany(
+        { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
+        { status: 'completed', completedAt: new Date() }
+      );
+    } else if (status === 'Dispatched') {
+      timelineStatus = 'Dispatched';
+      timelineMsg = comments || 'Package dispatched';
     } else if (status === 'Out for Delivery') {
-      timelineStatus = 'Dispatched / Out for Delivery';
-      timelineMsg = comments || `Package dispatched for delivery route`;
+      timelineStatus = 'Out for Delivery';
+      timelineMsg = comments || 'Package out for delivery';
     }
 
     appendTimelineEvent(pkg, {

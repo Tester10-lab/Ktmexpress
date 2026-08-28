@@ -53,10 +53,11 @@ function StatusBadge({ status }) {
   const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
   const styles = {
     'Delivered':           'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'In Warehouse':        'bg-purple-50 text-purple-700 border-purple-200',
     'Arrived':             'bg-purple-50 text-purple-700 border-purple-200',
-    'Out for Delivery':    'bg-sky-50 text-sky-700 border-sky-200',
+    'In Warehouse':        'bg-slate-100 text-slate-800 border-slate-300',
+    'Warehouse':           'bg-slate-100 text-slate-800 border-slate-300',
     'Dispatched':          'bg-sky-50 text-sky-700 border-sky-200',
+    'Out for Delivery':    'bg-blue-50 text-blue-700 border-blue-200',
     'Picked Up':           'bg-amber-50 text-amber-700 border-amber-200',
     'Pick Up Requested':   'bg-amber-50 text-amber-700 border-amber-200',
     'Postponed':           'bg-orange-50 text-orange-700 border-orange-200',
@@ -66,14 +67,11 @@ function StatusBadge({ status }) {
     'Pending':             'bg-amber-50 text-amber-700 border-amber-200',
     'Hold':                'bg-rose-50 text-rose-700 border-rose-200',
   };
-  let label = status;
-  if (status === 'Out for Delivery') label = 'Dispatched';
-  if (status === 'In Warehouse') label = 'Arrived';
   return (
-    <span className={`${base} ${styles[status] || styles[label] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+    <span className={`${base} ${styles[status] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>
       {status === 'Delivered' && '✓ '}
       {status === 'Cancelled' && '✕ '}
-      {label}
+      {status}
     </span>
   );
 }
@@ -720,52 +718,91 @@ const DispatcherHome = () => {
                   </td>
                   <td style={{ ...tdStyle, fontWeight: 700, color: '#0f172a', textAlign: 'right' }}>Rs. {p.amount?.toLocaleString()}</td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
-                      {/* Arrived quick button */}
-                      {['Pending', 'Pick Up Requested', 'Picked Up', 'Postponed', 'Returned'].includes(p.status) && (
-                        <button
-                          onClick={() => handleQuickStatus(p._id, 'In Warehouse')}
-                          style={{
-                            background: '#f8fafc',
-                            color: '#334155',
-                            border: '1px solid #cbd5e1',
-                            borderRadius: 6,
-                            padding: '3px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                          }}
-                          title="Mark package as Arrived in Warehouse"
-                        >
-                          🏬 Arrived
-                        </button>
-                      )}
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => handleQuickStatus(p._id, 'Dispatched')}
+                        style={{
+                          background: '#eff6ff',
+                          color: '#0284c7',
+                          border: '1px solid #bae6fd',
+                          borderRadius: 5,
+                          padding: '3px 7px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                        title="Set status to Dispatched"
+                      >
+                        🚀 Dispatch
+                      </button>
 
-                      {/* Dispatch quick button */}
-                      {['In Warehouse', 'Sorted', 'Postponed'].includes(p.status) && (
-                        <button
-                          onClick={() => handleQuickStatus(p._id, 'Out for Delivery')}
-                          style={{
-                            background: '#eff6ff',
-                            color: '#1d4ed8',
-                            border: '1px solid #bfdbfe',
-                            borderRadius: 6,
-                            padding: '3px 8px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 3,
-                          }}
-                          title="Dispatch package (Out for Delivery)"
-                        >
-                          🚀 Dispatch
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleQuickStatus(p._id, 'Out for Delivery')}
+                        style={{
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          border: '1px solid #bfdbfe',
+                          borderRadius: 5,
+                          padding: '3px 7px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                        title="Set status to Out of Delivery"
+                      >
+                        🚚 Out of Delivery
+                      </button>
+
+                      <button
+                        onClick={() => handleQuickStatus(p._id, 'Arrived')}
+                        style={{
+                          background: '#fdf4ff',
+                          color: '#9333ea',
+                          border: '1px solid #f5d0fe',
+                          borderRadius: 5,
+                          padding: '3px 7px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                        title="Set status to Arrived"
+                      >
+                        🏬 Arrive
+                      </button>
+
+                      <button
+                        onClick={() => handleQuickStatus(p._id, 'In Warehouse')}
+                        style={{
+                          background: '#f8fafc',
+                          color: '#334155',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: 5,
+                          padding: '3px 7px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                        title="Set status to Warehouse"
+                      >
+                        🏭 Warehouse
+                      </button>
+
+                      <button
+                        onClick={() => handleQuickStatus(p._id, 'Delivered')}
+                        style={{
+                          background: '#ecfdf5',
+                          color: '#059669',
+                          border: '1px solid #a7f3d0',
+                          borderRadius: 5,
+                          padding: '3px 7px',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                        title="Set status to Delivered"
+                      >
+                        ✅ Delivered
+                      </button>
 
                       {p.deliveryVerificationStatus === 'Pending' ? (
                         <button
@@ -814,7 +851,7 @@ const DispatcherHome = () => {
                         style={{
                           fontSize: 11,
                           padding: '3px 6px',
-                          borderRadius: 6,
+                          borderRadius: 5,
                           border: '1px solid #cbd5e1',
                           background: '#fff',
                           color: '#334155',
@@ -824,8 +861,10 @@ const DispatcherHome = () => {
                         title="Change package status"
                       >
                         <option value={p.status}>Status: {p.status}</option>
-                        <option value="In Warehouse">🏬 Arrived (In Warehouse)</option>
-                        <option value="Out for Delivery">🚀 Dispatched (Out for Delivery)</option>
+                        <option value="Dispatched">🚀 Dispatched</option>
+                        <option value="Out for Delivery">🚚 Out of Delivery</option>
+                        <option value="Arrived">🏬 Arrived</option>
+                        <option value="In Warehouse">🏭 Warehouse</option>
                         <option value="Delivered">✅ Delivered</option>
                         <option value="Postponed">🔄 Postponed</option>
                         <option value="Picked Up">📦 Picked Up</option>
@@ -1620,11 +1659,21 @@ const Routing = () => {
     }
   };
 
+  const handleSingleStatus = async (pkgId, newStatus) => {
+    try {
+      await api.put(`/dispatcher/packages/${pkgId}/status`, { status: newStatus });
+      showToast(`✓ Status updated to "${newStatus}"!`, 'success');
+      fetchData(true);
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Failed to update status', 'error');
+    }
+  };
+
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
       const [pRes, rRes] = await Promise.all([
-        api.get('/dispatcher/packages?status=In Warehouse,Out for Delivery,Postponed'),
+        api.get('/dispatcher/packages?status=all'),
         api.get('/dispatcher/riders'),
       ]);
       setPackages(pRes.data.data || []);
@@ -1702,12 +1751,18 @@ const Routing = () => {
             {selected.length} package(s) selected
             {selectedRider ? ` → Assigning to ${selectedRider.name}` : ''}
           </span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <ActionBtn onClick={() => bulkSetStatus('In Warehouse')} disabled={bulkStatusLoading} variant="warning" size="sm">
-              🏬 Return to Warehouse
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            <ActionBtn onClick={() => bulkSetStatus('Dispatched')} disabled={bulkStatusLoading} variant="primary" size="sm">
+              🚀 Dispatch
             </ActionBtn>
             <ActionBtn onClick={() => bulkSetStatus('Out for Delivery')} disabled={bulkStatusLoading} variant="primary" size="sm">
-              🚀 Dispatched
+              🚚 Out of Delivery
+            </ActionBtn>
+            <ActionBtn onClick={() => bulkSetStatus('Arrived')} disabled={bulkStatusLoading} variant="warning" size="sm">
+              🏬 Arrive
+            </ActionBtn>
+            <ActionBtn onClick={() => bulkSetStatus('In Warehouse')} disabled={bulkStatusLoading} variant="secondary" size="sm">
+              🏭 Warehouse
             </ActionBtn>
             <ActionBtn onClick={() => bulkSetStatus('Delivered')} disabled={bulkStatusLoading} variant="success" size="sm">
               ✅ Delivered
@@ -1725,12 +1780,12 @@ const Routing = () => {
                 <th style={{ ...thStyle, width: 44 }}>
                   <input type="checkbox" onChange={handleSelectAll} checked={filtered.length > 0 && selected.length === filtered.length} />
                 </th>
-                {['Tracking', 'Vendor', 'Customer', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider'].map(h => <th key={h} style={thStyle}>{h}</th>)}
+                {['Tracking', 'Vendor', 'Customer', 'Destination', 'Weight', 'COD (Rs.)', 'Status', 'Current Rider', 'Quick Actions'].map(h => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
-              {loading ? <tr><td colSpan="9"><Spinner /></td></tr>
-                : filtered.length === 0 ? <tr><td colSpan="9"><EmptyState message="No packages found." icon="📦" /></td></tr>
+              {loading ? <tr><td colSpan="10"><Spinner /></td></tr>
+                : filtered.length === 0 ? <tr><td colSpan="10"><EmptyState message="No packages found." icon="📦" /></td></tr>
                 : filtered.map(p => (
                   <tr key={p._id} style={{ cursor: 'pointer' }} onClick={() => handleSelect(p._id)} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = selected.includes(p._id) ? '#eff6ff' : ''}>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
@@ -1744,6 +1799,61 @@ const Routing = () => {
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{p.amount?.toLocaleString()}</td>
                     <td style={tdStyle}><StatusBadge status={p.status} /></td>
                     <td style={tdStyle}>{p.riderId?.name || <span style={{ color: '#d1d5db', fontStyle: 'italic', fontSize: 12 }}>None</span>}</td>
+                    <td style={tdStyle} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => handleSingleStatus(p._id, 'Dispatched')}
+                          style={{ fontSize: 11, padding: '3px 7px', background: '#eff6ff', color: '#0284c7', border: '1px solid #bae6fd', borderRadius: 5, fontWeight: 700, cursor: 'pointer' }}
+                          title="Set status to Dispatched"
+                        >
+                          🚀 Dispatch
+                        </button>
+                        <button
+                          onClick={() => handleSingleStatus(p._id, 'Out for Delivery')}
+                          style={{ fontSize: 11, padding: '3px 7px', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 5, fontWeight: 700, cursor: 'pointer' }}
+                          title="Set status to Out of Delivery"
+                        >
+                          🚚 Out of Delivery
+                        </button>
+                        <button
+                          onClick={() => handleSingleStatus(p._id, 'Arrived')}
+                          style={{ fontSize: 11, padding: '3px 7px', background: '#fdf4ff', color: '#9333ea', border: '1px solid #f5d0fe', borderRadius: 5, fontWeight: 700, cursor: 'pointer' }}
+                          title="Set status to Arrived"
+                        >
+                          🏬 Arrive
+                        </button>
+                        <button
+                          onClick={() => handleSingleStatus(p._id, 'In Warehouse')}
+                          style={{ fontSize: 11, padding: '3px 7px', background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1', borderRadius: 5, fontWeight: 700, cursor: 'pointer' }}
+                          title="Set status to Warehouse"
+                        >
+                          🏭 Warehouse
+                        </button>
+                        <button
+                          onClick={() => handleSingleStatus(p._id, 'Delivered')}
+                          style={{ fontSize: 11, padding: '3px 7px', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: 5, fontWeight: 700, cursor: 'pointer' }}
+                          title="Set status to Delivered"
+                        >
+                          ✅ Delivered
+                        </button>
+                        <select
+                          value={p.status}
+                          onChange={e => handleSingleStatus(p._id, e.target.value)}
+                          style={{ fontSize: 11, padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: 5, background: '#fff', color: '#334155', cursor: 'pointer', outline: 'none' }}
+                        >
+                          <option value={p.status}>Status: {p.status}</option>
+                          <option value="Dispatched">🚀 Dispatched</option>
+                          <option value="Out for Delivery">🚚 Out of Delivery</option>
+                          <option value="Arrived">🏬 Arrived</option>
+                          <option value="In Warehouse">🏭 Warehouse</option>
+                          <option value="Delivered">✅ Delivered</option>
+                          <option value="Postponed">🔄 Postponed</option>
+                          <option value="Picked Up">📦 Picked Up</option>
+                          <option value="Cancelled">✕ Cancelled</option>
+                          <option value="Returned">↩️ Returned</option>
+                        </select>
+                      </div>
+                    </td>
                   </tr>
                 ))}
             </tbody>
