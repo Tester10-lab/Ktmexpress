@@ -52,12 +52,8 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
         {/* Brand */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100 flex-shrink-0 relative z-10 bg-slate-50/50">
           <div className="flex items-center gap-2.5">
-            <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 shadow-sm flex items-center">
-              {logoUrl ? (
-                <img src={logoUrl} alt="Company Logo" className="h-8 object-contain" onError={(e) => { e.target.onerror = null; e.target.src = brandLogo; }} />
-              ) : (
-                <img src={brandLogo} alt="KDM Express Logo" className="h-8 object-contain" />
-              )}
+            <div className="flex items-center py-1">
+              <img src={brandLogo} alt="KDM Express Logo" className="h-10 max-w-[160px] object-contain" />
             </div>
             {roleBadge && (
               <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md border border-slate-300/60">

@@ -30,7 +30,7 @@ export const SettingsProvider = ({ children }) => {
   }, [refreshTrigger]);
 
   return (
-    <SettingsContext.Provider value={{ logoUrl, loading, refreshSettings }}>
+    <SettingsContext.Provider value={{ logoUrl: brandLogo, loading, refreshSettings }}>
       {children}
     </SettingsContext.Provider>
   );

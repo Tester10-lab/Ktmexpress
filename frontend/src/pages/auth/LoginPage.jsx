@@ -176,8 +176,8 @@ const LoginPage = () => {
 
         {/* Header / Brand Logo */}
         <div className="text-center mb-6 relative z-10">
-          <div className="inline-flex items-center justify-center px-5 py-3 rounded-2xl bg-slate-950/90 border border-slate-700/60 shadow-[0_8px_20px_rgba(0,0,0,0.5)] mb-3 backdrop-blur-md">
-            <img src={brandLogo} alt="KDM Express Logo" className="h-14 max-w-[240px] object-contain drop-shadow-md" />
+          <div className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-white/95 border border-white/60 shadow-[0_8px_25px_rgba(0,0,0,0.35)] mb-3 backdrop-blur-md">
+            <img src={brandLogo} alt="KDM Express Logo" className="h-14 max-w-[240px] object-contain drop-shadow-sm" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white font-sans">
             Welcome Back
