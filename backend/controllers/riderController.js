@@ -210,9 +210,9 @@ export const updateDeliveryStatus = async (req, res) => {
 
     await pkg.save();
 
-    // Emit event on Event Bus
-    if (action === 'deliver' || action === 'postpone') {
-      eventBus.emit('package.rider_submitted', { pkg, reqUser: req.user, io: req.io });
+    // Emit event on Event Bus for verification / status alerts
+    if (['deliver', 'postpone', 'cancel', 'return', 'exchange'].includes(action)) {
+      eventBus.emit('package.rider_submitted', { pkg, reqUser: req.user, io: req.io, action, comment });
     }
 
     res.json({ success: true, data: pkg });

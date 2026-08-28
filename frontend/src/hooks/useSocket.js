@@ -12,21 +12,22 @@ export function useSocket() {
 
   useEffect(() => {
     let socketInstance;
-    if (user?.role && token) {
+    const authToken = getAccessToken(activeRole) || token;
+    if (user?.role && authToken) {
       import('socket.io-client').then(({ io }) => {
         const rawUrl = import.meta.env.VITE_API_URL || '/api';
         const socketUrl = rawUrl.replace(/\/api\/?$/, '');
 
         socketInstance = io(socketUrl, {
           withCredentials: true,
-          transports: ['websocket'],
-          auth: (cb) => {
-            cb({ token: getAccessToken(activeRole) });
+          transports: ['websocket', 'polling'],
+          auth: {
+            token: authToken
           }
         });
         
         socketInstance.emit('join_role', user.role);
-        if (user._id) socketInstance.emit('join_user', user._id);
+        if (user._id || user.id) socketInstance.emit('join_user', user._id || user.id);
         
         socketInstance.on('notification', (data) => {
           showToast(data.message || data.title || 'New Notification', 'info');

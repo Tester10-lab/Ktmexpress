@@ -3113,6 +3113,20 @@ const DispatcherDashboard = () => {
           });
         });
 
+        // 3. Pending Verifications
+        const pendingVerifications = pkgs.filter(p => p.deliveryVerificationStatus === 'Pending');
+        pendingVerifications.forEach(p => {
+          notifs.push({
+            id: `verify_${p._id}`,
+            title: 'Verification Pending',
+            message: `Package ${p.trackingCode} (${p.riderSubmission?.status || p.status}) requires verification.`,
+            time: p.riderSubmission?.submittedAt ? new Date(p.riderSubmission.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon: '⏳',
+            path: '/dispatcher'
+          });
+        });
+
         setNotifications(notifs.slice(0, 15));
       } catch (e) {
         console.error('Failed to fetch notifications:', e.message || e);

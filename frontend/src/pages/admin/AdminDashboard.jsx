@@ -84,6 +84,21 @@ const AdminDashboard = () => {
           });
         });
 
+        // Fetch Packages Pending Verification
+        const pkgRes = await api.get('/admin/packages?limit=50&deliveryVerificationStatus=Pending');
+        const pendingVerifications = pkgRes.data.data || [];
+        pendingVerifications.forEach(p => {
+          notifs.push({
+            id: `verify_${p._id}`,
+            title: 'Verification Pending',
+            message: `Package ${p.trackingCode} (${p.riderSubmission?.status || p.status}) requires verification.`,
+            time: p.riderSubmission?.submittedAt ? new Date(p.riderSubmission.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon: '⏳',
+            path: '/admin/packages'
+          });
+        });
+
         setNotifications(notifs);
       } catch (err) {
         console.error('Failed to fetch admin notifications', err);

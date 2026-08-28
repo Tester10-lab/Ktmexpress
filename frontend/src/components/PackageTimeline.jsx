@@ -19,9 +19,19 @@ const PackageTimeline = ({ pkg, onCommentAdded }) => {
 
   if (!localPkg) return null;
 
-  // Extract comments (from pkg.comments array OR timeline items with status === 'Comment')
+  // Extract comments: prioritize dedicated pkg.comments; fallback to timeline items if comments array is empty
+  const arrayComments = Array.isArray(localPkg.comments)
+    ? localPkg.comments.map(c => ({
+        text: typeof c === 'string' ? c : (c?.text || ''),
+        user: typeof c === 'string' ? 'User' : (c?.user || 'User'),
+        role: typeof c === 'string' ? '' : (c?.role || ''),
+        createdAt: typeof c === 'string' ? localPkg.updatedAt : (c?.createdAt || c?.time)
+      })).filter(c => c.text && c.text.trim())
+    : typeof localPkg.comments === 'string' && localPkg.comments.trim()
+      ? [{ text: localPkg.comments.trim(), user: 'User', role: '', createdAt: localPkg.updatedAt }]
+      : [];
+
   const timelineItems = localPkg.timeline || [];
-  
   const commentsFromTimeline = timelineItems
     .filter(t => t.status === 'Comment' || t.type === 'Comment')
     .map(t => ({
@@ -29,29 +39,26 @@ const PackageTimeline = ({ pkg, onCommentAdded }) => {
       user: t.user || 'User',
       role: t.role || '',
       createdAt: t.time
-    }));
+    })).filter(c => c.text && c.text.trim());
 
-  const arrayComments = Array.isArray(localPkg.comments)
-    ? localPkg.comments.map(c => ({
-        text: typeof c === 'string' ? c : (c?.text || ''),
-        user: typeof c === 'string' ? 'User' : (c?.user || 'User'),
-        role: typeof c === 'string' ? '' : (c?.role || ''),
-        createdAt: typeof c === 'string' ? localPkg.updatedAt : (c?.createdAt || c?.time)
-      }))
-    : typeof localPkg.comments === 'string' && localPkg.comments.trim()
-      ? [{ text: localPkg.comments.trim(), user: 'User', role: '', createdAt: localPkg.updatedAt }]
-      : [];
+  // If dedicated comments array exists and has entries, use it; otherwise fallback to timeline comment events
+  const rawList = arrayComments.length > 0 ? arrayComments : commentsFromTimeline;
 
-  // Merge and deduplicate comments by text + createdAt
-  const mergedCommentsMap = new Map();
-  [...arrayComments, ...commentsFromTimeline].forEach(c => {
-    const key = `${c.user}-${c.text}-${new Date(c.createdAt).getTime()}`;
-    if (!mergedCommentsMap.has(key)) {
-      mergedCommentsMap.set(key, c);
+  // Deduplicate by text, user, and near-identical timestamp
+  const deduplicatedList = [];
+  rawList.forEach(c => {
+    const isDuplicate = deduplicatedList.some(existing => {
+      const sameText = existing.text?.trim().toLowerCase() === c.text?.trim().toLowerCase();
+      const sameUser = (existing.user || '').trim().toLowerCase() === (c.user || '').trim().toLowerCase();
+      const timeDiff = Math.abs(new Date(existing.createdAt).getTime() - new Date(c.createdAt).getTime());
+      return sameText && sameUser && (isNaN(timeDiff) || timeDiff < 120000);
+    });
+    if (!isDuplicate) {
+      deduplicatedList.push(c);
     }
   });
 
-  const commentsList = Array.from(mergedCommentsMap.values()).sort(
+  const commentsList = deduplicatedList.sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );
 

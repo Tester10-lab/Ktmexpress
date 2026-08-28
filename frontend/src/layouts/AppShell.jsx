@@ -4,6 +4,7 @@ import { Bell, LogOut, Menu, X, KeyRound } from 'lucide-react';
 import brandLogo from '../assets/logo.png';
 import { useAuth } from '../store/AuthContext';
 import useNotificationSound from '../hooks/useNotificationSound';
+import { useSocket } from '../hooks/useSocket';
 import { useZoom } from '../hooks/useZoom';
 import ZoomBar from '../components/ZoomBar';
 import { useToast } from '../store/ToastContext';
@@ -23,7 +24,7 @@ const AppShell = ({ navLinks, currentTitle, children, roleBadge, notifications =
   const { showToast } = useToast();
   const { logoUrl } = useSettings();
 
-  const { playNotification, playAlert } = useNotificationSound();
+  useSocket();
   useZoom();
 
   const openSidebar = useCallback(() => setMobileOpen(true), []);
