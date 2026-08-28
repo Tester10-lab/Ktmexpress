@@ -39,7 +39,7 @@ DEPLOY_DIR="/var/www/ktmexpress"
 if [ ! -d "$DEPLOY_DIR" ]; then
     echo "📥 Cloning repository into $DEPLOY_DIR..."
     mkdir -p /var/www
-    git clone https://github.com/Tester10-lab/Ktmexpress.git "$DEPLOY_DIR"
+    git clone https://github.com/ishan-sh893/kdmexpress.git "$DEPLOY_DIR"
     cd "$DEPLOY_DIR"
 else
     echo "🔄 Pulling latest changes in $DEPLOY_DIR..."
