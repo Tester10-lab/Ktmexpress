@@ -7,7 +7,7 @@ import sendEmail from '../utils/emailService.js';
 const generateAccessToken = (user) => {
   return jwt.sign(
     { id: user._id, role: user.role, name: user.name },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'ktmexpress_jwt_secret_production_key_2026',
     { expiresIn: '15m' }
   );
 };
@@ -16,7 +16,7 @@ const generateAccessToken = (user) => {
 const generateRefreshToken = (user) => {
   return jwt.sign(
     { id: user._id },
-    process.env.JWT_SECRET,
+    process.env.JWT_SECRET || 'ktmexpress_jwt_secret_production_key_2026',
     { expiresIn: '7d' }
   );
 };

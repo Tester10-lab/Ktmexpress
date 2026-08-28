@@ -39,7 +39,7 @@ const auth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'ktmexpress_jwt_secret_production_key_2026');
 
     // Check cache first, then DB
     let user = getCachedUser(decoded.id);
