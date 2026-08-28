@@ -1,15 +1,14 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import api from '../../api/axios';
 import { 
-  LayoutDashboard, Wallet, Receipt, Users, Settings2, BarChart3, Package
+  LayoutDashboard, Wallet, Users, Settings2, BarChart3, Package
 } from 'lucide-react';
 
 const AnalyticsDashboard = lazy(() => import('./sections/AnalyticsDashboard'));
 const PackageManagement = lazy(() => import('./sections/PackageManagement'));
 const SettlementPanel = lazy(() => import('./sections/SettlementPanel'));
-const ExpenseLog = lazy(() => import('./sections/ExpenseLog'));
 const UserManagement = lazy(() => import('./sections/UserManagement'));
 const PricingEngine = lazy(() => import('./PricingEngine'));
 const CodReconciliation = lazy(() => import('./sections/CodReconciliation'));
@@ -26,7 +25,6 @@ const navLinks = [
   { name: 'Dashboard', path: '/admin', exact: true, icon: <LayoutDashboard className="w-5 h-5" /> },
   { name: 'All Packages', path: '/admin/packages', icon: <Package className="w-5 h-5" /> },
   { name: 'Settlements', path: '/admin/settlements', icon: <Wallet className="w-5 h-5" /> },
-  { name: 'Rider Expenses', path: '/admin/expenses', icon: <Receipt className="w-5 h-5" /> },
   { name: 'Manage Users', path: '/admin/users', icon: <Users className="w-5 h-5" /> },
   { name: 'Pricing Engine', path: '/admin/pricing-engine', icon: <Settings2 className="w-5 h-5" /> },
   { name: 'COD Handovers', path: '/admin/handovers', icon: <Wallet className="w-5 h-5" /> },
@@ -37,7 +35,6 @@ const titleMap = {
   '/admin': 'Global Dashboard',
   '/admin/packages': 'All Packages Management',
   '/admin/settlements': 'Vendor Settlements',
-  '/admin/expenses': 'Rider Expenses',
   '/admin/users': 'User Management',
   '/admin/pricing-engine': 'Pricing Engine',
   '/admin/handovers': 'COD Handovers Verification',
@@ -66,21 +63,6 @@ const AdminDashboard = () => {
             read: false,
             icon: '💰',
             path: '/admin/settlements'
-          });
-        });
-
-        // Fetch Pending Expenses
-        const expRes = await api.get('/admin/expenses?limit=50');
-        const pendingExpenses = (expRes.data.data || []).filter(e => e.status === 'Pending');
-        pendingExpenses.forEach(e => {
-          notifs.push({
-            id: `exp_${e._id}`,
-            title: 'Rider Expense',
-            message: `${e.riderId?.name || 'A rider'} logged Rs. ${e.amount} for ${e.category}`,
-            time: new Date(e.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            read: false,
-            icon: '🏍️',
-            path: '/admin/expenses'
           });
         });
 
@@ -144,7 +126,7 @@ const AdminDashboard = () => {
           <Route path="/" element={<AnalyticsDashboard />} />
           <Route path="/packages" element={<PackageManagement />} />
           <Route path="/settlements" element={<SettlementPanel />} />
-          <Route path="/expenses" element={<ExpenseLog />} />
+          <Route path="/expenses" element={<Navigate to="/admin" replace />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/pricing-engine" element={<PricingEngine />} />
           <Route path="/pricing" element={<PricingEngine />} />

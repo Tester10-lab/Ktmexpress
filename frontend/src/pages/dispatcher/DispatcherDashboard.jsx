@@ -17,8 +17,11 @@ const SectionLoader = () => (
     <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
   </div>
 );
+
+const ExpenseLog = React.lazy(() => import('../admin/sections/ExpenseLog'));
+
 import {
-  LayoutDashboard, Package, Truck, RotateCcw, Bike, Wallet,
+  LayoutDashboard, Package, Truck, RotateCcw, Bike, Wallet, Receipt,
   Search, CheckCircle2, XCircle, Clock, AlertCircle, Eye,
   ChevronDown, ChevronUp, QrCode, RefreshCw, Filter, Check, X,
   Store, ArrowDownLeft, ArrowUpRight, Plus, FileSpreadsheet, Download, AlertTriangle
@@ -31,6 +34,7 @@ const navLinks = [
   { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <RotateCcw className="w-[18px] h-[18px]" /> },
   { name: 'Active Riders', path: '/dispatcher/riders', icon: <Bike className="w-[18px] h-[18px]" /> },
   { name: 'COD Handovers', path: '/dispatcher/handovers', icon: <Wallet className="w-[18px] h-[18px]" /> },
+  { name: 'Rider Expenses', path: '/dispatcher/expenses', icon: <Receipt className="w-[18px] h-[18px]" /> },
 ];
 
 const titleMap = {
@@ -38,6 +42,7 @@ const titleMap = {
   '/dispatcher/reverse-logistics': 'Reverse Logistics (RTV)',
   '/dispatcher/riders':          'Active Riders Overview',
   '/dispatcher/handovers':       'COD Reconciliation & Handover',
+  '/dispatcher/expenses':        'Rider Expenses Log',
   '/dispatcher/scan-station':    'Warehouse Scan Station',
   '/dispatcher/inbound-scan':    'Inbound & Sorting Station',
   '/dispatcher':                 'Warehouse Management Overview',
@@ -3131,6 +3136,25 @@ const DispatcherDashboard = () => {
           });
         });
 
+        // 4. Pending Rider Expenses
+        try {
+          const expRes = await api.get('/dispatcher/expenses?limit=50&status=Pending');
+          const pendingExpenses = expRes.data.data || [];
+          pendingExpenses.forEach(e => {
+            notifs.push({
+              id: `exp_${e._id}`,
+              title: 'Rider Expense',
+              message: `${e.riderId?.name || 'A rider'} logged Rs. ${e.amount} for ${e.category}`,
+              time: new Date(e.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              read: false,
+              icon: '🏍️',
+              path: '/dispatcher/expenses'
+            });
+          });
+        } catch (err) {
+          // ignore notification errors
+        }
+
         setNotifications(notifs.slice(0, 15));
       } catch (e) {
         console.error('Failed to fetch notifications:', e.message || e);
@@ -3179,6 +3203,7 @@ const DispatcherDashboard = () => {
           <Route path="/reverse-logistics" element={<ReverseLogistics />} />
           <Route path="/riders" element={<ActiveRiders />} />
           <Route path="/handovers" element={<CodHandovers />} />
+          <Route path="/expenses" element={<ExpenseLog />} />
         </Routes>
       </Suspense>
     </AppShell>

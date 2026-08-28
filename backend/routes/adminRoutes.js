@@ -138,9 +138,9 @@ router.delete('/packages/:id', roleGuard('admin', 'dispatcher'), deletePackageAd
 // COD reconciliation (Admin only)
 router.post('/reconcile/:riderId', roleGuard('admin'), reconcileRiderCOD);
 
-// Expenses & Settlements (Admin only)
-router.get('/expenses', roleGuard('admin'), getAllExpenses);
-router.put('/expenses/:id/status', roleGuard('admin'), updateExpenseStatus);
+// Expenses & Settlements
+router.get('/expenses', roleGuard('admin', 'dispatcher'), getAllExpenses);
+router.put('/expenses/:id/status', roleGuard('admin', 'dispatcher'), updateExpenseStatus);
 router.get('/settlements', roleGuard('admin'), getSettlements);
 router.get('/settlements/vendor-balances', roleGuard('admin'), getVendorBalances);
 router.post('/settlements/direct-payout', roleGuard('admin'), authorize('canVerifyPackages'), directVendorPayout);

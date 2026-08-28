@@ -149,9 +149,7 @@ const AnalyticsDashboard = () => {
           <MetricCard title="Deliveries Today" value={data.todayDeliveries ?? 0} color="success" icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />} />
           <MetricCard title="COD Today" value={`Rs. ${fmt(data.todayCOD ?? 0)}`} color="info" icon={<DollarSign className="w-5 h-5 text-sky-600" />} />
           <MetricCard title="Orders This Month" value={data.monthPackages ?? 0} color="purple" icon={<TrendingUp className="w-5 h-5 text-purple-600" />} />
-          <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/expenses')}>
-            <MetricCard title="Pending Expenses" value={data.todayExpenses ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
-          </div>
+          <MetricCard title="Pending Expenses" value={data.todayExpenses ?? 0} color="warning" icon={<AlertTriangle className="w-5 h-5 text-amber-600" />} />
           <div className="cursor-pointer transition-transform hover:-translate-y-1" onClick={() => navigate('/admin/settlements')}>
             <MetricCard title="COD Pending" value={`Rs. ${fmt(data.codPending ?? 0)}`} color="danger" icon={<Clock className="w-5 h-5 text-red-600" />} />
           </div>

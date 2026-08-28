@@ -46,10 +46,19 @@ const AdminExpenses = () => {
     if (filterStatus) q.append('status', filterStatus);
     if (filterCategory) q.append('category', filterCategory);
 
-    api.get(`/admin/expenses?${q.toString()}`)
+    api.get(`/dispatcher/expenses?${q.toString()}`)
       .then(r => {
         setExpenses(r.data.data || []);
         setPagination(r.data.pagination);
+      })
+      .catch(() => {
+        // Fallback in case called under admin scope
+        api.get(`/admin/expenses?${q.toString()}`)
+          .then(r => {
+            setExpenses(r.data.data || []);
+            setPagination(r.data.pagination);
+          })
+          .catch(() => {});
       })
       .finally(() => { if (!silent) setLoading(false); });
   };
@@ -58,11 +67,17 @@ const AdminExpenses = () => {
 
   const handleStatusUpdate = async (id, newStatus) => {
     try {
-      await api.put(`/admin/expenses/${id}/status`, { status: newStatus });
+      await api.put(`/dispatcher/expenses/${id}/status`, { status: newStatus });
       showToast(`Expense marked as ${newStatus}`, 'success');
       fetchExpenses(true);
     } catch (err) {
-      showToast('Failed to update expense status', 'error');
+      try {
+        await api.put(`/admin/expenses/${id}/status`, { status: newStatus });
+        showToast(`Expense marked as ${newStatus}`, 'success');
+        fetchExpenses(true);
+      } catch (e) {
+        showToast('Failed to update expense status', 'error');
+      }
     }
   };
 
