@@ -342,7 +342,7 @@ export const bulkPickup = async (req, res) => {
 export const submitCodHandover = async (req, res) => {
   try {
     const riderId = new mongoose.Types.ObjectId(req.user._id);
-    const { packageIds } = req.body;
+    const { packageIds, cashAmount, onlineAmount, onlineReference, remarks } = req.body;
 
     if (!packageIds || !packageIds.length) {
       return res.status(400).json({ success: false, message: 'No packages selected for handover.' });
@@ -382,13 +382,29 @@ export const submitCodHandover = async (req, res) => {
 
     const netHandoverAmount = Math.max(0, grossCOD - expenseDeduction);
 
+    let parsedCash = Number(cashAmount);
+    let parsedOnline = Number(onlineAmount);
+
+    // Default to all cash if neither is specified
+    if (isNaN(parsedCash) && isNaN(parsedOnline)) {
+      parsedCash = netHandoverAmount;
+      parsedOnline = 0;
+    } else {
+      parsedCash = isNaN(parsedCash) ? 0 : Math.max(0, parsedCash);
+      parsedOnline = isNaN(parsedOnline) ? 0 : Math.max(0, parsedOnline);
+    }
+
     const handover = await CodHandover.create({
       riderId,
       amount: netHandoverAmount,
       grossCOD,
       expenseDeduction,
+      cashAmount: parsedCash,
+      onlineAmount: parsedOnline,
+      onlineReference: onlineReference || '',
       packageIds,
       status: 'Pending Verification',
+      remarks: remarks || '',
     });
 
     res.status(201).json({ success: true, data: handover, message: 'Handover request submitted successfully.' });

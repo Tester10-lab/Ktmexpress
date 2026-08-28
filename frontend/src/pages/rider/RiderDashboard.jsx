@@ -9,7 +9,8 @@ import SearchPanel from '../../components/SearchPanel';
 import { 
   Package, Truck, Wallet, History, MapPin, Navigation, 
   CheckCircle2, XCircle, Clock, Search, AlertCircle, X,
-  Calendar, FileText, ChevronRight, Phone, Target, ArrowLeftRight
+  Calendar, FileText, ChevronRight, Phone, Target, ArrowLeftRight,
+  Coins, QrCode, CreditCard, Banknote, Check
 } from 'lucide-react';
 
 const navLinks = [
@@ -564,6 +565,13 @@ const CODWallet = () => {
   const [unreconciledPkgs, setUnreconciledPkgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [handoverModal, setHandoverModal] = useState({
+    open: false,
+    cashAmount: '',
+    onlineAmount: '',
+    onlineReference: '',
+    remarks: '',
+  });
   const { showToast } = useToast();
 
   const fetchWallet = async () => {
@@ -587,17 +595,47 @@ const CODWallet = () => {
     fetchWallet();
   }, []);
 
-  const handleHandover = async () => {
+  const openHandoverModal = () => {
+    const total = stats.totalCOD || 0;
+    setHandoverModal({
+      open: true,
+      cashAmount: total > 0 ? String(total) : '0',
+      onlineAmount: '0',
+      onlineReference: '',
+      remarks: '',
+    });
+  };
+
+  const handleHandoverSubmit = async (e) => {
+    if (e) e.preventDefault();
     if (!unreconciledPkgs.length) return;
+
+    const cash = Number(handoverModal.cashAmount) || 0;
+    const online = Number(handoverModal.onlineAmount) || 0;
+    const totalCOD = stats.totalCOD || 0;
+
+    if (cash < 0 || online < 0) {
+      return showToast('Handover amounts cannot be negative', 'error');
+    }
+
+    if (cash + online <= 0 && totalCOD > 0) {
+      return showToast('Please enter a valid cash or online amount.', 'warning');
+    }
+
     setSubmitting(true);
     try {
       await api.post('/rider/cod-handover', {
-        packageIds: unreconciledPkgs.map(p => p._id)
+        packageIds: unreconciledPkgs.map(p => p._id),
+        cashAmount: cash,
+        onlineAmount: online,
+        onlineReference: handoverModal.onlineReference,
+        remarks: handoverModal.remarks,
       });
-      showToast('COD Handover request submitted!', 'success');
+      showToast('COD Handover submitted successfully!', 'success');
+      setHandoverModal({ open: false, cashAmount: '', onlineAmount: '', onlineReference: '', remarks: '' });
       fetchWallet();
     } catch (err) {
-      showToast(err.message || 'Failed to submit handover', 'error');
+      showToast(err.response?.data?.message || err.message || 'Failed to submit handover', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -608,6 +646,11 @@ const CODWallet = () => {
   const target = stats.monthlyTarget || 0;
   const current = stats.deliveredThisMonth || 0;
   const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+  const enteredCash = Number(handoverModal.cashAmount) || 0;
+  const enteredOnline = Number(handoverModal.onlineAmount) || 0;
+  const enteredSum = enteredCash + enteredOnline;
+  const targetTotal = stats.totalCOD || 0;
+  const diff = enteredSum - targetTotal;
   
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -615,7 +658,7 @@ const CODWallet = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Performance & Wallet</h2>
-          <p className="text-sm text-slate-500 mt-1">Track your earnings and targets</p>
+          <p className="text-sm text-slate-500 mt-1">Track your earnings, collections and handover deposits</p>
         </div>
       </div>
 
@@ -629,7 +672,7 @@ const CODWallet = () => {
           
           <div className="relative z-10 flex justify-between items-start">
             <div>
-              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">Net Cash to Handover</p>
+              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">Net COD to Handover</p>
               <h3 className="text-4xl sm:text-5xl font-black tracking-tight mt-2">Rs. {(stats.totalCOD || 0).toLocaleString()}</h3>
               {stats.totalExpenses > 0 && (
                 <div className="mt-2 inline-flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg text-xs text-brand-100 font-medium border border-white/10">
@@ -647,15 +690,16 @@ const CODWallet = () => {
           <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-xs text-brand-50 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0"/> 
-              Net COD to hand over = Delivered Cash collected minus approved daily expenses.
+              Net COD = Delivered Cash/Online collected minus approved daily expenses.
             </p>
             {unreconciledPkgs.length > 0 && (
               <button 
-                onClick={handleHandover}
+                onClick={openHandoverModal}
                 disabled={submitting}
-                className="whitespace-nowrap px-4 py-2 bg-white text-brand-700 hover:bg-brand-50 rounded-xl text-sm font-bold shadow-md transition-colors disabled:opacity-50"
+                className="whitespace-nowrap px-5 py-2.5 bg-white text-brand-700 hover:bg-brand-50 rounded-xl text-sm font-bold shadow-md transition-all active:scale-[0.98] disabled:opacity-50 flex items-center gap-2"
               >
-                {submitting ? 'Submitting...' : `Handover Rs. ${(stats.totalCOD || 0).toLocaleString()}`}
+                <Banknote className="w-4 h-4" />
+                Handover COD (Rs. {(stats.totalCOD || 0).toLocaleString()})
               </button>
             )}
           </div>
@@ -704,6 +748,182 @@ const CODWallet = () => {
         <MetricCard title="Postponed" value={stats.postponed??0} color="warning" icon={<Clock className="w-6 h-6 text-amber-600" />} />
         <MetricCard title="Cancelled" value={stats.cancelled??0} color="danger" icon={<XCircle className="w-6 h-6 text-red-600" />} />
       </div>
+
+      {/* ─── COD Handover Breakdown Modal ────────────────────────────────────── */}
+      {handoverModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setHandoverModal(prev => ({ ...prev, open: false }))}
+              className="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                <Coins className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">COD Handover Deposit</h3>
+                <p className="text-xs text-slate-500">Specify physical cash vs online collections</p>
+              </div>
+            </div>
+
+            {/* Handover Summary Banner */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-5 space-y-2 text-sm">
+              <div className="flex justify-between items-center text-slate-600">
+                <span>Gross COD ({unreconciledPkgs.length} packages):</span>
+                <span className="font-semibold text-slate-900">Rs. {(stats.grossCOD || 0).toLocaleString()}</span>
+              </div>
+              {stats.totalExpenses > 0 && (
+                <div className="flex justify-between items-center text-amber-700">
+                  <span>Deducted Expenses:</span>
+                  <span className="font-semibold">- Rs. {(stats.totalExpenses || 0).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-bold text-slate-900 text-base">
+                <span>Net Total Expected:</span>
+                <span className="text-brand-700">Rs. {targetTotal.toLocaleString()}</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleHandoverSubmit} className="space-y-4">
+              {/* Preset Quick Buttons */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Quick Split:</span>
+                <button
+                  type="button"
+                  onClick={() => setHandoverModal(prev => ({ ...prev, cashAmount: String(targetTotal), onlineAmount: '0' }))}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors"
+                >
+                  💵 100% Cash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHandoverModal(prev => ({ ...prev, cashAmount: '0', onlineAmount: String(targetTotal) }))}
+                  className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors"
+                >
+                  📱 100% Online
+                </button>
+              </div>
+
+              {/* Cash Amount Input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <Banknote className="w-4 h-4 text-emerald-600" />
+                  Physical Cash Amount (Rs.)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={handoverModal.cashAmount}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setHandoverModal(prev => {
+                        const num = Number(val) || 0;
+                        const autoOnline = Math.max(0, targetTotal - num);
+                        return { ...prev, cashAmount: val, onlineAmount: String(autoOnline) };
+                      });
+                    }}
+                    placeholder="0"
+                    className="input-field pl-11 font-bold text-slate-900"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Online Amount Input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1.5">
+                  <QrCode className="w-4 h-4 text-sky-600" />
+                  Online / Digital Payment Amount (Rs.)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={handoverModal.onlineAmount}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setHandoverModal(prev => {
+                        const num = Number(val) || 0;
+                        const autoCash = Math.max(0, targetTotal - num);
+                        return { ...prev, onlineAmount: val, cashAmount: String(autoCash) };
+                      });
+                    }}
+                    placeholder="0"
+                    className="input-field pl-11 font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Online Transaction Reference */}
+              {enteredOnline > 0 && (
+                <div className="animate-fadeIn">
+                  <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    Online Transaction Ref / Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={handoverModal.onlineReference}
+                    onChange={e => setHandoverModal(prev => ({ ...prev, onlineReference: e.target.value }))}
+                    placeholder="e.g. Fonepay ID, eSewa ref, Bank Txn #..."
+                    className="input-field text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Remarks */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  rows="2"
+                  value={handoverModal.remarks}
+                  onChange={e => setHandoverModal(prev => ({ ...prev, remarks: e.target.value }))}
+                  placeholder="Any notes for the dispatcher..."
+                  className="input-field text-xs resize-none"
+                />
+              </div>
+
+              {/* Breakdown Balance Status */}
+              <div className={`p-3 rounded-xl border text-xs font-medium flex items-center justify-between ${
+                diff === 0 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}>
+                <span>Total Handover (Cash + Online):</span>
+                <span className="font-bold">Rs. {enteredSum.toLocaleString()} {diff !== 0 && `(Diff: Rs. ${diff > 0 ? `+${diff}` : diff})`}</span>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setHandoverModal(prev => ({ ...prev, open: false }))}
+                  className="btn-secondary flex-1 py-2.5 text-sm"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="btn-primary flex-1 py-2.5 text-sm flex items-center justify-center gap-2"
+                >
+                  {submitting ? 'Submitting...' : 'Submit Handover'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

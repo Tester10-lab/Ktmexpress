@@ -330,8 +330,20 @@ const AdminCodHandovers = () => {
                           <span className="text-slate-400 text-xs font-mono">Rs. 0</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right font-black text-emerald-700 text-base">
-                        Rs. {net.toLocaleString()}
+                      <td className="px-6 py-4 text-right">
+                        <span className="font-black text-emerald-700 text-base block">
+                          Rs. {net.toLocaleString()}
+                        </span>
+                        <div className="flex flex-col gap-1 mt-1 items-end">
+                          <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                            💵 Cash: Rs. {(h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, net - h.onlineAmount) : net)).toLocaleString()}
+                          </span>
+                          {h.onlineAmount > 0 && (
+                            <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60" title={h.onlineReference ? `Ref: ${h.onlineReference}` : 'Online'}>
+                              📱 Online: Rs. {h.onlineAmount.toLocaleString()} {h.onlineReference ? `(${h.onlineReference})` : ''}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold">

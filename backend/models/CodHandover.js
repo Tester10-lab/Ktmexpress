@@ -12,6 +12,20 @@ const codHandoverSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    cashAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    onlineAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    onlineReference: {
+      type: String,
+      default: '',
+    },
     grossCOD: {
       type: Number,
       default: 0,

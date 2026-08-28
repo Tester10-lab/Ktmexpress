@@ -2862,19 +2862,25 @@ const CodHandovers = () => {
     let gross = 0;
     let expenses = 0;
     let net = 0;
+    let cash = 0;
+    let online = 0;
     let pending = 0;
 
     handovers.forEach(h => {
       const hGross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
       const hExp = h.expenseDeduction || 0;
       const hNet = h.amount || 0;
+      const hCash = h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, hNet - h.onlineAmount) : hNet);
+      const hOnline = h.onlineAmount || 0;
       gross += hGross;
       expenses += hExp;
       net += hNet;
+      cash += hCash;
+      online += hOnline;
       if (h.status === 'Pending Verification') pending += hNet;
     });
 
-    return { gross, expenses, net, pending };
+    return { gross, expenses, net, cash, online, pending };
   }, [handovers]);
 
   const filteredHandovers = useMemo(() => {
@@ -2883,7 +2889,8 @@ const CodHandovers = () => {
         const s = search.toLowerCase().trim();
         const riderName = (h.riderId?.name || '').toLowerCase();
         const riderPhone = (h.riderId?.contact || h.riderId?.phone || '').toLowerCase();
-        if (!riderName.includes(s) && !riderPhone.includes(s)) return false;
+        const ref = (h.onlineReference || '').toLowerCase();
+        if (!riderName.includes(s) && !riderPhone.includes(s) && !ref.includes(s)) return false;
       }
       if (statusFilter !== 'all' && h.status !== statusFilter) return false;
       return true;
@@ -2911,7 +2918,7 @@ const CodHandovers = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>COD Reconciliation & Rider Expenses</h2>
-          <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>Track gross collections, rider expense deductions and verify net cash deposits.</p>
+          <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>Track gross collections, cash & online payment split, and verify net deposits.</p>
         </div>
         <ActionBtn onClick={() => fetchHandovers()} variant="ghost">↻ Refresh</ActionBtn>
       </div>
@@ -2929,6 +2936,9 @@ const CodHandovers = () => {
         <div style={{ background: '#f0fdf4', borderRadius: 12, border: '1px solid #bbf7d0', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#15803d', textTransform: 'uppercase', marginBottom: 4 }}>Total Net Deposited</div>
           <div style={{ fontSize: 22, fontWeight: 800, color: '#166534' }}>Rs. {stats.net.toLocaleString()}</div>
+          <div style={{ fontSize: 11, color: '#15803d', marginTop: 4, fontWeight: 600 }}>
+            💵 Cash: Rs. {stats.cash.toLocaleString()} | 📱 Online: Rs. {stats.online.toLocaleString()}
+          </div>
         </div>
         <div style={{ background: '#faf5ff', borderRadius: 12, border: '1px solid #e9d5ff', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#7e22ce', textTransform: 'uppercase', marginBottom: 4 }}>Pending Verification</div>
@@ -2950,7 +2960,7 @@ const CodHandovers = () => {
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search rider name, contact..."
+              placeholder="Search rider, phone, ref..."
               style={{ padding: '7px 12px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, width: 200, outline: 'none' }}
             />
             <select
@@ -2974,7 +2984,7 @@ const CodHandovers = () => {
                 <th style={thStyle}>Rider</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Gross COD</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Rider Expenses</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Net Cash Handover</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Net Handover (Cash / Online)</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Packages</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Status</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Action</th>
@@ -2988,6 +2998,8 @@ const CodHandovers = () => {
                   const gross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
                   const expense = h.expenseDeduction || 0;
                   const net = h.amount || 0;
+                  const cash = h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, net - h.onlineAmount) : net);
+                  const online = h.onlineAmount || 0;
 
                   return (
                     <tr key={h._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = ''}>
@@ -3012,9 +3024,19 @@ const CodHandovers = () => {
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        <span style={{ fontWeight: 800, color: '#15803d', fontSize: 15 }}>
+                        <span style={{ fontWeight: 800, color: '#15803d', fontSize: 15, display: 'block' }}>
                           Rs. {net.toLocaleString()}
                         </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4, alignItems: 'flex-end' }}>
+                          <span style={{ fontSize: 11, color: '#047857', background: '#ecfdf5', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
+                            💵 Cash: Rs. {cash.toLocaleString()}
+                          </span>
+                          {online > 0 && (
+                            <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }} title={h.onlineReference ? `Ref: ${h.onlineReference}` : 'Online payment'}>
+                              📱 Online: Rs. {online.toLocaleString()} {h.onlineReference ? `(${h.onlineReference})` : ''}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700, color: '#475569' }}>
