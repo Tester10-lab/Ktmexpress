@@ -522,6 +522,19 @@ export const verifyCodHandover = async (req, res) => {
       );
     }
 
+    if (req.io && handover.riderId) {
+      req.io.to(`user_${handover.riderId}`).emit('notification', {
+        id: `handover_${handover._id}_${Date.now()}`,
+        title: status === 'Verified' ? 'COD Handover Verified' : 'COD Handover Rejected',
+        message: status === 'Verified' 
+          ? `Your COD handover of Rs. ${(handover.amount || 0).toLocaleString()} has been verified by ${req.user.name || 'Dispatcher'}.`
+          : `Your COD handover of Rs. ${(handover.amount || 0).toLocaleString()} was rejected.${remarks ? ` Note: ${remarks}` : ''}`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        path: '/rider/wallet',
+        type: status === 'Verified' ? 'success' : 'alert'
+      });
+    }
+
     res.json({ success: true, data: handover, message: `Handover ${status.toLowerCase()} successfully.` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

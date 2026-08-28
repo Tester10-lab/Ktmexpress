@@ -563,6 +563,7 @@ const MyDeliveries = () => {
 const CODWallet = () => {
   const [stats, setStats] = useState({});
   const [unreconciledPkgs, setUnreconciledPkgs] = useState([]);
+  const [handovers, setHandovers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [handoverModal, setHandoverModal] = useState({
@@ -576,13 +577,15 @@ const CODWallet = () => {
 
   const fetchWallet = async () => {
     try {
-      const [sumRes, delRes] = await Promise.all([
+      const [sumRes, delRes, handRes] = await Promise.all([
         api.get('/rider/summary'),
-        api.get('/rider/deliveries?type=delivery')
+        api.get('/rider/deliveries?type=delivery'),
+        api.get('/rider/cod-handovers').catch(() => ({ data: { data: [] } }))
       ]);
       setStats(sumRes.data.data || {});
       const pkgs = delRes.data.data || [];
       setUnreconciledPkgs(pkgs.filter(p => p.status === 'Delivered' && !p.cashReconciled));
+      setHandovers(handRes.data.data || []);
     } catch (e) {
       console.error(e);
       showToast('Failed to load wallet data', 'error');
@@ -624,14 +627,30 @@ const CODWallet = () => {
 
     setSubmitting(true);
     try {
-      await api.post('/rider/cod-handover', {
+      const res = await api.post('/rider/cod-handover', {
         packageIds: unreconciledPkgs.map(p => p._id),
         cashAmount: cash,
         onlineAmount: online,
         onlineReference: handoverModal.onlineReference,
         remarks: handoverModal.remarks,
       });
+      
       showToast('COD Handover submitted successfully!', 'success');
+
+      // Dispatch local notification event immediately
+      window.dispatchEvent(new CustomEvent('app_notification', {
+        detail: {
+          id: `handover_${res.data.data?._id || Date.now()}`,
+          title: 'COD Handover Submitted',
+          message: `Handover of Rs. ${(cash + online).toLocaleString()} submitted and pending verification.`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          read: false,
+          icon: '💰',
+          path: '/rider/wallet',
+          type: 'info'
+        }
+      }));
+
       setHandoverModal({ open: false, cashAmount: '', onlineAmount: '', onlineReference: '', remarks: '' });
       fetchWallet();
     } catch (err) {
@@ -747,6 +766,110 @@ const CODWallet = () => {
         <MetricCard title="Delivered" value={stats.delivered??0} color="success" icon={<CheckCircle2 className="w-6 h-6 text-emerald-600" />} />
         <MetricCard title="Postponed" value={stats.postponed??0} color="warning" icon={<Clock className="w-6 h-6 text-amber-600" />} />
         <MetricCard title="Cancelled" value={stats.cancelled??0} color="danger" icon={<XCircle className="w-6 h-6 text-red-600" />} />
+      </div>
+
+      {/* ─── Recent COD Handover Submissions ─────────────────────────────────── */}
+      <div className="card-premium overflow-hidden mt-6">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center flex-wrap gap-2">
+          <div>
+            <h3 className="font-bold text-slate-900 text-base">Recent COD Handover Submissions</h3>
+            <p className="text-xs text-slate-500">Live verification status of your cash and online deposits</p>
+          </div>
+          <button 
+            onClick={() => fetchWallet()} 
+            className="text-xs font-semibold text-brand-600 hover:text-brand-700 p-1.5 rounded-lg hover:bg-brand-50 transition-colors"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-500 font-semibold uppercase tracking-wider border-b border-slate-100">
+              <tr>
+                <th className="px-5 py-3">Date</th>
+                <th className="px-5 py-3">Packages</th>
+                <th className="px-5 py-3 text-right">Cash Handover</th>
+                <th className="px-5 py-3 text-right">Online Handover</th>
+                <th className="px-5 py-3 text-right">Net Total</th>
+                <th className="px-5 py-3 text-center">Status</th>
+                <th className="px-5 py-3 text-right">Verification</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {handovers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="text-center py-8 text-slate-400">
+                    No COD handovers submitted yet.
+                  </td>
+                </tr>
+              ) : (
+                handovers.map(h => {
+                  const net = h.amount || 0;
+                  const cash = h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, net - h.onlineAmount) : net);
+                  const online = h.onlineAmount || 0;
+
+                  return (
+                    <tr key={h._id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-5 py-3.5 whitespace-nowrap">
+                        <div className="font-semibold text-slate-900">{new Date(h.createdAt).toLocaleDateString()}</div>
+                        <div className="text-[11px] text-slate-400">{new Date(h.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <span className="font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px]">
+                          {h.packageIds?.length || 0} pkgs
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-medium text-emerald-700">
+                        Rs. {cash.toLocaleString()}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        {online > 0 ? (
+                          <div>
+                            <span className="font-medium text-sky-700">Rs. {online.toLocaleString()}</span>
+                            {h.onlineReference && (
+                              <div className="text-[10px] text-slate-400 truncate max-w-[120px] ml-auto" title={h.onlineReference}>
+                                {h.onlineReference}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">Rs. 0</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-bold text-slate-900">
+                        Rs. {net.toLocaleString()}
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                          h.status === 'Verified' 
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                            : h.status === 'Rejected' 
+                            ? 'bg-red-50 text-red-700 border-red-200' 
+                            : 'bg-amber-50 text-amber-700 border-amber-200 animate-pulse'
+                        }`}>
+                          {h.status === 'Verified' && '✓ '}
+                          {h.status === 'Rejected' && '✕ '}
+                          {h.status === 'Pending Verification' && '⏳ '}
+                          {h.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right text-slate-500 text-[11px]">
+                        {h.status === 'Verified' ? (
+                          <span className="text-emerald-600 font-medium">Verified by {h.verifiedBy?.name || 'Dispatcher'}</span>
+                        ) : h.status === 'Rejected' ? (
+                          <span className="text-red-500 font-medium">{h.remarks || 'Rejected'}</span>
+                        ) : (
+                          <span className="text-amber-600 font-medium">Pending Review</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ─── COD Handover Breakdown Modal ────────────────────────────────────── */}
@@ -1140,8 +1263,12 @@ const RiderDashboard = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const res = await api.get('/rider/deliveries?type=all');
-        const pkgs = res.data.data || [];
+        const [delRes, handRes] = await Promise.all([
+          api.get('/rider/deliveries?type=all'),
+          api.get('/rider/cod-handovers').catch(() => ({ data: { data: [] } }))
+        ]);
+        const pkgs = delRes.data.data || [];
+        const handovers = handRes.data.data || [];
         
         const notifs = pkgs
           .filter(p => ['Pick Up Requested', 'Out for Delivery'].includes(p.status))
@@ -1156,6 +1283,36 @@ const RiderDashboard = () => {
             icon: p.status === 'Pick Up Requested' ? '🚚' : '📦',
             path: '/rider/deliveries'
           }));
+
+        handovers.slice(0, 10).forEach(h => {
+          let title = 'COD Handover Pending Verification';
+          let message = `Deposit of Rs. ${(h.amount || 0).toLocaleString()} awaiting dispatcher verification.`;
+          let icon = '⏳';
+          let type = 'info';
+
+          if (h.status === 'Verified') {
+            title = 'COD Handover Verified ✓';
+            message = `Your deposit of Rs. ${(h.amount || 0).toLocaleString()} has been verified!`;
+            icon = '✅';
+            type = 'success';
+          } else if (h.status === 'Rejected') {
+            title = 'COD Handover Rejected ✕';
+            message = `Deposit of Rs. ${(h.amount || 0).toLocaleString()} was rejected.${h.remarks ? ` Reason: ${h.remarks}` : ''}`;
+            icon = '❌';
+            type = 'alert';
+          }
+
+          notifs.push({
+            id: `handover_${h._id}`,
+            title,
+            message,
+            time: new Date(h.updatedAt || h.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            read: false,
+            icon,
+            path: '/rider/wallet',
+            type
+          });
+        });
           
         setNotifications(notifs);
       } catch (e) {

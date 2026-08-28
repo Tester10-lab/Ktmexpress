@@ -8,6 +8,7 @@ import {
   bulkPickup,
   getRiderSummary,
   submitCodHandover,
+  getRiderCodHandovers,
  } from '../controllers/riderController.js';
 
 // All routes require auth + rider role
@@ -20,6 +21,7 @@ router.get('/summary', getRiderSummary);
 import { addPackageComment } from '../controllers/packageController.js';
 
 router.post('/cod-handover', submitCodHandover);
+router.get('/cod-handovers', getRiderCodHandovers);
 router.post('/packages/:id/comments', addPackageComment);
 
 export default router;

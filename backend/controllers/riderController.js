@@ -407,7 +407,42 @@ export const submitCodHandover = async (req, res) => {
       remarks: remarks || '',
     });
 
+    if (req.io) {
+      req.io.to(`user_${riderId}`).emit('notification', {
+        id: `handover_${handover._id}`,
+        title: 'COD Handover Submitted',
+        message: `Your COD handover of Rs. ${netHandoverAmount.toLocaleString()} has been submitted.`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        path: '/rider/wallet',
+        type: 'info'
+      });
+      req.io.to('role_dispatcher').to('role_admin').emit('notification', {
+        id: `handover_${handover._id}`,
+        title: 'New COD Handover',
+        message: `${req.user.name || 'A rider'} submitted COD handover of Rs. ${netHandoverAmount.toLocaleString()}`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        path: '/dispatcher/handovers',
+        type: 'info'
+      });
+    }
+
     res.status(201).json({ success: true, data: handover, message: 'Handover request submitted successfully.' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET /api/rider/cod-handovers
+export const getRiderCodHandovers = async (req, res) => {
+  try {
+    const riderId = req.user._id;
+    const handovers = await CodHandover.find({ riderId })
+      .populate('verifiedBy', 'name')
+      .sort({ createdAt: -1 })
+      .limit(30)
+      .lean();
+
+    res.json({ success: true, data: handovers });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
