@@ -2901,14 +2901,23 @@ const CodHandovers = () => {
     let gross = 0;
     let expenses = 0;
     let net = 0;
+    let cash = 0;
+    let online = 0;
     let packages = 0;
     filteredHandovers.forEach(h => {
-      gross += h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
-      expenses += h.expenseDeduction || 0;
-      net += h.amount || 0;
+      const hGross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
+      const hExp = h.expenseDeduction || 0;
+      const hNet = h.amount || 0;
+      const hCash = h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, hNet - h.onlineAmount) : hNet);
+      const hOnline = h.onlineAmount || 0;
+      gross += hGross;
+      expenses += hExp;
+      net += hNet;
+      cash += hCash;
+      online += hOnline;
       packages += h.packageIds?.length || 0;
     });
-    return { gross, expenses, net, packages };
+    return { gross, expenses, net, cash, online, packages };
   }, [filteredHandovers]);
 
   if (loading) return <Spinner />;
@@ -2983,16 +2992,18 @@ const CodHandovers = () => {
                 <th style={thStyle}>Date</th>
                 <th style={thStyle}>Rider</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Gross COD</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Rider Expenses</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Net Handover (Cash / Online)</th>
-                <th style={{ ...thStyle, textAlign: 'center' }}>Packages</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Expenses</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>💵 Cash</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>📱 Online</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Net Total</th>
+                <th style={{ ...thStyle, textAlign: 'center' }}>Pkgs</th>
                 <th style={{ ...thStyle, textAlign: 'center' }}>Status</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {filteredHandovers.length === 0 ? (
-                <tr><td colSpan="8"><EmptyState message="No matching COD handovers found." /></td></tr>
+                <tr><td colSpan="10"><EmptyState message="No matching COD handovers found." /></td></tr>
               ) : (
                 filteredHandovers.map(h => {
                   const gross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
@@ -3024,19 +3035,30 @@ const CodHandovers = () => {
                         )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        <span style={{ fontWeight: 800, color: '#15803d', fontSize: 15, display: 'block' }}>
+                        <span style={{ fontWeight: 700, color: '#047857', fontSize: 13, background: '#ecfdf5', padding: '3px 8px', borderRadius: 6, display: 'inline-block' }}>
+                          Rs. {cash.toLocaleString()}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {online > 0 ? (
+                          <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                            <span style={{ fontWeight: 700, color: '#0369a1', fontSize: 13, background: '#f0f9ff', padding: '3px 8px', borderRadius: 6 }}>
+                              Rs. {online.toLocaleString()}
+                            </span>
+                            {h.onlineReference && (
+                              <span style={{ fontSize: 10, color: '#64748b', marginTop: 2, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={h.onlineReference}>
+                                Ref: {h.onlineReference}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span style={{ color: '#cbd5e1', fontSize: 12 }}>Rs. 0</span>
+                        )}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        <span style={{ fontWeight: 800, color: '#15803d', fontSize: 15 }}>
                           Rs. {net.toLocaleString()}
                         </span>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4, alignItems: 'flex-end' }}>
-                          <span style={{ fontSize: 11, color: '#047857', background: '#ecfdf5', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }}>
-                            💵 Cash: Rs. {cash.toLocaleString()}
-                          </span>
-                          {online > 0 && (
-                            <span style={{ fontSize: 11, color: '#0369a1', background: '#f0f9ff', padding: '1px 6px', borderRadius: 4, fontWeight: 600 }} title={h.onlineReference ? `Ref: ${h.onlineReference}` : 'Online payment'}>
-                              📱 Online: Rs. {online.toLocaleString()} {h.onlineReference ? `(${h.onlineReference})` : ''}
-                            </span>
-                          )}
-                        </div>
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
                         <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 700, color: '#475569' }}>
@@ -3077,6 +3099,12 @@ const CodHandovers = () => {
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: '#b45309' }}>
                     - Rs. {filteredTotals.expenses.toLocaleString()}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: '#047857' }}>
+                    Rs. {filteredTotals.cash.toLocaleString()}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'right', color: '#0369a1' }}>
+                    Rs. {filteredTotals.online.toLocaleString()}
                   </td>
                   <td style={{ ...tdStyle, textAlign: 'right', color: '#15803d', fontSize: 15 }}>
                     Rs. {filteredTotals.net.toLocaleString()}

@@ -582,10 +582,21 @@ const CODWallet = () => {
         api.get('/rider/deliveries?type=delivery'),
         api.get('/rider/cod-handovers').catch(() => ({ data: { data: [] } }))
       ]);
-      setStats(sumRes.data.data || {});
+      const summaryData = sumRes.data.data || {};
+      setStats(summaryData);
       const pkgs = delRes.data.data || [];
-      setUnreconciledPkgs(pkgs.filter(p => p.status === 'Delivered' && !p.cashReconciled));
-      setHandovers(handRes.data.data || []);
+      const userHandovers = handRes.data.data || [];
+      setHandovers(userHandovers);
+
+      // Collect IDs of packages in pending handovers
+      const pendingIds = new Set(
+        userHandovers
+          .filter(h => h.status === 'Pending Verification')
+          .flatMap(h => (h.packageIds || []).map(id => (typeof id === 'object' ? id._id : id)?.toString()))
+      );
+
+      // Only unsubmitted packages
+      setUnreconciledPkgs(pkgs.filter(p => p.status === 'Delivered' && !p.cashReconciled && !pendingIds.has(p._id?.toString())));
     } catch (e) {
       console.error(e);
       showToast('Failed to load wallet data', 'error');
@@ -635,7 +646,7 @@ const CODWallet = () => {
         remarks: handoverModal.remarks,
       });
       
-      showToast('COD Handover submitted successfully!', 'success');
+      showToast('COD Handover submitted successfully! Waiting for dispatcher verification.', 'success');
 
       // Dispatch local notification event immediately
       window.dispatchEvent(new CustomEvent('app_notification', {
@@ -670,6 +681,7 @@ const CODWallet = () => {
   const enteredSum = enteredCash + enteredOnline;
   const targetTotal = stats.totalCOD || 0;
   const diff = enteredSum - targetTotal;
+  const hasPending = stats.hasPendingHandover || handovers.some(h => h.status === 'Pending Verification');
   
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -677,27 +689,38 @@ const CODWallet = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Performance & Wallet</h2>
-          <p className="text-sm text-slate-500 mt-1">Track your earnings, collections and handover deposits</p>
+          <p className="text-sm text-slate-500 mt-1">Track your deliveries, cash collection, and shift progress</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Wallet Primary Card */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-brand-600 to-indigo-700 rounded-3xl p-8 text-white shadow-lg relative overflow-hidden flex flex-col justify-between min-h-[240px]">
-          {/* Decor */}
-          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-32 h-32 bg-white opacity-10 rounded-full blur-2xl"></div>
+        {/* Wallet Balance Card */}
+        <div className="card-gradient-brand p-6 flex flex-col justify-between relative overflow-hidden text-white lg:col-span-2">
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 w-48 h-48 bg-white opacity-10 rounded-full blur-2xl"></div>
           <div className="absolute bottom-0 left-0 -mb-8 -ml-8 w-32 h-32 bg-black opacity-10 rounded-full blur-2xl"></div>
           
           <div className="relative z-10 flex justify-between items-start">
             <div>
-              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">Net COD to Handover</p>
+              <p className="text-brand-100 font-bold uppercase tracking-widest text-xs mb-1">
+                {hasPending && (stats.totalCOD || 0) === 0 ? 'COD Collected (Submitted)' : 'Unsubmitted COD In Hand'}
+              </p>
               <h3 className="text-4xl sm:text-5xl font-black tracking-tight mt-2">Rs. {(stats.totalCOD || 0).toLocaleString()}</h3>
               {stats.totalExpenses > 0 && (
                 <div className="mt-2 inline-flex items-center gap-2 bg-black/20 px-3 py-1 rounded-lg text-xs text-brand-100 font-medium border border-white/10">
                   <span>Gross COD: <strong>Rs. {(stats.grossCOD || 0).toLocaleString()}</strong></span>
                   <span>•</span>
                   <span>Expenses: <strong className="text-amber-300">- Rs. {(stats.totalExpenses || 0).toLocaleString()}</strong></span>
+                </div>
+              )}
+              {hasPending && (
+                <div className="mt-3 bg-amber-500/25 border border-amber-300/40 rounded-xl px-3.5 py-2 text-xs text-amber-100 flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-1.5 font-semibold">
+                    <Clock className="w-4 h-4 text-amber-300 animate-pulse" />
+                    Pending Handover Verification: <strong>Rs. {(stats.pendingHandoverTotal || handovers.filter(h=>h.status==='Pending Verification').reduce((s,h)=>s+(h.amount||0),0)).toLocaleString()}</strong>
+                  </span>
+                  <span className="bg-amber-400/30 text-amber-100 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                    Submitted
+                  </span>
                 </div>
               )}
             </div>
@@ -709,9 +732,9 @@ const CODWallet = () => {
           <div className="relative z-10 mt-8 bg-black/20 rounded-2xl p-4 backdrop-blur-sm border border-white/10 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-xs text-brand-50 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0"/> 
-              Net COD = Delivered Cash/Online collected minus approved daily expenses.
+              Net COD = Delivered collections minus approved expenses.
             </p>
-            {unreconciledPkgs.length > 0 && (
+            {unreconciledPkgs.length > 0 ? (
               <button 
                 onClick={openHandoverModal}
                 disabled={submitting}
@@ -720,7 +743,12 @@ const CODWallet = () => {
                 <Banknote className="w-4 h-4" />
                 Handover COD (Rs. {(stats.totalCOD || 0).toLocaleString()})
               </button>
-            )}
+            ) : hasPending ? (
+              <div className="whitespace-nowrap px-5 py-2.5 bg-emerald-500/20 text-emerald-100 border border-emerald-400/40 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                Handover Submitted (Pending Dispatcher Approval)
+              </div>
+            ) : null}
           </div>
         </div>
 

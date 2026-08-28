@@ -282,9 +282,11 @@ const AdminCodHandovers = () => {
               <tr>
                 <th className="px-6 py-4">Submission Date</th>
                 <th className="px-6 py-4">Rider</th>
-                <th className="px-6 py-4 text-right">Gross COD Collected</th>
-                <th className="px-6 py-4 text-right">Total Expenses</th>
-                <th className="px-6 py-4 text-right">Net Cash Handover</th>
+                <th className="px-6 py-4 text-right">Gross COD</th>
+                <th className="px-6 py-4 text-right">Expenses</th>
+                <th className="px-6 py-4 text-right">💵 Cash</th>
+                <th className="px-6 py-4 text-right">📱 Online</th>
+                <th className="px-6 py-4 text-right">Net Total</th>
                 <th className="px-6 py-4 text-center">Packages</th>
                 <th className="px-6 py-4 text-center">Status</th>
                 <th className="px-6 py-4 text-right">Action</th>
@@ -293,7 +295,7 @@ const AdminCodHandovers = () => {
             <tbody className="divide-y divide-slate-100 bg-white">
               {filteredHandovers.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-12 text-slate-500">
+                  <td colSpan="10" className="text-center py-12 text-slate-500">
                     <div className="text-2xl mb-2">🔍</div>
                     {hasActiveFilters ? "No COD handovers match your search filters." : "No COD handovers found."}
                   </td>
@@ -303,6 +305,8 @@ const AdminCodHandovers = () => {
                   const gross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
                   const expense = h.expenseDeduction || 0;
                   const net = h.amount || 0;
+                  const cash = h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, net - h.onlineAmount) : net);
+                  const online = h.onlineAmount || 0;
 
                   return (
                     <tr key={h._id} className="hover:bg-slate-50/80 transition-colors">
@@ -330,20 +334,29 @@ const AdminCodHandovers = () => {
                           <span className="text-slate-400 text-xs font-mono">Rs. 0</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="font-black text-emerald-700 text-base block">
-                          Rs. {net.toLocaleString()}
+                      <td className="px-6 py-4 text-right font-bold text-emerald-700">
+                        <span className="bg-emerald-50 text-emerald-800 px-2 py-1 rounded-md text-xs">
+                          Rs. {cash.toLocaleString()}
                         </span>
-                        <div className="flex flex-col gap-1 mt-1 items-end">
-                          <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
-                            💵 Cash: Rs. {(h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, net - h.onlineAmount) : net)).toLocaleString()}
-                          </span>
-                          {h.onlineAmount > 0 && (
-                            <span className="text-[11px] font-semibold text-sky-800 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200/60" title={h.onlineReference ? `Ref: ${h.onlineReference}` : 'Online'}>
-                              📱 Online: Rs. {h.onlineAmount.toLocaleString()} {h.onlineReference ? `(${h.onlineReference})` : ''}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {online > 0 ? (
+                          <div className="inline-flex flex-col items-end">
+                            <span className="font-bold text-sky-800 bg-sky-50 px-2 py-1 rounded-md text-xs">
+                              Rs. {online.toLocaleString()}
                             </span>
-                          )}
-                        </div>
+                            {h.onlineReference && (
+                              <span className="text-[10px] text-slate-400 mt-0.5 max-w-[120px] truncate" title={h.onlineReference}>
+                                Ref: {h.onlineReference}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs font-mono">Rs. 0</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right font-black text-slate-900 text-base">
+                        Rs. {net.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-xs font-bold">

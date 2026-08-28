@@ -272,13 +272,34 @@ export const getRiderSummary = async (req, res) => {
     }).select('amount').lean();
     const todayExpenses = expensesList.reduce((sum, e) => sum + (e.amount || 0), 0);
 
+    // Check active pending handovers
+    const pendingHandovers = await CodHandover.find({
+      riderId: req.user._id,
+      status: 'Pending Verification'
+    }).lean();
+
+    const pendingPackageIds = new Set(
+      pendingHandovers.flatMap(h => (h.packageIds || []).map(id => id.toString()))
+    );
+
+    const pendingHandoverTotal = pendingHandovers.reduce((sum, h) => sum + (h.amount || 0), 0);
+
+    // Filter unsubmitted packages (delivered, not reconciled, and not already in pending handover)
+    const unsubmittedPackages = await Package.find({
+      riderId,
+      status: 'Delivered',
+      cashReconciled: false,
+      _id: { $nin: Array.from(pendingPackageIds) }
+    }).select('amount').lean();
+
+    const unsubmittedGross = unsubmittedPackages.reduce((sum, p) => sum + (p.amount || 0), 0);
+    const unsubmittedNet = Math.max(0, unsubmittedGross - todayExpenses);
+
     const delivered = result.delivered[0]?.count || 0;
     const pending = result.pending[0]?.count || 0;
     const postponed = result.postponed[0]?.count || 0;
     const cancelled = result.cancelled[0]?.count || 0;
     const deliveredThisMonth = result.deliveredThisMonth[0]?.count || 0;
-    const grossCOD = result.totalCOD[0]?.total || 0;
-    const netCOD = Math.max(0, grossCOD - todayExpenses);
     const monthlyTarget = req.user.riderMeta?.monthlyTarget || 0;
 
     res.json({
@@ -288,8 +309,12 @@ export const getRiderSummary = async (req, res) => {
         pending, 
         postponed, 
         cancelled, 
-        totalCOD: netCOD, 
-        grossCOD, 
+        totalCOD: unsubmittedNet, 
+        grossCOD: unsubmittedGross,
+        unsubmittedPackageCount: unsubmittedPackages.length,
+        hasPendingHandover: pendingHandovers.length > 0,
+        pendingHandoverTotal,
+        pendingHandoversCount: pendingHandovers.length,
         totalExpenses: todayExpenses, 
         deliveredThisMonth, 
         monthlyTarget 
