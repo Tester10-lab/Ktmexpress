@@ -358,6 +358,16 @@ const DispatcherHome = () => {
     }
   };
 
+  const handleQuickStatus = async (pkgId, newStatus) => {
+    try {
+      await api.put(`/dispatcher/packages/${pkgId}/status`, { status: newStatus });
+      showToast(`✓ Status updated to "${newStatus}"`, 'success');
+      fetchAll();
+    } catch (e) {
+      showToast(e.response?.data?.message || e.message || 'Failed to update status', 'error');
+    }
+  };
+
   const hasActiveFilters = search.trim() !== '' || statusFilter !== 'all' || riderFilter !== 'all' || dateFilter !== 'all';
   const clearFilters = () => {
     setSearch('');
@@ -705,7 +715,53 @@ const DispatcherHome = () => {
                   </td>
                   <td style={{ ...tdStyle, fontWeight: 700, color: '#0f172a', textAlign: 'right' }}>Rs. {p.amount?.toLocaleString()}</td>
                   <td style={{ ...tdStyle, textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                      {/* Arrived quick button */}
+                      {['Pending', 'Pick Up Requested', 'Picked Up', 'Postponed', 'Returned'].includes(p.status) && (
+                        <button
+                          onClick={() => handleQuickStatus(p._id, 'In Warehouse')}
+                          style={{
+                            background: '#f8fafc',
+                            color: '#334155',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: 6,
+                            padding: '3px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                          }}
+                          title="Mark package as Arrived in Warehouse"
+                        >
+                          🏬 Arrived
+                        </button>
+                      )}
+
+                      {/* Dispatch quick button */}
+                      {['In Warehouse', 'Sorted', 'Postponed'].includes(p.status) && (
+                        <button
+                          onClick={() => handleQuickStatus(p._id, 'Out for Delivery')}
+                          style={{
+                            background: '#eff6ff',
+                            color: '#1d4ed8',
+                            border: '1px solid #bfdbfe',
+                            borderRadius: 6,
+                            padding: '3px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 3,
+                          }}
+                          title="Dispatch package (Out for Delivery)"
+                        >
+                          🚀 Dispatch
+                        </button>
+                      )}
+
                       {p.deliveryVerificationStatus === 'Pending' ? (
                         <button
                           onClick={() => handleAcceptVerify(p)}
@@ -745,6 +801,32 @@ const DispatcherHome = () => {
                           Verify
                         </button>
                       ) : null}
+
+                      {/* Change Status Dropdown */}
+                      <select
+                        value={p.status}
+                        onChange={e => handleQuickStatus(p._id, e.target.value)}
+                        style={{
+                          fontSize: 11,
+                          padding: '3px 6px',
+                          borderRadius: 6,
+                          border: '1px solid #cbd5e1',
+                          background: '#fff',
+                          color: '#334155',
+                          cursor: 'pointer',
+                          outline: 'none'
+                        }}
+                        title="Change package status"
+                      >
+                        <option value={p.status}>Status: {p.status}</option>
+                        <option value="In Warehouse">🏬 Arrived (In Warehouse)</option>
+                        <option value="Out for Delivery">🚀 Dispatched (Out for Delivery)</option>
+                        <option value="Delivered">✅ Delivered</option>
+                        <option value="Postponed">🔄 Postponed</option>
+                        <option value="Picked Up">📦 Picked Up</option>
+                        <option value="Cancelled">✕ Cancelled</option>
+                        <option value="Returned">↩️ Returned</option>
+                      </select>
                     </div>
                   </td>
                 </tr>

@@ -283,7 +283,7 @@ export const bulkStatusUpdate = async (req, res) => {
   try {
     const { packageIds, status } = req.body;
 
-    const validStatuses = ['In Warehouse', 'Out for Delivery', 'Delivered'];
+    const validStatuses = ['In Warehouse', 'Out for Delivery', 'Delivered', 'Picked Up', 'Postponed', 'Cancelled', 'Returned'];
     if (!packageIds?.length) {
       return res.status(400).json({ success: false, message: 'No packages selected.' });
     }
@@ -305,17 +305,17 @@ export const bulkStatusUpdate = async (req, res) => {
       pkg.status = status;
 
       let timelineStatus = status;
-      let timelineMsg = `Status changed to "${status}" via bulk dispatcher action`;
+      let timelineMsg = `Status changed to "${status}" via dispatcher action`;
 
       if (status === 'In Warehouse') {
         timelineStatus = 'Arrived in Warehouse';
-        timelineMsg = `Bulk status update to In Warehouse`;
+        timelineMsg = `Package arrived at central warehouse`;
       } else if (status === 'Out for Delivery') {
-        timelineStatus = 'Out for Delivery';
-        timelineMsg = `Bulk status update to Out for Delivery (Dispatched)`;
+        timelineStatus = 'Dispatched / Out for Delivery';
+        timelineMsg = `Package dispatched for delivery route`;
       } else if (status === 'Delivered') {
         timelineStatus = 'Delivered';
-        timelineMsg = `Bulk status update to Delivered`;
+        timelineMsg = `Package delivered`;
       }
 
       appendTimelineEvent(pkg, {
@@ -341,6 +341,71 @@ export const bulkStatusUpdate = async (req, res) => {
       message: `Updated ${updatedTrackingCodes.length} package(s) to ${status}`,
       data: { count: updatedTrackingCodes.length, trackingCodes: updatedTrackingCodes },
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PUT /api/dispatcher/packages/:id/status
+export const updateDispatcherPackageStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, riderId, comments } = req.body;
+
+    const pkg = await Package.findById(id);
+    if (!pkg) {
+      return res.status(404).json({ success: false, message: 'Package not found.' });
+    }
+
+    if (riderId) {
+      const rider = await User.findOne({ _id: riderId, role: 'rider' });
+      if (rider) pkg.riderId = rider._id;
+    }
+
+    pkg.status = status;
+
+    let timelineStatus = status;
+    let timelineMsg = comments || `Status updated to "${status}" by Dispatcher`;
+
+    if (status === 'In Warehouse') {
+      timelineStatus = 'Arrived in Warehouse';
+      timelineMsg = comments || 'Package arrived and checked in at Warehouse';
+      await PickupRequest.updateMany(
+        { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
+        { status: 'completed', completedAt: new Date() }
+      );
+    } else if (status === 'Out for Delivery') {
+      timelineStatus = 'Dispatched / Out for Delivery';
+      timelineMsg = comments || `Package dispatched for delivery route`;
+    }
+
+    appendTimelineEvent(pkg, {
+      time: nowStr(),
+      status: timelineStatus,
+      message: timelineMsg,
+      user: req.user.name || 'Dispatcher',
+    });
+
+    await pkg.save();
+
+    if (req.io) {
+      if (pkg.riderId) {
+        req.io.to(`user_${pkg.riderId}`).emit('notification', {
+          title: `Package ${status}`,
+          message: `Package ${pkg.trackingCode} is now ${status}`,
+          type: 'info'
+        });
+      }
+      if (pkg.vendorId) {
+        req.io.to(`user_${pkg.vendorId}`).emit('notification', {
+          title: `Package ${status}`,
+          message: `Package ${pkg.trackingCode} is now ${status}`,
+          type: 'info'
+        });
+      }
+    }
+
+    res.json({ success: true, data: pkg, message: `Package status updated to "${status}"` });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -16,7 +16,8 @@ import {
   verifyCodHandover,
   getRiderHistory,
   bulkVendorHandover,
-  bulkStatusUpdate
+  bulkStatusUpdate,
+  updateDispatcherPackageStatus,
 } from '../controllers/dispatcherController.js';
 import { getAllExpenses, updateExpenseStatus } from '../controllers/adminController.js';
 import { addPackageComment } from '../controllers/packageController.js';
@@ -31,6 +32,7 @@ router.get('/riders', getAvailableRiders);
 router.put('/assign-pickup', assignRiderToPickup);
 router.put('/confirm-warehouse', confirmWarehouseArrival);
 router.put('/assign-delivery', assignRiderForDelivery);
+router.put('/packages/:id/status', updateDispatcherPackageStatus);
 router.put('/bulk-assign', bulkAssignPackages);
 router.put('/bulk-status-update', bulkStatusUpdate);
 router.put('/confirm-return', confirmReturn);
