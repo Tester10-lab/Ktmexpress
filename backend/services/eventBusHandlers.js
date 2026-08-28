@@ -6,6 +6,12 @@ eventBus.on('package.rider_submitted', ({ pkg, reqUser, io, action, comment }) =
   
   if (!io) return;
   const statusName = pkg.riderSubmission?.status || pkg.status;
+
+  // Delivered notifications are not necessary
+  if (statusName === 'Delivered' || action === 'deliver') {
+    return;
+  }
+
   const riderName = reqUser?.name || 'Rider';
   const notifPayload = {
     id: `rider_sub_${pkg._id}_${Date.now()}`,
@@ -43,6 +49,11 @@ eventBus.on('package.verified', ({ pkg, reqUser, io, isAdjustment, originalRider
   logger.info(`Event: package.verified for package ${pkg.trackingCode} by ${reqUser?.name || 'staff'}`);
   
   if (!io) return;
+
+  // Normal Delivered verifications without financial adjustments do not need alert notifications
+  if (pkg.status === 'Delivered' && !isAdjustment) {
+    return;
+  }
 
   // 1. Notify Rider of verification / edits
   if (pkg.riderId) {

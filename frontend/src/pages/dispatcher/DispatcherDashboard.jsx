@@ -3113,8 +3113,12 @@ const DispatcherDashboard = () => {
           });
         });
 
-        // 3. Pending Verifications
-        const pendingVerifications = pkgs.filter(p => p.deliveryVerificationStatus === 'Pending');
+        // 3. Pending Verifications (excluding Delivered packages)
+        const pendingVerifications = pkgs.filter(p => 
+          p.deliveryVerificationStatus === 'Pending' && 
+          p.status !== 'Delivered' && 
+          p.riderSubmission?.status !== 'Delivered'
+        );
         pendingVerifications.forEach(p => {
           notifs.push({
             id: `verify_${p._id}`,

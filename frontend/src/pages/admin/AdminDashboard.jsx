@@ -84,9 +84,13 @@ const AdminDashboard = () => {
           });
         });
 
-        // Fetch Packages Pending Verification
+        // Fetch Packages Pending Verification (excluding Delivered packages)
         const pkgRes = await api.get('/admin/packages?limit=50&deliveryVerificationStatus=Pending');
-        const pendingVerifications = pkgRes.data.data || [];
+        const rawPkgs = pkgRes.data.data || [];
+        const pendingVerifications = rawPkgs.filter(p => 
+          p.status !== 'Delivered' && 
+          p.riderSubmission?.status !== 'Delivered'
+        );
         pendingVerifications.forEach(p => {
           notifs.push({
             id: `verify_${p._id}`,
