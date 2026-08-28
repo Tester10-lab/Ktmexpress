@@ -55,20 +55,25 @@ const AdminCodHandovers = () => {
     let pendingCount = 0;
     let verified = 0;
     let verifiedCount = 0;
+    let rejectedCount = 0;
 
     handovers.forEach(h => {
+      if (h.status === 'Rejected') {
+        rejectedCount++;
+        return; // Exclude rejected handovers from financial totals
+      }
+
       const hGross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
       const hExp = h.expenseDeduction || 0;
       const hNet = h.amount || 0;
-
-      gross += hGross;
-      expenses += hExp;
-      net += hNet;
 
       if (h.status === 'Pending Verification') {
         pending += hNet;
         pendingCount++;
       } else if (h.status === 'Verified') {
+        gross += hGross;
+        expenses += hExp;
+        net += hNet;
         verified += hNet;
         verifiedCount++;
       }
@@ -82,6 +87,7 @@ const AdminCodHandovers = () => {
       pendingCount,
       verified,
       verifiedCount,
+      rejectedCount,
       totalCount: handovers.length
     };
   }, [handovers]);

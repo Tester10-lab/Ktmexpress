@@ -2867,17 +2867,24 @@ const CodHandovers = () => {
     let pending = 0;
 
     handovers.forEach(h => {
+      // Exclude Rejected handovers from financial totals
+      if (h.status === 'Rejected') return;
+
       const hGross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
       const hExp = h.expenseDeduction || 0;
       const hNet = h.amount || 0;
       const hCash = h.cashAmount !== undefined ? h.cashAmount : (h.onlineAmount ? Math.max(0, hNet - h.onlineAmount) : hNet);
       const hOnline = h.onlineAmount || 0;
-      gross += hGross;
-      expenses += hExp;
-      net += hNet;
-      cash += hCash;
-      online += hOnline;
-      if (h.status === 'Pending Verification') pending += hNet;
+
+      if (h.status === 'Verified') {
+        gross += hGross;
+        expenses += hExp;
+        net += hNet;
+        cash += hCash;
+        online += hOnline;
+      } else if (h.status === 'Pending Verification') {
+        pending += hNet;
+      }
     });
 
     return { gross, expenses, net, cash, online, pending };
@@ -2905,6 +2912,9 @@ const CodHandovers = () => {
     let online = 0;
     let packages = 0;
     filteredHandovers.forEach(h => {
+      // Exclude Rejected handovers unless explicitly filtering by Rejected
+      if (h.status === 'Rejected' && statusFilter !== 'Rejected') return;
+
       const hGross = h.grossCOD || ((h.amount || 0) + (h.expenseDeduction || 0));
       const hExp = h.expenseDeduction || 0;
       const hNet = h.amount || 0;
@@ -2918,7 +2928,7 @@ const CodHandovers = () => {
       packages += h.packageIds?.length || 0;
     });
     return { gross, expenses, net, cash, online, packages };
-  }, [filteredHandovers]);
+  }, [filteredHandovers, statusFilter]);
 
   if (loading) return <Spinner />;
 
