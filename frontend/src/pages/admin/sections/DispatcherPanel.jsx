@@ -262,7 +262,7 @@ const AdminDispatcher = () => {
 
   const filteredWarehousePackages = warehousePackages.filter(p => {
     if (warehouseRiderFilter !== 'all') {
-      if (warehouseRiderFilter === 'postponed' || warehouseRiderFilter === 'unassigned') {
+      if (warehouseRiderFilter === 'unassigned') {
         if (p.riderId) return false;
       } else {
         const rId = p.riderId?._id || p.riderId;
@@ -328,8 +328,9 @@ const AdminDispatcher = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-scaleIn">
           <MetricCard title="Pending Pickups" value={stats.pickupsPending ?? 0} color="warning" icon={<span className="text-2xl">🚚</span>} />
           <MetricCard title="In Warehouse" value={stats.inWarehouse ?? 0} color="purple" icon={<span className="text-2xl">🏭</span>} />
-          <MetricCard title="Postponed" value={stats.unassigned ?? 0} color="danger" icon={<span className="text-2xl">⚠️</span>} />
+          <MetricCard title="Unassigned" value={stats.unassigned ?? 0} color="slate" icon={<span className="text-2xl">📋</span>} />
           <MetricCard title="Out for Delivery" value={stats.outForDelivery ?? 0} color="info" icon={<span className="text-2xl">📦</span>} />
+          <MetricCard title="Postponed" value={stats.postponed ?? 0} color="danger" icon={<span className="text-2xl">⚠️</span>} />
           <MetricCard title="Returns Pending" value={stats.returnedPending ?? 0} color="warning" icon={<span className="text-2xl">↩️</span>} />
           <MetricCard title="Active Riders" value={stats.activeRiders ?? 0} color="success" icon={<span className="text-2xl">🏍️</span>} />
         </div>
@@ -520,7 +521,7 @@ const AdminDispatcher = () => {
                   className="input-field py-1.5 text-xs w-40"
                 >
                   <option value="all">All Riders</option>
-                  <option value="postponed">⚠️ Postponed (No Rider)</option>
+                  <option value="unassigned">📋 Unassigned (No Rider)</option>
                   {riders.map(r => (
                     <option key={r._id} value={r._id}>{r.name}</option>
                   ))}

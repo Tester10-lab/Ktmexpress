@@ -349,18 +349,19 @@ export const bulkStatusUpdate = async (req, res) => {
 // GET /api/dispatcher/dashboard
 export const getDispatcherDashboard = async (req, res) => {
   try {
-    const [pickupsPending, inWarehouse, outForDelivery, returnedPending, activeRiders, unassigned] = await Promise.all([
+    const [pickupsPending, inWarehouse, outForDelivery, returnedPending, activeRiders, unassigned, postponed] = await Promise.all([
       PickupRequest.countDocuments({ status: 'pending' }),
       Package.countDocuments({ status: 'In Warehouse' }),
       Package.countDocuments({ status: 'Out for Delivery' }),
       Package.countDocuments({ status: { $in: ['Returned', 'Returned to Vendor'] } }),
       User.countDocuments({ role: 'rider', status: 'Active' }),
       Package.countDocuments({ status: 'In Warehouse', riderId: null }),
+      Package.countDocuments({ status: 'Postponed' }),
     ]);
 
     res.json({
       success: true,
-      data: { pickupsPending, inWarehouse, outForDelivery, returnedPending, activeRiders, unassigned },
+      data: { pickupsPending, inWarehouse, outForDelivery, returnedPending, activeRiders, unassigned, postponed },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -383,7 +384,7 @@ export const getAllPackagesForDispatcher = async (req, res) => {
     }
 
     if (riderId) {
-      if (riderId === 'unassigned' || riderId === 'postponed' || riderId === 'null') {
+      if (riderId === 'unassigned' || riderId === 'null') {
         filter.riderId = null;
       } else if (mongoose.Types.ObjectId.isValid(riderId)) {
         filter.riderId = riderId;

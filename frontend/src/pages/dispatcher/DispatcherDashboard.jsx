@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import AppShell from '../../layouts/AppShell';
 import MetricCard from '../../components/MetricCard';
 import ScanStation from '../../components/ScanStation';
@@ -12,8 +12,6 @@ import SearchPanel from '../../components/SearchPanel';
 import { useTrackingDrawer } from '../../store/TrackingDrawerContext';
 import PackageTimeline from '../../components/PackageTimeline';
 
-const PackageManagement = lazy(() => import('../admin/sections/PackageManagement'));
-
 const SectionLoader = () => (
   <div className="flex items-center justify-center p-16">
     <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-900 rounded-full animate-spin"></div>
@@ -23,13 +21,12 @@ import {
   LayoutDashboard, Package, Truck, RotateCcw, Bike, Wallet,
   Search, CheckCircle2, XCircle, Clock, AlertCircle, Eye,
   ChevronDown, ChevronUp, QrCode, RefreshCw, Filter, Check, X,
-  Store, ArrowDownLeft, ArrowUpRight
+  Store, ArrowDownLeft, ArrowUpRight, Plus, FileSpreadsheet, Download, AlertTriangle
 } from 'lucide-react';
 
 // ─── Nav + Title Map ──────────────────────────────────────────────────────
 const navLinks = [
   { name: 'Dashboard', path: '/dispatcher', exact: true, icon: <LayoutDashboard className="w-[18px] h-[18px]" /> },
-  { name: 'All Packages', path: '/dispatcher/packages', icon: <Package className="w-[18px] h-[18px]" /> },
   { name: 'Tasks (Pickup & Delivery)', path: '/dispatcher/tasks', icon: <Truck className="w-[18px] h-[18px]" /> },
   { name: 'Reverse Logistics', path: '/dispatcher/reverse-logistics', icon: <RotateCcw className="w-[18px] h-[18px]" /> },
   { name: 'Active Riders', path: '/dispatcher/riders', icon: <Bike className="w-[18px] h-[18px]" /> },
@@ -37,7 +34,6 @@ const navLinks = [
 ];
 
 const titleMap = {
-  '/dispatcher/packages':        'All Packages Overview',
   '/dispatcher/tasks':           'Tasks (Pickup & Delivery)',
   '/dispatcher/reverse-logistics': 'Reverse Logistics (RTV)',
   '/dispatcher/riders':          'Active Riders Overview',
@@ -136,6 +132,108 @@ const DispatcherHome = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
+  // Create Order, CSV Upload, & Excel Export states
+  const [createModal, setCreateModal] = useState(false);
+  const [csvModal, setCsvModal] = useState(false);
+  const [vendors, setVendors] = useState([]);
+  const [newPkg, setNewPkg] = useState({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
+  const [csvVendorId, setCsvVendorId] = useState('');
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvUploading, setCsvUploading] = useState(false);
+
+  const fetchVendors = async () => {
+    try {
+      const res = await api.get('/admin/users?role=vendor');
+      setVendors(res.data.data || []);
+    } catch (e) {
+      console.error('Failed to load vendors', e);
+    }
+  };
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    try {
+      setCreateModal(false);
+      await api.post('/admin/packages', {
+        ...newPkg,
+        amount: Number(newPkg.amount),
+        weight: Number(newPkg.weight),
+        deliveryDate: newPkg.deliveryDate || null
+      });
+      showToast('Package created successfully', 'success');
+      setNewPkg({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
+      fetchAll();
+    } catch (err) {
+      showToast(err.message || 'Failed to create package', 'error');
+      fetchAll();
+    }
+  };
+
+  const downloadSampleCsv = () => {
+    const headers = ['customer name', 'address', 'customerPhone', 'city', 'amount', 'weight', 'delivery charge', 'out of valley'];
+    const sampleRow1 = ['Ram Sharma', 'New Road, Kathmandu', '9841234567', 'Kathmandu', '1500', '0.5', '100', 'false'];
+    const sampleRow2 = ['Sita Thapa', 'Lakeside, Pokhara', '9801234567', 'Pokhara', '2500', '1.0', '200', 'true'];
+    const csvContent = [headers.join(','), sampleRow1.join(','), sampleRow2.join(',')].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'bulk_upload_sample.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCsvUpload = async (e) => {
+    e.preventDefault();
+    if (!csvVendorId || !csvFile) return showToast('Select a vendor and file first', 'warning');
+    setCsvUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', csvFile);
+      formData.append('vendorId', csvVendorId);
+      const res = await api.post('/admin/packages/upload-csv', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const data = res.data;
+      
+      if (data.failedCount > 0) {
+        if (data.importedCount > 0) {
+          showToast(`Imported ${data.importedCount} packages. ${data.failedCount} failed.`, 'warning');
+        } else {
+          showToast(`Upload failed. All ${data.failedCount} rows had errors.`, 'error');
+        }
+      } else {
+        showToast(data.message || 'CSV uploaded!', 'success');
+      }
+      
+      setCsvModal(false);
+      setCsvFile(null);
+      setCsvVendorId('');
+      fetchAll();
+    } catch (err) { showToast(err.message || 'CSV upload failed', 'error'); }
+    finally { setCsvUploading(false); }
+  };
+
+  const handleExportDailyExcel = async () => {
+    try {
+      showToast('Generating 2-Sheet Excel export...', 'info');
+      const response = await api.get('/admin/export/daily-excel', {
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = `ktmexpress_daily_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('Daily Excel file downloaded successfully!', 'success');
+    } catch (err) {
+      showToast('Failed to export Excel file: ' + (err.message || 'Error'), 'error');
+    }
+  };
+
   const handleScanSuccess = async (trackingCode) => {
     try {
       const res = await api.patch(`/packages/${trackingCode}/warehouse-arrival`);
@@ -162,6 +260,7 @@ const DispatcherHome = () => {
 
   useEffect(() => {
     fetchAll();
+    fetchVendors();
     const interval = setInterval(fetchAll, 30000);
     return () => clearInterval(interval);
   }, [fetchAll]);
@@ -191,7 +290,7 @@ const DispatcherHome = () => {
         if (statusFilter === 'verification_pending') {
           if (p.deliveryVerificationStatus !== 'Pending') return false;
         } else if (statusFilter === 'Postponed') {
-          if (p.status !== 'Postponed' && p.riderId) return false;
+          if (p.status !== 'Postponed') return false;
         } else if (p.status !== statusFilter) {
           return false;
         }
@@ -199,7 +298,7 @@ const DispatcherHome = () => {
 
       // 3. Rider Filter
       if (riderFilter !== 'all') {
-        if (riderFilter === 'postponed' || riderFilter === 'unassigned') {
+        if (riderFilter === 'unassigned') {
           if (p.riderId) return false;
         } else {
           const rId = p.riderId?._id || p.riderId;
@@ -271,19 +370,43 @@ const DispatcherHome = () => {
   const countInWarehouse = packages.filter(p => p.status === 'In Warehouse').length;
   const countOutForDelivery = packages.filter(p => p.status === 'Out for Delivery').length;
   const countDelivered = packages.filter(p => p.status === 'Delivered').length;
-  const countPostponed = packages.filter(p => p.status === 'Postponed' || (!p.riderId && p.status === 'In Warehouse')).length;
+  const countPostponed = packages.filter(p => p.status === 'Postponed').length;
   const countPickups = packages.filter(p => ['Pending', 'Pick Up Requested', 'Picked Up'].includes(p.status)).length;
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>Warehouse Dispatch Overview</h2>
           <p style={{ margin: '2px 0 0', fontSize: 13, color: '#6b7280' }}>Manage deliveries, search tracking codes & monitor active riders</p>
         </div>
-        <ActionBtn onClick={() => setScannerOpen(true)} variant="primary" icon={<span style={{fontSize:16}}>📷</span>}>
-          Scan Arrival
-        </ActionBtn>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button 
+            type="button"
+            className="btn-primary py-2 px-3.5 text-xs font-bold flex items-center gap-1.5 shadow-sm rounded-xl" 
+            onClick={() => setCreateModal(true)}
+          >
+            <Plus className="w-4 h-4" /> Create Order
+          </button>
+          <button 
+            type="button"
+            className="btn-outline py-2 px-3.5 text-xs font-bold flex items-center gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 shadow-sm rounded-xl bg-white" 
+            onClick={() => setCsvModal(true)}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> CSV Upload
+          </button>
+          <button 
+            type="button"
+            className="btn-outline py-2 px-3.5 text-xs font-bold flex items-center gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 shadow-sm rounded-xl bg-white" 
+            onClick={handleExportDailyExcel} 
+            title="Export 2-Sheet Daily Excel Report"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Daily Excel
+          </button>
+          <ActionBtn onClick={() => setScannerOpen(true)} variant="primary" icon={<span style={{fontSize:16}}>📷</span>}>
+            Scan Arrival
+          </ActionBtn>
+        </div>
       </div>
 
       {scannerOpen && (
@@ -299,8 +422,9 @@ const DispatcherHome = () => {
         {[
           { label: 'Pickups', value: s.pickupsPending || 0, color: '#f59e0b', icon: '🚚', path: '/dispatcher/tasks' },
           { label: 'In Warehouse', value: s.inWarehouse || 0, color: '#8b5cf6', icon: '🏭', path: '/dispatcher/inbound-scan' },
-          { label: 'Postponed', value: s.unassigned || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/tasks' },
+          { label: 'Unassigned', value: s.unassigned || 0, color: '#64748b', icon: '📋', path: '/dispatcher/tasks' },
           { label: 'Out for Delivery', value: s.outForDelivery || 0, color: '#06b6d4', icon: '📦', path: '/dispatcher/tasks' },
+          { label: 'Postponed', value: s.postponed || 0, color: '#ef4444', icon: '⚠️', path: '/dispatcher/tasks' },
           { label: 'Returns Pending', value: s.returnedPending || 0, color: '#6b7280', icon: '↩️', path: '/dispatcher/reverse-logistics' },
           { label: 'Active Riders', value: s.activeRiders || 0, color: '#10b981', icon: '🏍️', path: '/dispatcher/riders' },
         ].map(item => (
@@ -417,7 +541,7 @@ const DispatcherHome = () => {
                 }}
               >
                 <option value="all">All Riders</option>
-                <option value="postponed">⚠️ Postponed (No Rider)</option>
+                <option value="unassigned">📋 Unassigned (No Rider)</option>
                 {riders.map(r => (
                   <option key={r._id} value={r._id}>🏍️ {r.name}</option>
                 ))}
@@ -548,8 +672,8 @@ const DispatcherHome = () => {
                         🏍️ {p.riderId.name}
                       </span>
                     ) : (
-                      <span style={{ color: '#ea580c', background: '#fff7ed', border: '1px solid #ffedd5', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
-                        Postponed
+                      <span style={{ color: '#64748b', background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600 }}>
+                        Unassigned
                       </span>
                     )}
                   </td>
@@ -624,6 +748,120 @@ const DispatcherHome = () => {
           </table>
         </div>
       </div>
+
+      {/* Create Order Modal */}
+      {createModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setCreateModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <Plus className="w-5 h-5 text-brand-600" /> Create Single Order
+              </h3>
+              <button onClick={() => setCreateModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
+                  <select className="input-field" required value={newPkg.vendorId} onChange={e => setNewPkg(f => ({ ...f, vendorId: e.target.value }))}>
+                    <option value="">— Choose Vendor —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Name <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.customerName} onChange={e => setNewPkg(f => ({ ...f, customerName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Address <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.address} onChange={e => setNewPkg(f => ({ ...f, address: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Customer Phone <span className="text-red-500">*</span></label>
+                    <input type="text" className="input-field" required value={newPkg.customerPhone} onChange={e => setNewPkg(f => ({ ...f, customerPhone: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">City</label>
+                    <input type="text" className="input-field" value={newPkg.city} onChange={e => setNewPkg(f => ({ ...f, city: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Amount (COD) <span className="text-red-500">*</span></label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium text-sm">Rs.</span>
+                      <input type="number" className="input-field pl-9" required value={newPkg.amount} onChange={e => setNewPkg(f => ({ ...f, amount: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Weight (KG)</label>
+                    <input type="number" className="input-field" step="0.1" value={newPkg.weight} onChange={e => setNewPkg(f => ({ ...f, weight: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Date</label>
+                    <input type="date" className="input-field" value={newPkg.deliveryDate} onChange={e => setNewPkg(f => ({ ...f, deliveryDate: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" onClick={() => setCreateModal(false)} className="btn-secondary">Cancel</button>
+                  <button type="submit" className="btn-primary">Create Order</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Upload Modal */}
+      {csvModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn" onClick={() => setCsvModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-scaleIn" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-600" /> Bulk CSV Upload
+              </h3>
+              <button onClick={() => setCsvModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleCsvUpload} className="space-y-5">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Select Vendor <span className="text-red-500">*</span></label>
+                  <select className="input-field" required value={csvVendorId} onChange={e => setCsvVendorId(e.target.value)}>
+                    <option value="">— Choose Vendor —</option>
+                    {vendors.map(v => <option key={v._id} value={v._id}>{v.name} — {v.vendorMeta?.shopName || v.email}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">Upload CSV File <span className="text-red-500">*</span></label>
+                  <input type="file" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition-all border border-slate-200 rounded-xl p-2 cursor-pointer" accept=".csv" required onChange={e => setCsvFile(e.target.files[0])} />
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1.5"><AlertTriangle className="w-4 h-4" /> Standard Columns</p>
+                      <button type="button" onClick={downloadSampleCsv} className="text-xs text-amber-800 hover:text-amber-950 font-semibold underline flex items-center gap-1">
+                        <Download className="w-3.5 h-3.5" /> Sample CSV
+                      </button>
+                    </div>
+                    <p className="text-xs font-mono text-amber-700 leading-relaxed bg-white/50 p-2 rounded-lg border border-amber-100">
+                      customer name, address, customerPhone, city, amount, weight, delivery charge, out of valley
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 mt-6">
+                  <button type="button" onClick={() => setCsvModal(false)} className="btn-secondary">Cancel</button>
+                  <button type="submit" className="btn-primary flex items-center gap-2" disabled={csvUploading}>
+                    {csvUploading ? 'Uploading...' : 'Upload & Import'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -1514,7 +1752,7 @@ const ReverseLogistics = () => {
   // Group pendingRider by Rider
   const filteredPendingRider = applySearch(pendingRider);
   const riderGroups = filteredPendingRider.reduce((acc, p) => {
-    const riderName = p.riderId?.name || 'Unassigned / Postponed';
+    const riderName = p.riderId?.name || 'Unassigned';
     const riderId = p.riderId?._id || 'unassigned';
     if (!acc[riderName]) acc[riderName] = { riderId, riderName, packages: [] };
     acc[riderName].packages.push(p);
@@ -2916,7 +3154,7 @@ const DispatcherDashboard = () => {
       <Suspense fallback={<SectionLoader />}>
         <Routes>
           <Route path="/" element={<DispatcherHome />} />
-          <Route path="/packages" element={<PackageManagement />} />
+          <Route path="/packages" element={<Navigate to="/dispatcher" replace />} />
           <Route path="/tasks" element={<CombinedTasks />} />
           <Route path="/scan-station" element={<ScanStation role="dispatcher" />} />
           <Route path="/inbound-scan" element={<InboundScan />} />
