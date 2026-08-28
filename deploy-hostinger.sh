@@ -1,17 +1,34 @@
 #!/bin/bash
 # =======================================================
-# Ktmexpress Hostinger VPS One-Click Deployment Script
+# Ktmexpress Hostinger VPS One-Click Clean Deployment Script
 # Domain: kdmexpress.com | IP: 200.141.11.152
+# Repository: https://github.com/Tester10-lab/Ktmexpress.git
 # =======================================================
 
 set -e
 
-echo "🚀 Starting Hostinger VPS deployment for Ktmexpress..."
+echo "🚀 Starting 100% Clean Hostinger VPS Deployment for Ktmexpress..."
 
-# Update system
+# 1. Stop and completely wipe old Docker containers, images, cache, and volumes
+echo "🧹 Wiping old Docker containers, images, and cached build layers..."
+docker compose down -v --remove-orphans 2>/dev/null || true
+docker stop $(docker ps -aq) 2>/dev/null || true
+docker rm $(docker ps -aq) 2>/dev/null || true
+docker rmi -f $(docker images -q) 2>/dev/null || true
+docker volume prune -f 2>/dev/null || true
+docker builder prune -af 2>/dev/null || true
+docker system prune -af --volumes 2>/dev/null || true
+
+# Kill any lingering services on ports
+fuser -k 80/tcp 2>/dev/null || true
+fuser -k 443/tcp 2>/dev/null || true
+fuser -k 5000/tcp 2>/dev/null || true
+fuser -k 8080/tcp 2>/dev/null || true
+
+# 2. Update system packages
 apt-get update -y
 
-# Ensure 2GB swap space exists (prevents Out-Of-Memory crashes during Docker build)
+# 3. Ensure 2GB swap space exists (prevents Out-Of-Memory during React build)
 if [ $(swapon --show | wc -l) -eq 0 ]; then
     echo "🧠 Allocating 2GB swap memory for build stability..."
     fallocate -l 2G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=2048
@@ -20,7 +37,7 @@ if [ $(swapon --show | wc -l) -eq 0 ]; then
     swapon /swapfile || true
 fi
 
-# Ensure Docker is installed
+# 4. Ensure Docker and Docker Compose plugin are installed
 if ! command -v docker &> /dev/null; then
     echo "📦 Installing Docker..."
     curl -fsSL https://get.docker.com -o get-docker.sh
@@ -28,43 +45,34 @@ if ! command -v docker &> /dev/null; then
     rm get-docker.sh
 fi
 
-# Ensure Docker Compose plugin is installed
 if ! docker compose version &> /dev/null; then
     echo "📦 Installing Docker Compose..."
     apt-get install -y docker-compose-plugin
 fi
 
-# Setup directory
+# 5. Completely wipe and re-clone the correct GitHub repository
 DEPLOY_DIR="/var/www/ktmexpress"
-if [ ! -d "$DEPLOY_DIR" ]; then
-    echo "📥 Cloning repository into $DEPLOY_DIR..."
-    mkdir -p /var/www
-    git clone https://github.com/ishan-sh893/kdmexpress.git "$DEPLOY_DIR"
-    cd "$DEPLOY_DIR"
-else
-    echo "🔄 Pulling latest changes in $DEPLOY_DIR..."
-    cd "$DEPLOY_DIR"
-    git fetch origin main
-    git reset --hard origin/main
-fi
+echo "🗑️ Wiping old deployment directory $DEPLOY_DIR..."
+rm -rf "$DEPLOY_DIR"
 
-# Launch Docker containers (MongoDB + Backend + Frontend)
-echo "🐳 Building and starting Docker containers..."
-systemctl stop nginx 2>/dev/null || true
-systemctl stop apache2 2>/dev/null || true
-docker compose down --remove-orphans || true
-fuser -k 5000/tcp 2>/dev/null || true
-fuser -k 80/tcp 2>/dev/null || true
-docker compose up -d --build
+echo "📥 Cloning fresh repository from Tester10-lab/Ktmexpress.git..."
+mkdir -p /var/www
+git clone https://github.com/Tester10-lab/Ktmexpress.git "$DEPLOY_DIR"
+cd "$DEPLOY_DIR"
 
-echo "🌱 Seeding Super Admin credentials..."
+# 6. Build and launch Docker containers with --no-cache to guarantee fresh frontend/backend
+echo "🐳 Building Docker containers with --no-cache (clean build)..."
+docker compose build --no-cache --pull
+docker compose up -d
+
+echo "🌱 Waiting for database & seeding Super Admin..."
+sleep 6
 docker compose exec -T backend node seed.js || true
 
-echo "✅ Containers running! Checking status:"
+echo "✅ Containers running! Status:"
 docker compose ps
 
 echo "======================================================="
-echo "🎉 Deployment successful!"
-echo "Your app is live on http://200.141.11.152"
-echo "Make sure your domain kdmexpress.com points its A Record to 200.141.11.152"
+echo "🎉 Clean deployment successful!"
+echo "Your app is live with the newest version on http://200.141.11.152"
 echo "======================================================="
