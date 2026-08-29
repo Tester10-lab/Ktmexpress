@@ -473,23 +473,23 @@ const AdminDispatcher = () => {
                 <button
                   onClick={() => handleBulkStatusChange('In Warehouse')}
                   disabled={bulkStatusLoading}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
                 >
-                  🏬 Return to Warehouse
+                  Return to Warehouse
                 </button>
                 <button
                   onClick={() => handleBulkStatusChange('Out for Delivery')}
                   disabled={bulkStatusLoading}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
                 >
-                  🚀 Dispatched
+                  Dispatch
                 </button>
                 <button
                   onClick={() => handleBulkStatusChange('Delivered')}
                   disabled={bulkStatusLoading}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
                 >
-                  ✅ Delivered
+                  Mark Delivered
                 </button>
                 <button onClick={() => setSelected([])} className="text-xs text-slate-500 hover:text-slate-700 ml-2">Clear</button>
               </div>

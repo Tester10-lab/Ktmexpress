@@ -24,7 +24,6 @@ export const trackPackage = async (req, res) => {
 
     const cleanCode = rawCode.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase();
 
-    // We don't populate rider info for public view to protect privacy
     const pkg = await Package.findOne({
       $or: [
         { trackingCode: cleanCode },
@@ -32,7 +31,7 @@ export const trackPackage = async (req, res) => {
         { invoiceId: rawCode },
         { invoiceId: { $regex: `^${rawCode.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, $options: 'i' } }
       ]
-    });
+    }).populate('vendorId', 'name contact vendorMeta');
       
     if (!pkg) {
       return res.status(404).json({ success: false, message: 'Package not found for the given tracking code or invoice ID.' });
@@ -44,8 +43,17 @@ export const trackPackage = async (req, res) => {
       invoiceId: pkg.invoiceId || '',
       status: pkg.status,
       customerName: pkg.customerName,
+      customerPhone: pkg.customerPhone || '',
       address: pkg.address,
       city: pkg.city,
+      outOfValley: pkg.outOfValley,
+      weight: pkg.weight,
+      packageAccess: pkg.packageAccess,
+      items: pkg.items || [],
+      amount: pkg.amount,
+      paymentMethod: pkg.paymentMethod || 'Cash',
+      deliveryCharge: pkg.deliveryCharge || 0,
+      vendorId: pkg.vendorId,
       qrCodeUrl: pkg.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&ecc=M&data=${encodeURIComponent(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/track?code=${pkg.trackingCode}`)}`,
       barcodeUrl: pkg.barcodeUrl || `https://barcodeapi.org/api/128/${pkg.trackingCode}`,
       timeline: (pkg.timeline || []).map(t => ({

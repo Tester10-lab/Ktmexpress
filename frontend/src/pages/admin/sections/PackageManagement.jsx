@@ -11,13 +11,14 @@ import {
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
   MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet, Download,
-  Edit2, Trash2, Check, X, Bell, History, Sliders, ChevronDown, ChevronUp
+  Edit2, Trash2, Check, X, Bell, History, Sliders, ChevronDown, ChevronUp, Printer
 } from 'lucide-react';
 
 import { VerificationStatusBadge, VerificationPriorityBadge } from '../../../components/verification/VerificationRequestBadge';
 import { VerificationAudit } from '../../../components/verification/VerificationAudit';
 import { VerificationModal } from '../../../components/verification/VerificationModal';
 import { useVerification } from '../../../components/verification/useVerification';
+import PrintLabelsModal from '../../../components/PrintLabelsModal';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
@@ -77,6 +78,7 @@ const AdminPackages = () => {
 
   const [createModal, setCreateModal] = useState(false);
   const [csvModal, setCsvModal] = useState(false);
+  const [printLabelsModalOpen, setPrintLabelsModalOpen] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [newPkg, setNewPkg] = useState({ vendorId: '', customerName: '', customerPhone: '', address: '', city: '', amount: '', weight: '0.5', deliveryDate: '' });
   const [csvVendorId, setCsvVendorId] = useState('');
@@ -343,6 +345,9 @@ const AdminPackages = () => {
 
           <button className="btn-primary py-2 flex items-center gap-2" onClick={() => setCreateModal(true)}>
             <Plus className="w-4 h-4" /> Create Order
+          </button>
+          <button className="btn-outline py-2 flex items-center gap-2 bg-white text-slate-800 border-slate-300 hover:bg-slate-50" onClick={() => setPrintLabelsModalOpen(true)} title="Print 4x6 Delivery Labels">
+            <Printer className="w-4 h-4 text-slate-700" /> Print Labels
           </button>
           <button className="btn-outline py-2 flex items-center gap-2" onClick={() => setCsvModal(true)}>
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> CSV Upload
@@ -806,6 +811,16 @@ const AdminPackages = () => {
           handleVerify={handleVerify} 
         />
       )}
+
+      {/* Print Delivery Labels Modal */}
+      <PrintLabelsModal
+        isOpen={printLabelsModalOpen}
+        onClose={() => setPrintLabelsModalOpen(false)}
+        packages={packages}
+        vendors={vendors}
+        riders={riders}
+        onRefresh={() => fetchPackages(true)}
+      />
     </>
   );
 };

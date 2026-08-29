@@ -218,7 +218,7 @@ export const trackPackage = async (req, res) => {
         { invoiceId: { $regex: `^${escapeRegex(rawCode)}$`, $options: 'i' } }
       ]
     })
-      .populate('vendorId', 'name vendorMeta')
+      .populate('vendorId', 'name email contact vendorMeta')
       .populate('riderId', 'name contact')
       .lean();
 
