@@ -69,10 +69,15 @@ echo "🌱 Waiting for database & seeding Super Admin..."
 sleep 6
 docker compose exec -T backend node seed.js || true
 
-echo "✅ Containers running! Status:"
-docker compose ps
+# 7. Configure / Restart Host Nginx reverse proxy & SSL for kdmexpress.com
+echo "🔒 Configuring / Restarting Host Nginx & SSL reverse proxy..."
+if [ -f "$DEPLOY_DIR/setup-ssl.sh" ]; then
+    bash "$DEPLOY_DIR/setup-ssl.sh" || systemctl restart nginx || true
+elif command -v nginx &> /dev/null; then
+    systemctl restart nginx || true
+fi
 
 echo "======================================================="
 echo "🎉 Clean deployment successful!"
-echo "Your app is live with the newest version on http://200.141.11.152"
+echo "Your app is live on https://kdmexpress.com and http://200.141.11.152"
 echo "======================================================="
