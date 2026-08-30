@@ -110,7 +110,13 @@ export const KDM_EXPRESS_RATES = [
   { city: "BESISAHAR (LAMJUNG)", fee: 250 },
   { city: "KUSHMA (PARBAT)", fee: 250 },
   { city: "SINDHULIMADI (SINDHULI)", fee: 225 },
-  { city: "WALING (SYANGJA)", fee: 225 }
+  { city: "WALING (SYANGJA)", fee: 225 },
+  { city: "EVEREST (SOLUKHUMBU / SALLERI)", fee: 295 },
+  { city: "SALLERI (SOLUKHUMBU / EVEREST)", fee: 295 },
+  { city: "LUKLA / NAMCHE (EVEREST)", fee: 350 },
+  { city: "OKHALDHUNGA", fee: 275 },
+  { city: "MANANG", fee: 300 },
+  { city: "MUSTANG (JOMSOM)", fee: 295 }
 ];
 
 export async function seedExcelPricing(force = false) {

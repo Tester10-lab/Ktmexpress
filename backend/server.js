@@ -208,7 +208,7 @@ if (process.env.NODE_ENV !== 'test') {
 
       // Auto-seed/update master pricing rates from Excel catalog
       const { seedExcelPricing } = await import('./services/excelPricingSeeder.js');
-      await seedExcelPricing();
+      await seedExcelPricing(true);
 
       // Initialize daily email backup scheduler
       const { scheduleDailyEmailBackup } = await import('./services/dailyReportService.js');

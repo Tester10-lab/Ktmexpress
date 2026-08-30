@@ -389,8 +389,10 @@ const OUT_OF_VALLEY_CITIES = [
   "Hetauda","Hile Bazar (Dhankuta)","Ilam Bazaar","Inaruwa (Sunsari)","Itahari","Jajarkot","Jaleshwor (Mahottari)",
   "Janakpur","Jeetpur (Bara)","Jeetpur No.4 (Kapilvastu)","Jhalari (Kanchanpur)","Jirikhimti (Terahthum)",
   "Jogikuti (Rupandehi)","Jomsom","Joshipur (Kailali)","Jumla (Khalanga)","Kawashoti (Nawalpur)",
-  "Kohalpur (Banke)","Kushma (Parbat)","Madi (Chitwan)","Narayangarh (Chitwan)","Nepalgunj (Banke)",
-  "Pokhara","Ratnanagar / Tandi (Chitwan)","Sindhulimadi (Sindhuli)","Surkhet (Birendranagar)",
+  "Kohalpur (Banke)","Kushma (Parbat)","Lukla / Namche (Everest)","Madi (Chitwan)","Manang",
+  "Mustang (Jomsom)","Narayangarh (Chitwan)","Nepalgunj (Banke)","Okhaldhunga",
+  "Pokhara","Ratnanagar / Tandi (Chitwan)","Salleri (Solukhumbu / Everest)",
+  "Sindhulimadi (Sindhuli)","Solukhumbu (Everest / Salleri)","Surkhet (Birendranagar)",
   "Tansen (Palpa)","Waling (Syangja)"
 ];
 
@@ -941,9 +943,9 @@ const PackageList = () => {
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Package Info</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                   <div><div className="text-xs font-medium text-slate-500 mb-1">Weight</div><div className="font-bold text-slate-900">{viewPackageDetails.weight} kg</div></div>
-                  <div><div className="text-xs font-medium text-slate-500 mb-1">Package Type</div><div className="font-bold text-slate-900 truncate" title={viewPackageDetails.packageType}>{viewPackageDetails.packageType || 'N/A'}</div></div>
+                  <div><div className="text-xs font-medium text-slate-500 mb-1">Package Type</div><div className="font-bold text-slate-900 truncate" title={viewPackageDetails.packageType}>{viewPackageDetails.packageType || viewPackageDetails.items?.[0]?.name || 'Standard Parcel'}</div></div>
                   <div><div className="text-xs font-medium text-slate-500 mb-1">Invoice ID</div><div className="font-bold text-slate-900">{viewPackageDetails.invoiceId || 'N/A'}</div></div>
-                  <div><div className="text-xs font-medium text-slate-500 mb-1">Destination</div><div className="font-bold text-slate-900 truncate" title={viewPackageDetails.destinationBranch}>{viewPackageDetails.destinationBranch || 'N/A'}</div></div>
+                  <div><div className="text-xs font-medium text-slate-500 mb-1">Destination</div><div className="font-bold text-slate-900 truncate" title={viewPackageDetails.city || viewPackageDetails.destinationBranch || viewPackageDetails.address}>{viewPackageDetails.city || viewPackageDetails.destinationBranch || (viewPackageDetails.outOfValley ? 'Outside Valley' : 'Kathmandu Valley')}</div></div>
                   <div><div className="text-xs font-medium text-slate-500 mb-1">Access</div><div className="font-bold text-slate-900">{viewPackageDetails.packageAccess || 'Sealed'}</div></div>
                   <div><div className="text-xs font-medium text-slate-500 mb-1">Created Date</div><div className="font-bold text-slate-900">{new Date(viewPackageDetails.createdAt).toLocaleDateString()}</div></div>
                 </div>
