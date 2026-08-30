@@ -480,6 +480,11 @@ const AdminPackages = () => {
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1 items-start">
                         {statusBadge(p.status)}
+                        {p.isRateUnconfigured && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300 animate-pulse" title="This destination has no rate set in Pricing Engine!">
+                            ⚠️ Unset Rate
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">

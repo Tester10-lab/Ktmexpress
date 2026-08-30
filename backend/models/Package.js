@@ -86,6 +86,10 @@ const packageSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    isRateUnconfigured: {
+      type: Boolean,
+      default: false,
+    },
     // ─── Settlement Fields ──────────────────────────────────────────────
     vendorReceivable: {
       type: Number,

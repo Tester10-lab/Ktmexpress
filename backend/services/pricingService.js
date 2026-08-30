@@ -23,7 +23,7 @@ export const getGlobalSettings = async () => {
  *    b. Else use global ktmBaseRate.
  * 4. Add weight surcharge for weight > 1kg.
  */
-export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight, _vendor, _globalSettings }) => {
+export const calculateDeliveryFeeDetails = async ({ vendorId, outOfValley, city, weight, _vendor, _globalSettings }) => {
   let vendor = _vendor;
   if (!vendor && vendorId) {
     try {
@@ -42,11 +42,13 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
   } = vendor?.vendorMeta || {};
 
   let baseFee = 0;
+  let isUnconfigured = false;
+  let cityMatched = null;
   const globalSettings = _globalSettings || await getGlobalSettings();
   
   // 1. Custom Flat Rate (Overrides everything)
   if (customFlatRate !== null && customFlatRate !== undefined && !isNaN(Number(customFlatRate))) {
-    return Number(customFlatRate);
+    return { fee: Number(customFlatRate), isUnconfigured: false, cityMatched: 'Custom Flat Rate' };
   }
 
   // 2. Out of Valley logic
@@ -71,11 +73,14 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
 
         if (cityFee) {
           baseFee = Number(cityFee.fee);
+          cityMatched = cityFee.city;
         } else {
-          baseFee = defaultOutsideRate ? Number(defaultOutsideRate) : 200;
+          isUnconfigured = true;
+          baseFee = defaultOutsideRate ? Number(defaultOutsideRate) : 0;
         }
       } else {
-        baseFee = defaultOutsideRate ? Number(defaultOutsideRate) : 200;
+        isUnconfigured = true;
+        baseFee = defaultOutsideRate ? Number(defaultOutsideRate) : 0;
       }
     }
   } 
@@ -85,6 +90,7 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
       baseFee = Number(defaultKtmRate);
     } else {
       baseFee = Number(globalSettings.ktmBaseRate || 100);
+      cityMatched = 'Kathmandu Valley';
     }
   }
 
@@ -96,8 +102,19 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
   const surchargePerKg = useGlobalPricing ? Number(globalSettings.weightSurchargePerKg || 50) : Number(vendorWeightSurcharge || 50);
   const surchargeTotal = extraWeight * surchargePerKg;
 
-  const calculatedTotal = (baseFee || (outOfValley ? 200 : 100)) + surchargeTotal;
-  return calculatedTotal > 0 ? calculatedTotal : (outOfValley ? 200 : 100);
+  const calculatedTotal = baseFee + surchargeTotal;
+  return {
+    fee: calculatedTotal,
+    isUnconfigured,
+    cityMatched,
+    baseFee,
+    surchargeTotal
+  };
+};
+
+export const calculateDeliveryFee = async (params) => {
+  const details = await calculateDeliveryFeeDetails(params);
+  return details.fee;
 };
 
 export const getPricingSummary = async () => {

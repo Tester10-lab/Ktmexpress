@@ -222,17 +222,23 @@ export const createPackage = async (req, res) => {
     }
 
     let finalDeliveryCharge = Number(deliveryCharge);
+    let isUnconfigured = false;
+
     if (isNaN(finalDeliveryCharge) || finalDeliveryCharge <= 0) {
       try {
-        finalDeliveryCharge = await calculateDeliveryFee({
+        const { calculateDeliveryFeeDetails } = await import('../services/pricingService.js');
+        const feeDetails = await calculateDeliveryFeeDetails({
           vendorId,
           outOfValley: !!outOfValley,
           city: city || '',
           weight: Number(weight) || 0.5
         });
+        finalDeliveryCharge = feeDetails.fee;
+        isUnconfigured = feeDetails.isUnconfigured;
       } catch (e) {
         logger.error('Pricing calculation failed', e);
         finalDeliveryCharge = outOfValley ? 200 : 100;
+        isUnconfigured = true;
       }
     }
 
@@ -253,6 +259,7 @@ export const createPackage = async (req, res) => {
       items: items || [],
       amount: Number(amount),
       deliveryCharge: finalDeliveryCharge,
+      isRateUnconfigured: isUnconfigured,
       vendorReceivable: Math.max(0, Number(amount) - finalDeliveryCharge),
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
@@ -267,6 +274,23 @@ export const createPackage = async (req, res) => {
     });
 
     if (req.io) {
+      // 🚨 High Alert to Admin & Dispatcher if delivery fee was unconfigured
+      if (isUnconfigured) {
+        req.io.to('role_admin').to('role_dispatcher').emit('notification', {
+          id: `missing_rate_${pkg._id}_${Date.now()}`,
+          title: '🚨 HIGH ALERT: Unconfigured Delivery Rate',
+          message: `⚠️ HIGH ALERT: Package ${pkg.trackingCode} for "${pkg.city || pkg.address}" has NO configured delivery fee in Pricing Engine! Please review and set rate.`,
+          type: 'error',
+          priority: 'high',
+          packageId: pkg._id,
+          trackingCode: pkg.trackingCode,
+          destination: pkg.city || pkg.address,
+          vendorName: req.user.name,
+          path: '/admin/pricing-engine',
+          createdAt: new Date().toISOString()
+        });
+      }
+
       req.io.to('role_admin').emit('notification', {
         title: 'New Order Created',
         message: `Vendor ${req.user.name} created order ${pkg.trackingCode}`,

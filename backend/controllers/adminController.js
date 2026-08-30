@@ -731,16 +731,22 @@ export const createPackageForVendor = async (req, res) => {
     const labelUrls = generateLabelUrls(trackingCode);
 
     let finalDeliveryCharge = Number(deliveryCharge);
-    if (!finalDeliveryCharge) {
+    let isUnconfigured = false;
+
+    if (!finalDeliveryCharge || isNaN(finalDeliveryCharge) || finalDeliveryCharge <= 0) {
       try {
-        finalDeliveryCharge = await calculateDeliveryFee({
+        const { calculateDeliveryFeeDetails } = await import('../services/pricingService.js');
+        const feeDetails = await calculateDeliveryFeeDetails({
           vendorId,
           outOfValley: !!outOfValley,
           city: city || '',
-          weight: weight || 0.5
+          weight: Number(weight) || 0.5
         });
+        finalDeliveryCharge = feeDetails.fee;
+        isUnconfigured = feeDetails.isUnconfigured;
       } catch (e) {
-        finalDeliveryCharge = 0;
+        finalDeliveryCharge = outOfValley ? 200 : 100;
+        isUnconfigured = true;
       }
     }
 
@@ -759,6 +765,7 @@ export const createPackageForVendor = async (req, res) => {
       items: items || [],
       amount: Number(amount),
       deliveryCharge: finalDeliveryCharge,
+      isRateUnconfigured: isUnconfigured,
       vendorReceivable: Math.max(0, Number(amount) - finalDeliveryCharge),
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
@@ -773,6 +780,22 @@ export const createPackageForVendor = async (req, res) => {
     });
 
     if (req.io) {
+      if (isUnconfigured) {
+        req.io.to('role_admin').to('role_dispatcher').emit('notification', {
+          id: `missing_rate_${pkg._id}_${Date.now()}`,
+          title: '🚨 HIGH ALERT: Unconfigured Delivery Rate',
+          message: `⚠️ HIGH ALERT: Package ${pkg.trackingCode} for "${pkg.city || pkg.address}" has NO configured delivery fee in Pricing Engine! Please review and set rate.`,
+          type: 'error',
+          priority: 'high',
+          packageId: pkg._id,
+          trackingCode: pkg.trackingCode,
+          destination: pkg.city || pkg.address,
+          vendorName: vendor.name,
+          path: '/admin/pricing-engine',
+          createdAt: new Date().toISOString()
+        });
+      }
+
       req.io.to('role_admin').emit('package:created', pkg);
       req.io.to('role_dispatcher').emit('package:created', pkg);
     }
