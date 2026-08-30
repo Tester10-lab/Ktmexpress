@@ -47,8 +47,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const url = originalRequest?.url || '';
+    const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh') || url.includes('/auth/logout');
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest?._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
       const activeRole = getActiveRole();
 
@@ -74,13 +76,17 @@ api.interceptors.response.use(
       } catch (err) {
         setAccessToken(activeRole, null);
         localStorage.removeItem(`${activeRole}_user`);
-        window.location.href = '/login';
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
         return Promise.reject(err);
       }
     }
 
+    const message = error.response?.data?.message || (typeof error.response?.data === 'string' ? error.response.data : null) || error.message || 'Something went wrong';
+
     return Promise.reject({
-      message: error.response?.data?.message || 'Something went wrong',
+      message,
       status: error.response?.status,
       errors: error.response?.data?.errors || [],
       response: error.response,
