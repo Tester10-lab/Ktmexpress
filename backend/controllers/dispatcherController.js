@@ -281,16 +281,15 @@ export const bulkVendorHandover = async (req, res) => {
 // PUT /api/dispatcher/bulk-status-update
 export const bulkStatusUpdate = async (req, res) => {
   try {
-    const { packageIds, status } = req.body;
+    const { packageIds, status, reason } = req.body;
 
-    const validStatuses = ['In Warehouse', 'Arrived', 'Out for Delivery', 'Dispatched', 'Delivered', 'Picked Up', 'Postponed', 'Cancelled', 'Returned'];
-    if (!packageIds?.length) {
+    if (!Array.isArray(packageIds) || packageIds.length === 0) {
       return res.status(400).json({ success: false, message: 'No packages selected.' });
     }
-    if (!status || !validStatuses.includes(status)) {
+    if (!status) {
       return res.status(400).json({
         success: false,
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
+        message: 'Status is required.',
       });
     }
 
@@ -303,38 +302,21 @@ export const bulkStatusUpdate = async (req, res) => {
 
     for (const pkg of packages) {
       pkg.status = status;
-
-      let timelineStatus = status;
-      let timelineMsg = `Status changed to "${status}" via dispatcher action`;
-
-      if (status === 'Arrived') {
-        timelineStatus = 'Arrived';
-        timelineMsg = `Package arrived at warehouse`;
-      } else if (status === 'In Warehouse') {
-        timelineStatus = 'In Warehouse';
-        timelineMsg = `Package checked into warehouse storage`;
-      } else if (status === 'Dispatched') {
-        timelineStatus = 'Dispatched';
-        timelineMsg = `Package dispatched`;
-      } else if (status === 'Out for Delivery') {
-        timelineStatus = 'Out for Delivery';
-        timelineMsg = `Package out for delivery with rider`;
-      } else if (status === 'Delivered') {
-        timelineStatus = 'Delivered';
-        timelineMsg = `Package delivered`;
+      if (status === 'Delivered') {
+        pkg.deliveryDate = new Date();
       }
 
       appendTimelineEvent(pkg, {
         time: nowStr(),
-        status: timelineStatus,
-        message: timelineMsg,
-        user: req.user.name || 'Dispatcher',
+        status: status,
+        message: `Status changed to "${status}" by Dispatcher ${req.user?.name || ''}${reason ? `: ${reason}` : ''}`,
+        user: req.user?.name || 'Dispatcher',
       });
 
       await pkg.save();
       updatedTrackingCodes.push(pkg.trackingCode);
 
-      if (['In Warehouse', 'Arrived', 'Delivered'].includes(status)) {
+      if (['In Warehouse', 'Warehouse', 'Arrived', 'Arrive', 'Delivered'].includes(status)) {
         await PickupRequest.updateMany(
           { packageId: pkg._id, status: { $in: ['pending', 'assigned'] } },
           { status: 'completed', completedAt: new Date() }
@@ -727,47 +709,6 @@ export const getRiderHistory = async (req, res) => {
         stats: lifetimeStats,
         packages: packagesList
       }
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// PUT /api/dispatcher/bulk-status-update
-export const bulkStatusUpdate = async (req, res) => {
-  try {
-    const { packageIds, status, reason } = req.body;
-    if (!Array.isArray(packageIds) || packageIds.length === 0) {
-      return res.status(400).json({ success: false, message: 'No package IDs provided.' });
-    }
-    if (!status) {
-      return res.status(400).json({ success: false, message: 'Status is required.' });
-    }
-
-    const packages = await Package.find({ _id: { $in: packageIds } });
-    if (!packages.length) {
-      return res.status(404).json({ success: false, message: 'No matching packages found.' });
-    }
-
-    let updatedCount = 0;
-    for (const pkg of packages) {
-      pkg.status = status;
-      if (status === 'Delivered') {
-        pkg.deliveryDate = new Date();
-      }
-      appendTimelineEvent(pkg, {
-        time: nowStr(),
-        status: status,
-        message: `Status updated to ${status} by Dispatcher ${req.user?.name || ''}${reason ? `: ${reason}` : ''}`,
-      });
-      await pkg.save();
-      updatedCount++;
-    }
-
-    res.json({
-      success: true,
-      message: `Successfully updated ${updatedCount} package(s) to ${status}.`,
-      data: { count: updatedCount, status }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
