@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Wallet, Receipt, Users, Settings2, Activity, 
   Package, LayoutGrid, BarChart3, Truck, Factory, AlertTriangle, 
   MapPin, CheckCircle2, XCircle, Search, RefreshCw, Plus, FileSpreadsheet,
-  Edit2, Trash2, Check, X, Bell
+  Edit2, Trash2, Check, X, Bell, Mail
 } from 'lucide-react';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
@@ -33,8 +33,10 @@ function statusBadge(status) {
 const AdminReports = () => {
   const [analytics, setAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const { showToast } = useToast();
 
   const fetchReports = () => {
     setLoading(true);
@@ -48,6 +50,18 @@ const AdminReports = () => {
       .finally(() => setLoading(false));
   };
 
+  const handleSendDailyEmail = async () => {
+    setSendingEmail(true);
+    try {
+      const res = await api.post('/admin/send-daily-report');
+      showToast(res.data.message || 'Daily report email sent successfully!', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || err.message || 'Failed to send daily report email', 'error');
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   useEffect(() => { fetchReports(); }, [startDate, endDate]);
 
   return (
@@ -58,6 +72,15 @@ const AdminReports = () => {
           <p className="text-sm text-slate-500">Revenue, delivery costs, and payouts by vendor</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleSendDailyEmail}
+            disabled={sendingEmail}
+            className="btn-outline py-2 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-brand-600 border-brand-200 hover:bg-brand-50"
+            title="Generate and email the full daily Excel backup now"
+          >
+            <Mail className="w-4 h-4 text-brand-600" />
+            {sendingEmail ? 'Sending Email...' : 'Send Daily Backup Email'}
+          </button>
           <div className="flex items-center gap-2">
             <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">From</label>
             <input type="date" className="input-field py-2 px-3 text-sm" value={startDate} onChange={e => setStartDate(e.target.value)} />

@@ -111,6 +111,18 @@ router.get('/pricing-engine/vendors', roleGuard('admin'), getVendorsPricing);
 router.put('/pricing-engine/vendors/:id', roleGuard('admin'), updateVendorPricing);
 router.post('/pricing-engine/calculate', roleGuard('admin'), previewCalculateFee);
 router.post('/pricing-engine/import-excel', roleGuard('admin'), importExcelPricingController);
+router.post('/send-daily-report', roleGuard('admin'), async (req, res) => {
+  try {
+    const { sendDailyEmailBackup } = await import('../services/dailyReportService.js');
+    const result = await sendDailyEmailBackup();
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // --- Delivery Charge Rules (Admin only) ---
 router.get('/delivery-charges', roleGuard('admin'), getAllDeliveryChargeRules);

@@ -16,6 +16,8 @@ services:
     ports:
       - "5000:5000"
     env_file:
+      - path: ./.env
+        required: false
       - path: ./backend/.env
         required: false
     environment:
@@ -25,7 +27,7 @@ services:
       - CLIENT_URL=${CLIENT_URL:-https://kdmexpress.com}
       - REPORT_EMAIL=${REPORT_EMAIL:-kdmexpress7@gmail.com}
       - REPORT_EMAIL_TO=${REPORT_EMAIL_TO:-maharjandiplon@gmail.com}
-      - REPORT_EMAIL_APP_PASSWORD=${REPORT_EMAIL_APP_PASSWORD}
+      - REPORT_EMAIL_APP_PASSWORD=${REPORT_EMAIL_APP_PASSWORD:-}
     depends_on:
       - mongodb
     restart: unless-stopped
