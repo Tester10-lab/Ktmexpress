@@ -123,13 +123,15 @@ const OutsideValleyFees = ({ onUpdate }) => {
   };
 
   const [importing, setImporting] = useState(false);
+  const [uploadingSheet, setUploadingSheet] = useState(false);
+  const fileInputRef = React.useRef(null);
 
   const handleImportExcelRates = async () => {
-    if (!window.confirm('Import/sync all 95 Outside Valley rates from KDM Express master sheet and set KTM Base Rate to 100?')) return;
+    if (!window.confirm('Import/sync master Outside Valley rates and set KTM Base Rate to 100?')) return;
     setImporting(true);
     try {
       const res = await api.post('/admin/pricing-engine/import-excel');
-      showToast(res.data.message || 'Successfully imported all 95 rates!', 'success');
+      showToast(res.data.message || 'Successfully imported rates!', 'success');
       fetchOvFees(1, '', true);
       if (typeof onUpdate === 'function') onUpdate();
     } catch (err) {
@@ -139,8 +141,38 @@ const OutsideValleyFees = ({ onUpdate }) => {
     }
   };
 
+  const handleSheetFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    setUploadingSheet(true);
+
+    try {
+      const res = await api.post('/admin/pricing-engine/upload-sheet', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      showToast(res.data.message || `Successfully imported ${res.data.count} cities!`, 'success');
+      fetchOvFees(1, '', true);
+      if (typeof onUpdate === 'function') onUpdate();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to upload pricing sheet', 'error');
+    } finally {
+      setUploadingSheet(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <>
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        accept=".xlsx,.xls,.csv" 
+        className="hidden" 
+        onChange={handleSheetFileUpload} 
+      />
       <div className="card-premium overflow-hidden flex flex-col h-full">
         <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -154,12 +186,20 @@ const OutsideValleyFees = ({ onUpdate }) => {
                 value={ovSearch} onChange={handleOvSearchChange} />
             </div>
             <button 
+              className="btn-outline py-2 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-emerald-600 border-emerald-300 hover:bg-emerald-50" 
+              onClick={() => fileInputRef.current?.click()} 
+              disabled={uploadingSheet}
+              title="Upload custom Excel (.xlsx) or CSV file with City and Rate columns"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> {uploadingSheet ? 'Uploading Sheet...' : '📁 Import Sheet (Excel/CSV)'}
+            </button>
+            <button 
               className="btn-outline py-2 px-3 flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold text-brand-600 border-brand-200 hover:bg-brand-50" 
               onClick={handleImportExcelRates} 
               disabled={importing}
-              title="Import all 95 Outside Valley rates and set KTM rate to 100"
+              title="Restore KDM Express master catalog rates"
             >
-              <FileSpreadsheet className="w-4 h-4" /> {importing ? 'Importing...' : 'Import KDM Rates (110+ Cities)'}
+              <FileSpreadsheet className="w-4 h-4" /> {importing ? 'Syncing...' : 'Sync Master Catalog'}
             </button>
             <button className="btn-primary py-2 flex items-center gap-1.5 whitespace-nowrap" onClick={() => openOvModal()}>
               <Plus className="w-4 h-4" /> Add City

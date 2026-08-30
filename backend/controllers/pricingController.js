@@ -198,7 +198,123 @@ export const importExcelPricingController = async (req, res) => {
   try {
     const { seedExcelPricing } = await import('../services/excelPricingSeeder.js');
     const result = await seedExcelPricing(true);
-    res.json({ success: true, message: 'Successfully imported all 95 Outside Valley rates & updated KTM base rate to 100.', data: result });
+    res.json({ success: true, message: 'Successfully imported master rates & updated KTM base rate to 100.', data: result });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getActiveCitiesController = async (req, res) => {
+  try {
+    const cities = await OutsideValleyFee.find({ isActive: true }).select('city fee -_id').sort({ city: 1 });
+    res.json({ success: true, data: cities });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const uploadPricingSheetController = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please upload an Excel (.xlsx/.xls) or CSV (.csv) file' });
+    }
+
+    const filePath = req.file.path;
+    const fs = await import('fs');
+    const ExcelJS = (await import('exceljs')).default;
+    const workbook = new ExcelJS.Workbook();
+
+    const isCsv = req.file.originalname.toLowerCase().endsWith('.csv') || req.file.mimetype === 'text/csv';
+    if (isCsv) {
+      await workbook.csv.readFile(filePath);
+    } else {
+      await workbook.xlsx.readFile(filePath);
+    }
+
+    const worksheet = workbook.worksheets[0];
+    if (!worksheet) {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      return res.status(400).json({ success: false, message: 'No sheet found in workbook' });
+    }
+
+    // Find header row and map columns
+    let cityColIdx = -1;
+    let feeColIdx = -1;
+    let headerRowIdx = 1;
+
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (cityColIdx !== -1 && feeColIdx !== -1) return;
+      const values = Array.isArray(row.values) ? row.values : [];
+      for (let c = 1; c < values.length; c++) {
+        const val = String(values[c] || '').toLowerCase().trim();
+        if (['city', 'destination', 'location', 'place', 'branch', 'hub', 'district', 'area', 'sub-city'].some(k => val.includes(k))) {
+          cityColIdx = c;
+        }
+        if (['fee', 'rate', 'charge', 'delivery charge', 'price', 'cost', 'amount', 'rs', 'cod'].some(k => val.includes(k))) {
+          feeColIdx = c;
+        }
+      }
+      if (cityColIdx !== -1 && feeColIdx !== -1) {
+        headerRowIdx = rowNumber;
+      }
+    });
+
+    // Fallback: if header not found by keyword, default to column 1 (city) and column 2 (fee)
+    if (cityColIdx === -1 || feeColIdx === -1) {
+      cityColIdx = 1;
+      feeColIdx = 2;
+      headerRowIdx = 1;
+    }
+
+    const itemsToUpsert = [];
+    worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber <= headerRowIdx) return;
+      const values = Array.isArray(row.values) ? row.values : [];
+      let rawCity = values[cityColIdx];
+      let rawFee = values[feeColIdx];
+
+      // Handle Excel rich text or formula objects
+      if (rawCity && typeof rawCity === 'object') {
+        rawCity = rawCity.result || rawCity.text || '';
+      }
+      if (rawFee && typeof rawFee === 'object') {
+        rawFee = rawFee.result || rawFee.text || 0;
+      }
+
+      const cityStr = String(rawCity || '').trim();
+      const feeNum = Number(String(rawFee || '').replace(/[^0-9.]/g, ''));
+
+      if (cityStr && !isNaN(feeNum) && feeNum >= 0) {
+        itemsToUpsert.push({
+          city: cityStr.toUpperCase(),
+          fee: feeNum,
+          isActive: true
+        });
+      }
+    });
+
+    // Clean up uploaded file
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    if (itemsToUpsert.length === 0) {
+      return res.status(400).json({ success: false, message: 'No valid city and fee rows found in the sheet. Please ensure column 1 is City and column 2 is Fee/Rate.' });
+    }
+
+    const bulkOps = itemsToUpsert.map(item => ({
+      updateOne: {
+        filter: { city: item.city },
+        update: { $set: { fee: item.fee, isActive: true, updatedBy: req.user._id } },
+        upsert: true
+      }
+    }));
+
+    await OutsideValleyFee.bulkWrite(bulkOps);
+
+    res.json({
+      success: true,
+      count: itemsToUpsert.length,
+      message: `Successfully imported and synced ${itemsToUpsert.length} outside valley cities and rates!`
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -52,7 +52,8 @@ import {
   getVendorsPricing,
   updateVendorPricing,
   previewCalculateFee,
-  importExcelPricingController
+  importExcelPricingController,
+  uploadPricingSheetController
 } from '../controllers/pricingController.js';
 import {
   getAllDeliveryChargeRules,
@@ -74,6 +75,23 @@ const upload = multer({
                   file.originalname.toLowerCase().endsWith('.csv');
     if (!isCsv) {
       return cb(new Error('Only CSV files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
+
+// Multer config for Excel & CSV spreadsheet uploads
+const sheetUpload = multer({
+  dest: 'uploads/',
+  limits: { fileSize: 10 * 1024 * 1024 }, // Limit to 10MB
+  fileFilter: (req, file, cb) => {
+    const name = file.originalname.toLowerCase();
+    const isSpreadsheet = name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv') ||
+                          file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                          file.mimetype === 'application/vnd.ms-excel' ||
+                          file.mimetype === 'text/csv';
+    if (!isSpreadsheet) {
+      return cb(new Error('Only Excel (.xlsx/.xls) or CSV (.csv) files are allowed'), false);
     }
     cb(null, true);
   }
@@ -111,6 +129,7 @@ router.get('/pricing-engine/vendors', roleGuard('admin'), getVendorsPricing);
 router.put('/pricing-engine/vendors/:id', roleGuard('admin'), updateVendorPricing);
 router.post('/pricing-engine/calculate', roleGuard('admin'), previewCalculateFee);
 router.post('/pricing-engine/import-excel', roleGuard('admin'), importExcelPricingController);
+router.post('/pricing-engine/upload-sheet', roleGuard('admin'), sheetUpload.single('file'), uploadPricingSheetController);
 router.post('/send-daily-report', roleGuard('admin'), async (req, res) => {
   try {
     const { sendDailyEmailBackup } = await import('../services/dailyReportService.js');

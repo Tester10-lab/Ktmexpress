@@ -43,6 +43,15 @@ const upload = multer({
 // All routes require auth + vendor role
 router.use(auth, roleGuard('vendor'));
 
+router.get('/outside-valley-cities', async (req, res) => {
+  try {
+    const { getActiveCitiesController } = await import('../controllers/pricingController.js');
+    return getActiveCitiesController(req, res);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 router.get('/next-invoice-id', getNextInvoiceId);
 router.get('/dashboard', getVendorDashboard);
 router.get('/packages', getVendorPackages);
