@@ -1930,3 +1930,45 @@ export const exportDailyExcel = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// PUT /api/admin/packages/bulk-status
+export const bulkUpdatePackageStatus = async (req, res) => {
+  try {
+    const { packageIds, status, reason } = req.body;
+    if (!Array.isArray(packageIds) || packageIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No packages provided.' });
+    }
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required.' });
+    }
+
+    const packages = await Package.find({ _id: { $in: packageIds } });
+    if (!packages.length) {
+      return res.status(404).json({ success: false, message: 'No matching packages found.' });
+    }
+
+    let updatedCount = 0;
+    for (const pkg of packages) {
+      pkg.status = status;
+      if (status === 'Delivered') {
+        pkg.deliveryDate = new Date();
+      }
+      appendTimelineEvent(pkg, {
+        time: nowStr(),
+        status: status,
+        message: `Status updated to ${status} by ${req.user?.name || 'Admin'}${reason ? `: ${reason}` : ''}`,
+      });
+      await pkg.save();
+      updatedCount++;
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully updated ${updatedCount} package(s) to ${status}.`,
+      data: { count: updatedCount, status }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

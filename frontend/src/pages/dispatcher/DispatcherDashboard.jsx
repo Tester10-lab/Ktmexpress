@@ -49,7 +49,7 @@ const titleMap = {
   '/dispatcher':                 'Warehouse Management Overview',
 };
 
-import { StatusBadge } from '../../components/ui/StatusBadge';
+import { StatusBadge, ALLOWED_STATUSES } from '../../components/ui/StatusBadge';
 
 function Spinner() {
   return (
@@ -513,15 +513,15 @@ const DispatcherHome = () => {
                 }}
               >
                 <option value="all">All Statuses ({packages.length})</option>
-                <option value="In Warehouse">🏬 Arrived ({countInWarehouse})</option>
-                <option value="Out for Delivery">🚀 Dispatched ({countOutForDelivery})</option>
-                <option value="Delivered">✅ Delivered ({countDelivered})</option>
-                <option value="Postponed">⚠️ Postponed ({countPostponed})</option>
-                <option value="Pick Up Requested">🚚 Pick Up Requested</option>
-                <option value="Picked Up">📦 Picked Up</option>
-                <option value="Cancelled">❌ Cancelled</option>
-                <option value="Returned">↩️ Returned</option>
-                <option value="Returned to Vendor">🔄 Returned to Vendor</option>
+                <option value="Out of Delivery">Out of Delivery ({countOutForDelivery})</option>
+                <option value="Arrive">Arrive</option>
+                <option value="Warehouse">Warehouse ({countInWarehouse})</option>
+                <option value="Delivered">Delivered ({countDelivered})</option>
+                <option value="Pending">Pending</option>
+                <option value="Picked Up">Picked Up</option>
+                <option value="Postponed">Postponed ({countPostponed})</option>
+                <option value="Returned">Returned</option>
+                <option value="Exchange">Exchange</option>
               </select>
             </div>
 
@@ -1444,23 +1444,33 @@ const InboundScan = () => {
       </div>
 
       {selected.length > 0 && (
-        <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#1d4ed8' }}>
+        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: '12px 18px', marginBottom: 16, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', color: '#fff' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#f1f5f9' }}>
             {selected.length} package(s) selected
           </span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <ActionBtn onClick={() => bulkSetStatus('In Warehouse')} disabled={bulkStatusLoading} variant="warning" size="sm">
-              🏬 Return to Warehouse
-            </ActionBtn>
-            <ActionBtn onClick={() => bulkSetStatus('Out for Delivery')} disabled={bulkStatusLoading} variant="primary" size="sm">
-              🚀 Dispatched
-            </ActionBtn>
-            <ActionBtn onClick={() => bulkSetStatus('Delivered')} disabled={bulkStatusLoading} variant="success" size="sm">
-              ✅ Delivered
-            </ActionBtn>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>Quick Action:</span>
+              <select
+                disabled={bulkStatusLoading}
+                defaultValue=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    bulkSetStatus(e.target.value);
+                    e.target.value = "";
+                  }
+                }}
+                style={{ background: '#1e293b', color: '#fff', fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #334155', cursor: 'pointer', outline: 'none' }}
+              >
+                <option value="" disabled>{bulkStatusLoading ? 'Updating...' : 'Change Status...'}</option>
+                {ALLOWED_STATUSES.map(st => (
+                  <option key={st} value={st}>{st}</option>
+                ))}
+              </select>
+            </div>
             {hasUnconfirmed && (
               <ActionBtn onClick={bulkConfirmArrival} disabled={bulkConfirming} variant="ghost" size="sm">
-                {bulkConfirming ? '...' : '✓ Confirm Arrival'}
+                {bulkConfirming ? '...' : 'Confirm Arrival'}
               </ActionBtn>
             )}
             {hasInWarehouse && (
@@ -1468,7 +1478,7 @@ const InboundScan = () => {
                 <select
                   value={riderId}
                   onChange={e => setRiderId(e.target.value)}
-                  style={{ border: '1px solid #bfdbfe', borderRadius: 6, padding: '6px 10px', fontSize: 12, outline: 'none' }}
+                  style={{ background: '#1e293b', color: '#fff', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', fontSize: 12, outline: 'none' }}
                 >
                   <option value="">— Select Rider —</option>
                   {riders.map(r => <option key={r._id} value={r._id}>{r.name}</option>)}
@@ -1478,7 +1488,7 @@ const InboundScan = () => {
                 </ActionBtn>
               </>
             )}
-            <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>Clear</button>
+            <button onClick={() => setSelected([])} style={{ fontSize: 12, color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 4 }}>Deselect</button>
           </div>
         </div>
       )}

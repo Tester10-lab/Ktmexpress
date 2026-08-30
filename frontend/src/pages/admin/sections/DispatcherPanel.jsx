@@ -14,7 +14,7 @@ import {
   Edit2, Trash2, Check, X, Bell
 } from 'lucide-react';
 
-import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { StatusBadge, ALLOWED_STATUSES } from '../../../components/ui/StatusBadge';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
@@ -449,33 +449,31 @@ const AdminDispatcher = () => {
       {activeTab === 'warehouse' && (
         <div className="space-y-4 animate-fadeInUp">
           {selected.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 px-5 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-xs font-bold text-blue-800">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 px-5 flex flex-wrap items-center justify-between gap-3 text-white">
+              <span className="text-xs font-bold text-slate-200 tracking-wider uppercase">
                 {selected.length} package(s) selected
               </span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={() => handleBulkStatusChange('In Warehouse')}
-                  disabled={bulkStatusLoading}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
-                >
-                  Return to Warehouse
-                </button>
-                <button
-                  onClick={() => handleBulkStatusChange('Out for Delivery')}
-                  disabled={bulkStatusLoading}
-                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
-                >
-                  Dispatch
-                </button>
-                <button
-                  onClick={() => handleBulkStatusChange('Delivered')}
-                  disabled={bulkStatusLoading}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
-                >
-                  Mark Delivered
-                </button>
-                <button onClick={() => setSelected([])} className="text-xs text-slate-500 hover:text-slate-700 ml-2">Clear</button>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-slate-300">Quick Action:</span>
+                  <select
+                    disabled={bulkStatusLoading}
+                    defaultValue=""
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleBulkStatusChange(e.target.value);
+                        e.target.value = "";
+                      }
+                    }}
+                    className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                  >
+                    <option value="" disabled>{bulkStatusLoading ? 'Updating...' : 'Change Status...'}</option>
+                    {ALLOWED_STATUSES.map(st => (
+                      <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                </div>
+                <button onClick={() => setSelected([])} className="text-xs text-slate-400 hover:text-slate-200 font-semibold px-2 py-1">Deselect</button>
               </div>
             </div>
           )}

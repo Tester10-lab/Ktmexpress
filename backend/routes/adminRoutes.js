@@ -38,6 +38,7 @@ import {
   verifyPackageAdmin,
   reopenPackageAdmin,
   bulkVerifyPackagesAdmin,
+  bulkUpdatePackageStatus,
   exportDailyExcel
 } from '../controllers/adminController.js';
 
@@ -161,6 +162,7 @@ router.patch('/users/:id/reactivate', roleGuard('admin'), reactivateUser);
 router.get('/packages', roleGuard('admin', 'dispatcher'), getAllPackagesAdmin);
 router.post('/packages', roleGuard('admin', 'dispatcher'), createPackageForVendor);
 router.post('/packages/bulk', roleGuard('admin', 'dispatcher'), bulkCreatePackagesForVendor);
+router.put('/packages/bulk-status', roleGuard('admin', 'dispatcher'), bulkUpdatePackageStatus);
 router.post('/packages/upload-csv', roleGuard('admin', 'dispatcher'), upload.single('file'), uploadCsvForVendor);
 router.post('/packages/pickup-request', roleGuard('admin', 'dispatcher'), requestPickupAdmin);
 router.put('/packages/:id', roleGuard('admin', 'dispatcher'), updatePackageAdmin);

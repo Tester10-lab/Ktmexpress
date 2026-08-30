@@ -20,7 +20,7 @@ import { VerificationModal } from '../../../components/verification/Verification
 import { useVerification } from '../../../components/verification/useVerification';
 import PrintLabelsModal from '../../../components/PrintLabelsModal';
 
-import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { StatusBadge, ALLOWED_STATUSES } from '../../../components/ui/StatusBadge';
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
 function statusBadge(status) {
@@ -46,6 +46,7 @@ const AdminPackages = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState(null);
   const [selected, setSelected] = useState([]);
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
   const { showToast } = useToast();
 
   const [editModal, setEditModal] = useState(false);
@@ -180,6 +181,25 @@ const AdminPackages = () => {
     } catch (err) {
       showToast(err.message || 'Failed to update package', 'error');
       fetchPackages(true);
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus) => {
+    if (!selected.length) return;
+    if (!newStatus) return;
+    setBulkStatusLoading(true);
+    try {
+      const res = await api.put('/admin/packages/bulk-status', {
+        packageIds: selected,
+        status: newStatus
+      });
+      showToast(res.data?.message || `Updated ${selected.length} packages to ${newStatus}`, 'success');
+      setSelected([]);
+      fetchPackages(true);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update package statuses', 'error');
+    } finally {
+      setBulkStatusLoading(false);
     }
   };
 
@@ -383,7 +403,7 @@ const AdminPackages = () => {
               <label className="block text-xs font-bold text-slate-500 mb-1">Status</label>
               <select className="input-field py-2 w-full" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                 <option value="">All Statuses</option>
-                {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                {ALLOWED_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
@@ -403,20 +423,40 @@ const AdminPackages = () => {
       
         {/* Bulk Action Bar */}
         {selected.length > 0 && (
-          <div className="bg-emerald-50/90 border-b border-emerald-200 px-6 py-2.5 flex items-center justify-between animate-fadeIn">
-            <span className="text-xs font-bold text-emerald-900">
-              ✓ {selected.length} package{selected.length !== 1 ? 's' : ''} selected
+          <div className="bg-slate-900 text-white border-b border-slate-800 px-6 py-3 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
+            <span className="text-xs font-bold text-slate-200 tracking-wider uppercase">
+              {selected.length} package{selected.length !== 1 ? 's' : ''} selected
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-300">Quick Action:</span>
+                <select
+                  disabled={bulkStatusLoading}
+                  defaultValue=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      handleBulkStatusChange(e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                  className="bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
+                >
+                  <option value="" disabled>{bulkStatusLoading ? 'Updating...' : 'Change Status...'}</option>
+                  {ALLOWED_STATUSES.map(st => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              </div>
+
               <button 
                 onClick={handleBulkVerify}
                 className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5"
               >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Bulk Verify & Accept ({selected.length})
+                <CheckCircle2 className="w-3.5 h-3.5" /> Bulk Verify ({selected.length})
               </button>
               <button 
                 onClick={() => setSelected([])}
-                className="px-2.5 py-1.5 bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
+                className="px-2.5 py-1.5 bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-semibold"
               >
                 Deselect
               </button>
@@ -609,15 +649,9 @@ const AdminPackages = () => {
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Status</label>
                     <select className="input-field" value={editPkg.status || ''} onChange={e => setEditPkg({ ...editPkg, status: e.target.value })}>
-                      <option value="Pending">Pending</option>
-                      <option value="In Warehouse">In Warehouse</option>
-                      <option value="Sorted">Sorted</option>
-                      <option value="Out for Delivery">Out for Delivery</option>
-                      <option value="Delivered">Delivered</option>
-                      <option value="Returned">Returned</option>
-                      <option value="Cancelled">Cancelled</option>
-                      <option value="Exchanged">Exchanged</option>
-                      <option value="Postponed">Hold (Postponed)</option>
+                      {ALLOWED_STATUSES.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
