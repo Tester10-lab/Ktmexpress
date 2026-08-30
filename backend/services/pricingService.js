@@ -24,9 +24,13 @@ export const getGlobalSettings = async () => {
  * 4. Add weight surcharge for weight > 1kg.
  */
 export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight, _vendor, _globalSettings }) => {
-  const vendor = _vendor || await User.findById(vendorId);
-  if (!vendor || vendor.role !== 'vendor') {
-    throw new Error('Vendor not found or invalid role');
+  let vendor = _vendor;
+  if (!vendor && vendorId) {
+    try {
+      vendor = await User.findById(vendorId);
+    } catch (err) {
+      vendor = null;
+    }
   }
 
   const {
@@ -35,63 +39,65 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
     defaultKtmRate,
     defaultOutsideRate,
     weightSurcharge: vendorWeightSurcharge
-  } = vendor.vendorMeta || {};
+  } = vendor?.vendorMeta || {};
 
   let baseFee = 0;
   const globalSettings = _globalSettings || await getGlobalSettings();
   
   // 1. Custom Flat Rate (Overrides everything)
-  if (customFlatRate !== null && customFlatRate !== undefined) {
-    return customFlatRate;
+  if (customFlatRate !== null && customFlatRate !== undefined && !isNaN(Number(customFlatRate))) {
+    return Number(customFlatRate);
   }
 
   // 2. Out of Valley logic
   if (outOfValley) {
     if (!useGlobalPricing && defaultOutsideRate !== undefined) {
-      baseFee = defaultOutsideRate;
+      baseFee = Number(defaultOutsideRate);
     } else {
       if (city) {
-        const rawCity = city.trim();
-        const escapedCity = rawCity.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-        const searchCity = rawCity.toUpperCase();
+        const rawSearch = String(city).trim();
+        const cleanSearch = rawSearch.replace(/[\(\)]/g, ' ').trim();
+        const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 2);
+        const regexPatterns = tokens.map(t => new RegExp(t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i'));
+
         const cityFee = await OutsideValleyFee.findOne({
           $or: [
-            { city: searchCity },
-            { city: { $regex: new RegExp(`^${escapedCity.split(' ')[0]}`, 'i') } },
-            { city: { $regex: new RegExp(escapedCity, 'i') } }
+            { city: rawSearch.toUpperCase() },
+            { city: { $regex: new RegExp(rawSearch.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i') } },
+            ...(regexPatterns.length > 0 ? [{ city: { $in: regexPatterns } }] : [])
           ],
           isActive: true
         });
+
         if (cityFee) {
-          baseFee = cityFee.fee;
+          baseFee = Number(cityFee.fee);
         } else {
-          // Fallback if city not found
-          baseFee = defaultOutsideRate || 200;
+          baseFee = defaultOutsideRate ? Number(defaultOutsideRate) : 200;
         }
       } else {
-        baseFee = defaultOutsideRate || 200;
+        baseFee = defaultOutsideRate ? Number(defaultOutsideRate) : 200;
       }
     }
   } 
   // 3. In Valley (KTM) logic
   else {
     if (!useGlobalPricing && defaultKtmRate !== undefined) {
-      baseFee = defaultKtmRate;
+      baseFee = Number(defaultKtmRate);
     } else {
-      baseFee = globalSettings.ktmBaseRate;
+      baseFee = Number(globalSettings.ktmBaseRate || 100);
     }
   }
 
   // 4. Weight Surcharge (first 1 KG is free)
-  const actualWeight = weight || 0;
+  const actualWeight = Number(weight) || 0;
   let extraWeight = actualWeight > 1 ? actualWeight - 1 : 0;
-  // Round up to nearest kg for surcharge if you want, but for now exact math:
   extraWeight = Math.ceil(extraWeight);
   
-  const surchargePerKg = useGlobalPricing ? globalSettings.weightSurchargePerKg : (vendorWeightSurcharge || 50);
+  const surchargePerKg = useGlobalPricing ? Number(globalSettings.weightSurchargePerKg || 50) : Number(vendorWeightSurcharge || 50);
   const surchargeTotal = extraWeight * surchargePerKg;
 
-  return baseFee + surchargeTotal;
+  const calculatedTotal = (baseFee || (outOfValley ? 200 : 100)) + surchargeTotal;
+  return calculatedTotal > 0 ? calculatedTotal : (outOfValley ? 200 : 100);
 };
 
 export const getPricingSummary = async () => {

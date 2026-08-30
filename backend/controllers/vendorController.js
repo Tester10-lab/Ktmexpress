@@ -221,17 +221,19 @@ export const createPackage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Customer name, phone, address, and amount are required.' });
     }
 
-    let finalDeliveryCharge;
-    try {
-      finalDeliveryCharge = await calculateDeliveryFee({
-        vendorId,
-        outOfValley: !!outOfValley,
-        city: city || '',
-        weight: weight || 0.5
-      });
-    } catch (e) {
-      logger.error('Pricing calculation failed', e);
-      finalDeliveryCharge = 0;
+    let finalDeliveryCharge = Number(deliveryCharge);
+    if (isNaN(finalDeliveryCharge) || finalDeliveryCharge <= 0) {
+      try {
+        finalDeliveryCharge = await calculateDeliveryFee({
+          vendorId,
+          outOfValley: !!outOfValley,
+          city: city || '',
+          weight: Number(weight) || 0.5
+        });
+      } catch (e) {
+        logger.error('Pricing calculation failed', e);
+        finalDeliveryCharge = outOfValley ? 200 : 100;
+      }
     }
 
     const trackingCode = await uniqueTrackingCode();
@@ -369,18 +371,20 @@ export const bulkCreatePackages = async (req, res) => {
       const trackingCode = trackingCodes[i];
       const labelUrls = generateLabelUrls(trackingCode);
       
-      let finalDeliveryCharge;
-      try {
-        finalDeliveryCharge = await calculateDeliveryFee({
-          vendorId,
-          outOfValley: !!p.outOfValley,
-          city: p.city || '',
-          weight: Number(p.weight) || 0.5,
-          _vendor: vendor,
-          _globalSettings: globalSettings,
-        });
-      } catch (e) {
-        finalDeliveryCharge = 0;
+      let finalDeliveryCharge = Number(p.deliveryCharge);
+      if (isNaN(finalDeliveryCharge) || finalDeliveryCharge <= 0) {
+        try {
+          finalDeliveryCharge = await calculateDeliveryFee({
+            vendorId,
+            outOfValley: !!p.outOfValley,
+            city: p.city || '',
+            weight: Number(p.weight) || 0.5,
+            _vendor: vendor,
+            _globalSettings: globalSettings,
+          });
+        } catch (e) {
+          finalDeliveryCharge = p.outOfValley ? 200 : 100;
+        }
       }
 
       packageDocs.push({

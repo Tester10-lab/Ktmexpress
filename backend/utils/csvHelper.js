@@ -122,7 +122,7 @@ export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin 
                   _globalSettings: globalSettings,
                 });
               } catch (e) {
-                finalDeliveryCharge = 0;
+                finalDeliveryCharge = outOfValleyParsed ? 200 : 100;
               }
             }
 
