@@ -27,35 +27,22 @@ const titleMap = {
   '/rider/expense-history': 'Expense History',
 };
 
+import { StatusBadge } from '../../components/ui/StatusBadge';
+
 function statusBadge(status, verificationStatus) {
-  const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border";
+  const base = "inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-bold border shadow-2xs";
   if (verificationStatus === 'Pending' || verificationStatus === 'Reopened') {
-    return <span className={`${base} bg-amber-50 text-amber-700 border-amber-200 animate-pulse`}>⏳ Pending Verification</span>;
+    return <span className={`${base} bg-amber-50 text-amber-800 border-amber-200 animate-pulse`}>⏳ Pending Verification</span>;
   }
   if (verificationStatus === 'Verified') {
     return (
-      <span className={`${base} bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold inline-flex items-center gap-1`}>
+      <span className={`${base} bg-emerald-50 text-emerald-800 border-emerald-300 font-bold inline-flex items-center gap-1`}>
         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 inline" />
         {status} • Verified
       </span>
     );
   }
-  const styles = {
-    'Delivered': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    'Cancelled': 'bg-red-50 text-red-700 border-red-200',
-    'Returned': 'bg-sky-50 text-sky-700 border-sky-200',
-    'Postponed': 'bg-amber-50 text-amber-700 border-amber-200',
-    'In Warehouse': 'bg-purple-50 text-purple-700 border-purple-200',
-    'Arrived': 'bg-purple-50 text-purple-700 border-purple-200',
-    'Out for Delivery': 'bg-brand-50 text-brand-700 border-brand-200',
-    'Dispatched': 'bg-brand-50 text-brand-700 border-brand-200',
-    'Pick Up Requested': 'bg-amber-50 text-amber-700 border-amber-200',
-    'Picked Up': 'bg-brand-50 text-brand-700 border-brand-200'
-  };
-  let label = status;
-  if (status === 'Out for Delivery') label = 'Dispatched';
-  if (status === 'In Warehouse') label = 'Arrived';
-  return <span className={`${base} ${styles[status] || styles[label] || 'bg-slate-100 text-slate-700 border-slate-200'}`}>{label}</span>;
+  return <StatusBadge status={status} />;
 }
 
 const TaskCard = React.memo(({ pkg, isPickup, selectedPickups, selectedDeliveries, toggleSelect, toggleSelectDelivery, openModal }) => {
