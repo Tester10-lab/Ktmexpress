@@ -21,45 +21,79 @@ function calculateCharge(rule, weight) {
  */
 export const calculateDeliveryCharge = async (req, res) => {
   try {
-    const { from, to, weight, city } = req.query;
+    const { from = 'HEAD OFFICE', to = 'Kathmandu Branch', weight, city } = req.query;
 
-    if (!from || !to) {
-      return res.status(400).json({
-        success: false,
-        message: 'from and to branch parameters are required',
+    const w = Number(weight) || 1;
+    const globalSettings = (await GlobalPricingSettings.findById('global')) || { ktmBaseRate: 100, weightSurchargePerKg: 50 };
+    const ktmBaseRate = globalSettings?.ktmBaseRate || 100;
+    const weightSurchargePerKg = globalSettings?.weightSurchargePerKg || 50;
+
+    // Check if authenticated user is a vendor with custom pricing
+    let vendorMeta = null;
+    if (req.user && req.user._id) {
+      const user = await import('../models/User.js').then(m => m.default.findById(req.user._id));
+      if (user && user.role === 'vendor') {
+        vendorMeta = user.vendorMeta || null;
+      }
+    }
+
+    // 1. Custom flat rate overrides everything
+    if (vendorMeta?.customFlatRate !== null && vendorMeta?.customFlatRate !== undefined) {
+      return res.json({
+        success: true,
+        data: {
+          charge: Number(vendorMeta.customFlatRate),
+          baseCharge: Number(vendorMeta.customFlatRate),
+          perKgCharge: 0,
+          weightLimit: 999,
+          fromBranch: from,
+          toBranch: to,
+          weight: w,
+          isCustomFlatRate: true,
+        },
       });
     }
 
-    const w = Number(weight) || 0;
+    const VALLEY_NAMES = ['head office', 'kathmandu', 'lalitpur', 'bhaktapur'];
+    const fromStr = String(from || '').trim().toLowerCase();
+    const toStr = String(to || '').trim().toLowerCase();
+    const cityStr = String(city || '').trim().toLowerCase();
 
-    // 1. Same-branch / Local intra-valley delivery (e.g. HEAD OFFICE to HEAD OFFICE or local city)
-    if (from.trim().toLowerCase() === to.trim().toLowerCase()) {
-      const globalSettings = await GlobalPricingSettings.findById('global');
-      const ktmBaseRate = globalSettings?.ktmBaseRate || 100;
-      const weightSurchargePerKg = globalSettings?.weightSurchargePerKg || 50;
+    const isFromValley = VALLEY_NAMES.some(v => fromStr.includes(v));
+    const isToValley = VALLEY_NAMES.some(v => toStr.includes(v)) && !toStr.includes('outside') && !cityStr.includes('outside');
+
+    // 2. Intra-Valley Delivery
+    if (isFromValley && isToValley && (!city || VALLEY_NAMES.some(v => cityStr.includes(v)))) {
+      const baseCharge = (vendorMeta?.useGlobalPricing === false && vendorMeta?.defaultKtmRate !== undefined)
+        ? vendorMeta.defaultKtmRate
+        : ktmBaseRate;
+
+      const surchargePerKg = (vendorMeta?.useGlobalPricing === false && vendorMeta?.weightSurcharge !== undefined)
+        ? vendorMeta.weightSurcharge
+        : weightSurchargePerKg;
 
       const extraWeight = Math.max(0, Math.ceil(w - 1));
-      const charge = ktmBaseRate + extraWeight * weightSurchargePerKg;
+      const charge = baseCharge + extraWeight * surchargePerKg;
 
       return res.json({
         success: true,
         data: {
           charge,
-          baseCharge: ktmBaseRate,
-          perKgCharge: weightSurchargePerKg,
+          baseCharge,
+          perKgCharge: surchargePerKg,
           weightLimit: 1,
-          fromBranch: from.trim(),
-          toBranch: to.trim(),
+          fromBranch: from,
+          toBranch: to,
           weight: w,
           isLocal: true,
         },
       });
     }
 
-    // 2. Check explicitly configured DeliveryChargeRule
+    // 3. Check explicitly configured DeliveryChargeRule
     const rule = await DeliveryChargeRule.findOne({
-      fromBranch: { $regex: new RegExp(`^${from.trim()}$`, 'i') },
-      toBranch:   { $regex: new RegExp(`^${to.trim()}$`, 'i') },
+      fromBranch: { $regex: new RegExp(`^${fromStr}$`, 'i') },
+      toBranch:   { $regex: new RegExp(`^${toStr}$`, 'i') },
       isActive: true,
     });
 
@@ -80,40 +114,63 @@ export const calculateDeliveryCharge = async (req, res) => {
       });
     }
 
-    // 3. Fallback to OutsideValleyFee city pricing or global defaults if no specific route rule
-    const rawSearch = (city || to).trim();
-    const escapedSearch = rawSearch.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-    const searchCity = rawSearch.toUpperCase();
-    const cityFee = await OutsideValleyFee.findOne({
-      $or: [
-        { city: searchCity },
-        { city: { $regex: new RegExp(`^${escapedSearch.split(' ')[0]}`, 'i') } },
-        { city: { $regex: new RegExp(escapedSearch, 'i') } }
-      ],
-      isActive: true
-    });
+    // 4. Outside Valley lookup
+    const rawSearch = (city || to || '').trim();
+    let cityFee = null;
 
-    const globalSettings = await GlobalPricingSettings.findById('global');
-    const baseCharge = cityFee ? cityFee.fee : 200;
-    const perKgCharge = globalSettings?.weightSurchargePerKg || 50;
+    if (rawSearch && rawSearch !== '--------') {
+      const cleanSearch = rawSearch.replace(/[\(\)]/g, ' ').trim();
+      const tokens = cleanSearch.split(/\s+/).filter(t => t.length > 2);
+      const regexPatterns = tokens.map(t => new RegExp(t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i'));
+
+      cityFee = await OutsideValleyFee.findOne({
+        $or: [
+          { city: rawSearch.toUpperCase() },
+          { city: { $regex: new RegExp(rawSearch.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'), 'i') } },
+          ...(regexPatterns.length > 0 ? [{ city: { $in: regexPatterns } }] : [])
+        ],
+        isActive: true
+      });
+    }
+
+    const baseCharge = cityFee 
+      ? cityFee.fee 
+      : ((vendorMeta?.useGlobalPricing === false && vendorMeta?.defaultOutsideRate !== undefined) ? vendorMeta.defaultOutsideRate : 200);
+
+    const surchargePerKg = (vendorMeta?.useGlobalPricing === false && vendorMeta?.weightSurcharge !== undefined)
+      ? vendorMeta.weightSurcharge
+      : weightSurchargePerKg;
+
     const extraWeight = Math.max(0, Math.ceil(w - 1));
-    const charge = baseCharge + extraWeight * perKgCharge;
+    const charge = baseCharge + extraWeight * surchargePerKg;
 
     return res.json({
       success: true,
       data: {
         charge,
         baseCharge,
-        perKgCharge,
+        perKgCharge: surchargePerKg,
         weightLimit: 1,
-        fromBranch: from.trim(),
-        toBranch: to.trim(),
+        fromBranch: from,
+        toBranch: to,
         weight: w,
         cityMatched: cityFee ? cityFee.city : null,
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.json({
+      success: true,
+      data: {
+        charge: 200,
+        baseCharge: 200,
+        perKgCharge: 50,
+        weightLimit: 1,
+        fromBranch: req.query.from || 'HEAD OFFICE',
+        toBranch: req.query.to || 'Kathmandu Branch',
+        weight: Number(req.query.weight) || 1,
+        fallback: true
+      }
+    });
   }
 };
 
