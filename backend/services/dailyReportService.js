@@ -182,22 +182,22 @@ export async function sendDailyEmailBackup() {
 }
 
 /**
- * Schedule automated daily email dispatch in-process
+ * Schedule automated email dispatch in-process every 4 hours (configurable via REPORT_INTERVAL_HOURS)
  */
 export function scheduleDailyEmailBackup() {
-  const checkIntervalMs = 60 * 60 * 1000; // Check every hour
-  let lastSentDate = '';
+  const intervalHours = Number(process.env.REPORT_INTERVAL_HOURS) || 4;
+  const intervalMs = intervalHours * 60 * 60 * 1000;
 
+  if (logger) logger.info(`Automated backup email scheduler active: running every ${intervalHours} hours.`);
+  else console.log(`Automated backup email scheduler active: running every ${intervalHours} hours.`);
+
+  // Recurring execution every 4 hours
   setInterval(async () => {
-    const now = new Date();
-    const currentDate = now.toISOString().split('T')[0];
-    const currentHour = now.getUTCHours(); // 18:00 UTC = 23:45 NPT
-
-    if (currentHour === 18 && lastSentDate !== currentDate) {
-      lastSentDate = currentDate;
+    try {
+      if (logger) logger.info(`⏰ [4-Hour Interval Trigger] Generating scheduled data email report...`);
       await sendDailyEmailBackup();
+    } catch (err) {
+      if (logger) logger.error(`Scheduled email dispatch error: ${err.message}`);
     }
-  }, checkIntervalMs);
-
-  if (logger) logger.info('Daily automated email scheduler initialized.');
+  }, intervalMs);
 }

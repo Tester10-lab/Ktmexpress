@@ -28,6 +28,7 @@ services:
       - REPORT_EMAIL=${REPORT_EMAIL:-kdmexpress7@gmail.com}
       - REPORT_EMAIL_TO=${REPORT_EMAIL_TO:-maharjandiplon@gmail.com}
       - REPORT_EMAIL_APP_PASSWORD=${REPORT_EMAIL_APP_PASSWORD:-}
+      - REPORT_INTERVAL_HOURS=${REPORT_INTERVAL_HOURS:-4}
     depends_on:
       - mongodb
     restart: unless-stopped
