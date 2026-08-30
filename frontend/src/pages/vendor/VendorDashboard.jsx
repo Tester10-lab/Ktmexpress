@@ -304,6 +304,27 @@ const KATHMANDU_VALLEY_BRANCHES = [
   'Bhaktapur Branch'
 ];
 
+const ORIGIN_BRANCHES = [
+  'HEAD OFFICE',
+  'Kathmandu Branch',
+  'Lalitpur Branch',
+  'Bhaktapur Branch',
+  'Chitwan Branch',
+  'Pokhara Branch',
+  'Butwal Branch',
+  'Biratnagar Branch',
+  'Birgunj Branch',
+  'Dharan Branch',
+  'Itahari Branch',
+  'Hetauda Branch',
+  'Nepalgunj Branch',
+  'Dhangadhi Branch',
+  'Surkhet Branch',
+  'Janakpur Branch',
+  'Birtamod Branch',
+  'Dang Branch'
+];
+
 const SIMPLE_BRANCHES = [
   'Kathmandu Branch',
   'Lalitpur Branch',
@@ -318,6 +339,10 @@ const SIMPLE_BRANCHES = [
   'Hetauda Branch',
   'Nepalgunj Branch',
   'Dhangadhi Branch',
+  'Surkhet Branch',
+  'Janakpur Branch',
+  'Birtamod Branch',
+  'Dang Branch',
   'Outside Valley (All Other Cities)'
 ];
 
@@ -1018,15 +1043,20 @@ const PackageList = () => {
                   </div>
                   
                   <div className="space-y-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
-                        <label className={labelClass}>City / Branch <span className="text-red-500">*</span></label>
+                        <label className={labelClass}>From Branch (Origin) <span className="text-red-500">*</span></label>
+                        <SearchableDropdown name="branch" value={f.branch} onChange={handleFormChange} options={ORIGIN_BRANCHES} placeholder="Select origin branch" />
+                        {formErrors.branch && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.branch}</span>}
+                      </div>
+                      <div>
+                        <label className={labelClass}>To Branch (Destination) <span className="text-red-500">*</span></label>
                         <SearchableDropdown name="destinationBranch" value={f.destinationBranch} onChange={handleFormChange} options={SIMPLE_BRANCHES} placeholder="Select nearest branch" />
                         {formErrors.destinationBranch && <span className="text-xs text-red-500 mt-1.5 block font-medium">{formErrors.destinationBranch}</span>}
                       </div>
                       <div>
                         <label className={labelClass}>
-                          Destination City / Area {!KATHMANDU_VALLEY_BRANCHES.includes(f.destinationBranch) && f.destinationBranch !== '--------' ? <span className="text-red-500">* (From Pricing Engine)</span> : ''}
+                          Destination City / Area {!KATHMANDU_VALLEY_BRANCHES.includes(f.destinationBranch) && f.destinationBranch !== '--------' ? <span className="text-red-500">* (Pricing Engine)</span> : ''}
                         </label>
                         <SearchableDropdown 
                           name="city" 
