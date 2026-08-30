@@ -50,15 +50,29 @@ if ! docker compose version &> /dev/null; then
     apt-get install -y docker-compose-plugin
 fi
 
-# 5. Completely wipe and re-clone the correct GitHub repository
+# 5. Backup .env if exists, then re-clone the repository
 DEPLOY_DIR="/var/www/ktmexpress"
-echo "🗑️ Wiping old deployment directory $DEPLOY_DIR..."
+if [ -f "$DEPLOY_DIR/.env" ]; then
+    echo "💾 Backing up existing .env configuration..."
+    cp "$DEPLOY_DIR/.env" /root/.ktmexpress.env
+elif [ -f "$DEPLOY_DIR/backend/.env" ]; then
+    cp "$DEPLOY_DIR/backend/.env" /root/.ktmexpress.env
+fi
+
+echo "🗑️ Updating deployment directory $DEPLOY_DIR..."
 rm -rf "$DEPLOY_DIR"
 
 echo "📥 Cloning fresh repository from Tester10-lab/Ktmexpress.git..."
 mkdir -p /var/www
 git clone https://github.com/Tester10-lab/Ktmexpress.git "$DEPLOY_DIR"
 cd "$DEPLOY_DIR"
+
+# Restore .env if backup exists
+if [ -f /root/.ktmexpress.env ]; then
+    echo "♻️ Restoring your saved .env configuration..."
+    cp /root/.ktmexpress.env "$DEPLOY_DIR/.env"
+    cp /root/.ktmexpress.env "$DEPLOY_DIR/backend/.env"
+fi
 
 # 6. Build and launch Docker containers with --no-cache to guarantee fresh frontend/backend
 echo "🐳 Building Docker containers with --no-cache (clean build)..."
