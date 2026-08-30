@@ -20,17 +20,25 @@ export const getMyDeliveries = async (req, res) => {
     if (status && status !== 'all') {
       filter.status = status;
     } else if (type === 'pickup') {
-      filter.status = { $in: ['Pick Up Requested', 'Picked Up'] };
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      andConditions.push({
+        $or: [
+          { status: 'Pick Up Requested' },
+          { status: 'Picked Up', updatedAt: { $gte: today } }
+        ]
+      });
     } else if (type === 'delivery') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       andConditions.push({
         $or: [
-          { status: { $in: ['Out for Delivery', 'Postponed'] } },
+          { status: { $in: ['Out for Delivery', 'Out of Delivery', 'Postponed'] } },
           { 
-            status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged'] },
+            status: { $in: ['Delivered', 'Cancelled', 'Returned', 'Exchanged', 'Exchange'] },
+            cashReconciled: false,
             $or: [
-              { deliveryVerificationStatus: { $in: ['Pending', 'Reopened', 'Verified'] } },
+              { deliveryVerificationStatus: { $in: ['Pending', 'Reopened'] } },
               { updatedAt: { $gte: today } },
               { verifiedAt: { $gte: today } }
             ]
@@ -38,7 +46,7 @@ export const getMyDeliveries = async (req, res) => {
         ]
       });
     } else if (type === 'active_delivery') {
-      filter.status = { $in: ['Out for Delivery', 'Postponed'] };
+      filter.status = { $in: ['Out for Delivery', 'Out of Delivery', 'Postponed'] };
     }
 
     if (search) {
