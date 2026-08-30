@@ -159,7 +159,7 @@ const OutsideValleyFees = ({ onUpdate }) => {
               disabled={importing}
               title="Import all 95 Outside Valley rates and set KTM rate to 100"
             >
-              <FileSpreadsheet className="w-4 h-4" /> {importing ? 'Importing...' : 'Import KDM Rates (95 Cities)'}
+              <FileSpreadsheet className="w-4 h-4" /> {importing ? 'Importing...' : 'Import KDM Rates (110+ Cities)'}
             </button>
             <button className="btn-primary py-2 flex items-center gap-1.5 whitespace-nowrap" onClick={() => openOvModal()}>
               <Plus className="w-4 h-4" /> Add City

@@ -96,7 +96,21 @@ export const KDM_EXPRESS_RATES = [
   { city: "JOGIKUTI (RUPANDEHI)", fee: 225 },
   { city: "JOMSOM", fee: 295 },
   { city: "JOSHIPUR (KAILALI)", fee: 250 },
-  { city: "JUMLA (KHALANGA)", fee: 295 }
+  { city: "JUMLA (KHALANGA)", fee: 295 },
+  { city: "CHITWAN (BHARATPUR / NARAYANGARH)", fee: 200 },
+  { city: "BHARATPUR (CHITWAN)", fee: 200 },
+  { city: "NARAYANGARH (CHITWAN)", fee: 200 },
+  { city: "RATNANAGAR / TANDI (CHITWAN)", fee: 225 },
+  { city: "POKHARA", fee: 200 },
+  { city: "NEPALGUNJ (BANKE)", fee: 225 },
+  { city: "KOHALPUR (BANKE)", fee: 225 },
+  { city: "SURKHET (BIRENDRANAGAR)", fee: 250 },
+  { city: "TANSEN (PALPA)", fee: 225 },
+  { city: "KAWASOTI (NAWALPUR)", fee: 225 },
+  { city: "BESISAHAR (LAMJUNG)", fee: 250 },
+  { city: "KUSHMA (PARBAT)", fee: 250 },
+  { city: "SINDHULIMADI (SINDHULI)", fee: 225 },
+  { city: "WALING (SYANGJA)", fee: 225 }
 ];
 
 export async function seedExcelPricing(force = false) {

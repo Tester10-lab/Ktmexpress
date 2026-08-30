@@ -53,6 +53,11 @@ const cleanAndSeed = async () => {
       console.log('Admin password securely reset to admin123, account unlocked, and Super Admin status verified.');
     }
 
+    // Seed master catalog pricing rates for Outside Valley & KTM Base Rate
+    const { seedExcelPricing } = await import('./services/excelPricingSeeder.js');
+    await seedExcelPricing(true);
+    console.log('Master delivery pricing seeded successfully.');
+
     process.exit(0);
   } catch (error) {
     console.error('Error during cleanup and seeding:', error);

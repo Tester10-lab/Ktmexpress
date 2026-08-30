@@ -212,20 +212,46 @@ const VendorHome = () => {
 const inputClass = "input-field w-full text-base py-2.5";
 const labelClass = "block text-sm font-semibold text-slate-700 mb-1.5";
 
-const SearchableDropdown = ({ value, onChange, options, name, placeholder = "Select..." }) => {
+const SearchableDropdown = ({ value, onChange, options = [], name, placeholder = "Select..." }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const wrapperRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setIsOpen(false);
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setIsOpen(false);
+        // If user typed something custom that is not empty, keep it
+        if (search.trim() && search.trim() !== value) {
+          onChange({ target: { name, value: search.trim() } });
+        }
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [search, value, name, onChange]);
 
-  const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
+  const safeOptions = Array.isArray(options) ? options : [];
+  const filteredOptions = safeOptions.filter(opt =>
+    String(opt).toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSelectOption = (selectedVal) => {
+    onChange({ target: { name, value: selectedVal } });
+    setSearch('');
+    setIsOpen(false);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredOptions.length > 0) {
+        handleSelectOption(filteredOptions[0]);
+      } else if (search.trim()) {
+        handleSelectOption(search.trim());
+      }
+    }
+  };
 
   return (
     <div ref={wrapperRef} className="relative">
@@ -235,29 +261,159 @@ const SearchableDropdown = ({ value, onChange, options, name, placeholder = "Sel
           className={inputClass}
           style={{ paddingRight: 36 }}
           placeholder={placeholder}
-          value={isOpen ? search : value}
-          onChange={(e) => { setSearch(e.target.value); if(!isOpen) setIsOpen(true); onChange({ target: { name, value: e.target.value } }); }}
-          onClick={() => setIsOpen(true)}
+          value={isOpen ? search : (value || '')}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            if (!isOpen) setIsOpen(true);
+            onChange({ target: { name, value: e.target.value } });
+          }}
+          onFocus={() => {
+            setSearch(value || '');
+            setIsOpen(true);
+          }}
+          onKeyDown={handleKeyDown}
         />
         <ChevronRight className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''} pointer-events-none`} />
       </div>
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-y-auto mt-2 animate-in fade-in zoom-in-95 duration-100">
-          {filteredOptions.length > 0 ? filteredOptions.map((opt, i) => (
-            <div key={i} onClick={() => { onChange({ target: { name, value: opt } }); setSearch(''); setIsOpen(false); }} className={`px-4 py-3 text-sm cursor-pointer border-b border-slate-50 last:border-0 hover:bg-brand-50 transition-colors ${value === opt ? 'bg-brand-50 text-brand-700 font-bold' : 'text-slate-700 font-medium'}`}>
-              {opt}
+        <div className="absolute top-full left-0 right-0 z-50 bg-white border border-slate-200 rounded-xl shadow-xl max-h-64 overflow-y-auto mt-2 animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100">
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((opt, i) => (
+              <div
+                key={i}
+                onClick={() => handleSelectOption(opt)}
+                className={`px-4 py-2.5 text-sm cursor-pointer hover:bg-brand-50 transition-colors ${value === opt ? 'bg-brand-50 text-brand-700 font-bold' : 'text-slate-700 font-medium'}`}
+              >
+                {opt}
+              </div>
+            ))
+          ) : null}
+
+          {/* If user typed text, offer a one-click custom option */}
+          {search.trim() && (
+            <div
+              onClick={() => handleSelectOption(search.trim())}
+              className="px-4 py-2.5 text-xs text-brand-700 bg-brand-50/70 hover:bg-brand-100 font-bold cursor-pointer transition-colors flex items-center justify-between"
+            >
+              <span>+ Use custom: &quot;{search.trim()}&quot;</span>
+              <span className="text-[10px] bg-brand-200 text-brand-800 px-1.5 py-0.5 rounded font-semibold">Select ↵</span>
             </div>
-          )) : <div className="px-4 py-3 text-sm text-slate-400 italic">No options found</div>}
+          )}
+
+          {filteredOptions.length === 0 && !search.trim() && (
+            <div className="px-4 py-3 text-sm text-slate-400 italic text-center">No options found</div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-const SIMPLE_BRANCHES = ['HEAD OFFICE', 'Kathmandu Branch', 'Pokhara Branch', 'Chitwan Branch', 'Lalitpur Branch', 'Bhaktapur Branch', 'Dharan Branch', 'Biratnagar Branch'];
+const KATHMANDU_VALLEY_BRANCHES = [
+  'HEAD OFFICE',
+  'HEAD OFFICE (Kathmandu Valley)',
+  'Kathmandu Branch',
+  'Lalitpur Branch',
+  'Bhaktapur Branch'
+];
+
+const SIMPLE_BRANCHES = [
+  'Kathmandu Branch',
+  'Lalitpur Branch',
+  'Bhaktapur Branch',
+  'Chitwan Branch',
+  'Pokhara Branch',
+  'Butwal Branch',
+  'Biratnagar Branch',
+  'Birgunj Branch',
+  'Dharan Branch',
+  'Itahari Branch',
+  'Hetauda Branch',
+  'Nepalgunj Branch',
+  'Dhangadhi Branch',
+  'Outside Valley (All Other Cities)'
+];
+
 const PICKUP_POINTS = ['Koteshwor Hub', 'Baneshwor Hub', 'Thamel Hub', 'Patan Hub', 'Boudha Hub'];
-const KATHMANDU_VALLEY_AREAS = ['Kathmandu', 'Lalitpur', 'Bhaktapur', 'Thamel', 'Patan', 'Boudha', 'Koteshwor', 'Baneshwor', 'Balaju', 'Kirtipur', 'Thankot', 'Budhanilkantha'];
-const OUT_OF_VALLEY_CITIES = ["Argakhachi (Sandhikharka)","Arun Khola (East Nawalparasi)","Attariya (Kailali)","Baglung","Bajura (Kolti)","Banepa (Kavre)","Baniyani (Jhapa)","Bansagadhi (Bardiya)","Bardaghat (Nawalparasi)","Bardibas","Battar Bazar (Nuwakot)","Bauniya (Kailali)","Belauri (Kanchanpur)","Belbari (Morang)","Beltar (Udayapur)","Beni","Bhadrapur (Jhapa)","Bhairahawa","Bhajani (Kailali)","Bhalubang (Dang)","Bhojpur","Bhurigoan (Bardiya)","Bidur (Nuwakot)","Biratchowk (Morang)","Biratnagar","Birgunj","Birtamod (Jhapa)","Budhabare (Jhapa)","Burtibang (Baglung)","Butwal","Chainpur (Bajhang)","Chainpur (Sankhuwasawa)","Chandranigahapur (Rautahat)","Chandrauta (Kapilvastu)","Charaali (Jhapa)","Charikot (Dolakha)","Chinchu (Bheri)","Chisapani (Kailali)","Chormara (East Nawalparasi)","Dadeldhura (Amargadi)","Dailekh Bazar","Daldale (East Nawalparasi)","Damak (Jhapa)","Damauli","Darchula (Khalanga)","Dhading (Besi)","Dhalkebar (Dhanusa)","Dhangadhi (Sudur Paschim)","Dhankuta","Dharan","Dhulabari (Jhapa)","Dhulikhel","Diktel Bazaar (Khotang)","Dipayal Bazar (Doti)","Dodhara Chadani (Kanchanpur)","Dudhauli (Sindhuli)","Duhabi (Sunsari)","Dullu (Dailekh)","Dumkibas (East Nawalparasi)","Dumre","Fikkal","Gaidakot (Nawalparasi East)","Gaighat (Udayapur)","Galkot (Baglung)","Gaur (Rautahat)","Gauradaha (Jhapa)","Gauriganj (Jhapa)","Gaushala (Mahottari)","Ghorahi (Dang)","Gokuleswor (Darchula)","Gorkha (Palungtar)","Gorkha Bazaar","Gothlapani (Baitadi)","Gulariya (Bardiya)","Gulmi (Tamghas)","Haldibari (Jhapa)","Hariwan (Sarlahi)","Hemja (Pokhara)","Hetauda","Hile Bazar (Dhankuta)","Ilam Bazaar","Inaruwa (Sunsari)","Itahari","Jajarkot","Jaleshwor (Mahottari)","Janakpur","Jeetpur (Bara)","Jeetpur No.4 (Kapilvastu)","Jhalari (Kanchanpur)","Jirikhimti (Terahthum)","Jogikuti (Rupandehi)","Jomsom","Joshipur (Kailali)","Jumla (Khalanga)"];
+
+const KATHMANDU_VALLEY_AREAS = [
+  'Kathmandu', 'Lalitpur', 'Bhaktapur', 'Thamel', 'Patan', 'Boudha', 'Koteshwor', 
+  'Baneshwor', 'Balaju', 'Kirtipur', 'Thankot', 'Budhanilkantha', 'New Road', 
+  'Chabahil', 'Jorpati', 'Maharajgunj', 'Gongabu', 'Kalanki', 'Balkhu', 
+  'Satdobato', 'Sanepa', 'Jhamsikhel', 'Lagankhel', 'Suryabinayak', 'Thimi', 
+  'Dillibazar', 'Putalisadak', 'Anamnagar', 'Bansbari', 'Tokha', 'Sundarijal', 
+  'Sankhu', 'Dakshinkali', 'Godawari', 'Lubhu', 'Sanothimi', 'Lokanthali', 
+  'Gatthaghar', 'Kaushaltar', 'Balkot', 'Sallaghari', 'Kamalbinayak'
+];
+
+const CHITWAN_AREAS = [
+  'Chitwan', 'Bharatpur (Chitwan)', 'Narayangarh (Chitwan)', 'Ratnanagar / Tandi (Chitwan)', 
+  'Parsa (Chitwan)', 'Sauraha (Chitwan)', 'Gaindakot (Nawalparasi East)', 'Kawashoti (Nawalparasi East)', 
+  'Madi (Chitwan)', 'Geetanagar (Chitwan)', 'Chanauli (Chitwan)', 'Meghauli (Chitwan)', 'Rampur (Chitwan)'
+];
+
+const POKHARA_AREAS = [
+  'Pokhara', 'Lakeside (Pokhara)', 'Mahendrapool (Pokhara)', 'Chipledhunga (Pokhara)', 
+  'Prithvi Chowk (Pokhara)', 'Hemja (Pokhara)', 'Lekhnath (Pokhara)', 'Birauta (Pokhara)', 
+  'Bagar (Pokhara)', 'Amar Singh Chowk (Pokhara)', 'Lamachaur (Pokhara)'
+];
+
+const BIRATNAGAR_AREAS = [
+  'Biratnagar', 'Main Road (Biratnagar)', 'Traffic Chowk (Biratnagar)', 'Rani (Biratnagar)', 
+  'Kanchanbari (Biratnagar)', 'Duhabi (Sunsari)', 'Belbari (Morang)', 'Biratchowk (Morang)', 
+  'Itahari', 'Dharan', 'Bhadrapur (Jhapa)', 'Birtamod (Jhapa)', 'Damak (Jhapa)'
+];
+
+const BUTWAL_AREAS = [
+  'Butwal', 'Traffic Chowk (Butwal)', 'Golpark (Butwal)', 'Kalikanagar (Butwal)', 
+  'Jogikuti (Rupandehi)', 'Bhairahawa', 'Manigram (Rupandehi)', 'Tilottama', 'Bardaghat'
+];
+
+const OUT_OF_VALLEY_CITIES = [
+  "Argakhachi (Sandhikharka)","Arun Khola (East Nawalparasi)","Attariya (Kailali)","Baglung","Bajura (Kolti)",
+  "Banepa (Kavre)","Baniyani (Jhapa)","Bansagadhi (Bardiya)","Bardaghat (Nawalparasi)","Bardibas",
+  "Battar Bazar (Nuwakot)","Bauniya (Kailali)","Belauri (Kanchanpur)","Belbari (Morang)","Beltar (Udayapur)",
+  "Beni","Besisahar (Lamjung)","Bhadrapur (Jhapa)","Bhairahawa","Bhajani (Kailali)","Bhalubang (Dang)",
+  "Bharatpur (Chitwan)","Bhojpur","Bhurigoan (Bardiya)","Bidur (Nuwakot)","Biratchowk (Morang)","Biratnagar",
+  "Birgunj","Birtamod (Jhapa)","Budhabare (Jhapa)","Burtibang (Baglung)","Butwal","Chainpur (Bajhang)",
+  "Chainpur (Sankhuwasawa)","Chandranigahapur (Rautahat)","Chandrauta (Kapilvastu)","Charaali (Jhapa)",
+  "Charikot (Dolakha)","Chinchu (Bheri)","Chisapani (Kailali)","Chitwan (Bharatpur / Narayangarh)",
+  "Chormara (East Nawalparasi)","Dadeldhura (Amargadi)","Dailekh Bazar","Daldale (East Nawalparasi)",
+  "Damak (Jhapa)","Damauli","Darchula (Khalanga)","Dhading (Besi)","Dhalkebar (Dhanusa)",
+  "Dhangadhi (Sudur Paschim)","Dhankuta","Dharan","Dhulabari (Jhapa)","Dhulikhel","Diktel Bazaar (Khotang)",
+  "Dipayal Bazar (Doti)","Dodhara Chadani (Kanchanpur)","Dudhauli (Sindhuli)","Duhabi (Sunsari)","Dullu (Dailekh)",
+  "Dumkibas (East Nawalparasi)","Dumre","Fikkal","Gaidakot (Nawalparasi East)","Gaighat (Udayapur)",
+  "Galkot (Baglung)","Gaur (Rautahat)","Gauradaha (Jhapa)","Gauriganj (Jhapa)","Gaushala (Mahottari)",
+  "Ghorahi (Dang)","Gokuleswor (Darchula)","Gorkha (Palungtar)","Gorkha Bazaar","Gothlapani (Baitadi)",
+  "Gulariya (Bardiya)","Gulmi (Tamghas)","Haldibari (Jhapa)","Hariwan (Sarlahi)","Hemja (Pokhara)",
+  "Hetauda","Hile Bazar (Dhankuta)","Ilam Bazaar","Inaruwa (Sunsari)","Itahari","Jajarkot","Jaleshwor (Mahottari)",
+  "Janakpur","Jeetpur (Bara)","Jeetpur No.4 (Kapilvastu)","Jhalari (Kanchanpur)","Jirikhimti (Terahthum)",
+  "Jogikuti (Rupandehi)","Jomsom","Joshipur (Kailali)","Jumla (Khalanga)","Kawashoti (Nawalpur)",
+  "Kohalpur (Banke)","Kushma (Parbat)","Madi (Chitwan)","Narayangarh (Chitwan)","Nepalgunj (Banke)",
+  "Pokhara","Ratnanagar / Tandi (Chitwan)","Sindhulimadi (Sindhuli)","Surkhet (Birendranagar)",
+  "Tansen (Palpa)","Waling (Syangja)"
+];
+
+const getAreaOptionsForBranch = (branch, dynamicCities = []) => {
+  if (!branch || branch === '--------' || KATHMANDU_VALLEY_BRANCHES.includes(branch)) {
+    return KATHMANDU_VALLEY_AREAS;
+  }
+  if (branch === 'Chitwan Branch') {
+    return CHITWAN_AREAS;
+  }
+  if (branch === 'Pokhara Branch') {
+    return POKHARA_AREAS;
+  }
+  if (branch === 'Biratnagar Branch' || branch === 'Dharan Branch' || branch === 'Itahari Branch') {
+    return BIRATNAGAR_AREAS;
+  }
+  if (branch === 'Butwal Branch') {
+    return BUTWAL_AREAS;
+  }
+  // Return all outside valley cities (dynamic database cities + master list)
+  const combined = Array.from(new Set([...(dynamicCities || []), ...OUT_OF_VALLEY_CITIES])).sort();
+  return combined;
+};
 
 // ─── Package List ─────────────────────────────────────────────────────────
 const EMPTY_FORM = {
@@ -303,8 +459,19 @@ const PackageList = () => {
   const [viewPackageDetails, setViewPackageDetails] = useState(null);
   const [printPackages, setPrintPackages] = useState([]);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [availableCities, setAvailableCities] = useState([]);
   const printRef = useRef();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    api.get('/delivery-charges/cities')
+      .then(res => {
+        if (res.data?.data && Array.isArray(res.data.data)) {
+          setAvailableCities(res.data.data.map(c => c.city));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const fetchNextInvoiceId = async () => {
     try {
@@ -322,7 +489,7 @@ const PackageList = () => {
     setEditMode(false);
     setEditPackageId(null);
     const nextId = await fetchNextInvoiceId();
-    setCreateForm({ ...EMPTY_FORM, invoiceId: nextId });
+    setCreateForm({ ...EMPTY_FORM, destinationBranch: 'Kathmandu Branch', city: 'Kathmandu', invoiceId: nextId });
     setDrawerOpen(true);
   };
 
@@ -427,6 +594,29 @@ const PackageList = () => {
     
     setCreateForm(f => {
       const next = { ...f, [name]: finalValue };
+      
+      // Smart Auto-selection for Destination Branch
+      if (name === 'destinationBranch') {
+        if (value === 'Chitwan Branch') {
+          next.city = 'Chitwan';
+          next.outOfValley = true;
+        } else if (value === 'Pokhara Branch') {
+          next.city = 'Pokhara';
+          next.outOfValley = true;
+        } else if (value === 'Biratnagar Branch') {
+          next.city = 'Biratnagar';
+          next.outOfValley = true;
+        } else if (value === 'Butwal Branch') {
+          next.city = 'Butwal';
+          next.outOfValley = true;
+        } else if (KATHMANDU_VALLEY_BRANCHES.includes(value)) {
+          next.city = 'Kathmandu';
+          next.outOfValley = false;
+        } else {
+          next.outOfValley = true;
+        }
+      }
+
       // IF package_amount = 0 THEN vendor_delivery_charge = applicable_delivery_fee
       if (name === 'amount' && Number(finalValue) === 0 && fetchedCharge !== null) {
         next.deliveryCharge = fetchedCharge;
@@ -457,13 +647,14 @@ const PackageList = () => {
 
     setCreateLoading(true);
     try {
+      const isOutOfValley = !KATHMANDU_VALLEY_BRANCHES.includes(createForm.destinationBranch) && createForm.destinationBranch !== '--------';
       const payload = {
         invoiceId: createForm.invoiceId,
         customerName: createForm.customerName,
         customerPhone: createForm.customerPhone,
         address: createForm.address,
         city: createForm.city || createForm.destinationBranch,
-        outOfValley: createForm.outOfValley || (createForm.destinationBranch !== 'HEAD OFFICE' && createForm.destinationBranch !== '--------'),
+        outOfValley: Boolean(createForm.outOfValley || isOutOfValley),
         weight: Number(createForm.weight),
         amount: Number(createForm.amount),
         deliveryCharge: Number(createForm.deliveryCharge),
@@ -871,7 +1062,7 @@ const PackageList = () => {
                       </div>
                       <div>
                         <label className={labelClass}>Area / Sub-city</label>
-                        <SearchableDropdown name="city" value={f.city} onChange={handleFormChange} options={f.destinationBranch === 'HEAD OFFICE' ? KATHMANDU_VALLEY_AREAS : OUT_OF_VALLEY_CITIES} placeholder="Select area" />
+                        <SearchableDropdown name="city" value={f.city} onChange={handleFormChange} options={getAreaOptionsForBranch(f.destinationBranch, availableCities)} placeholder="Select or type area" />
                       </div>
                     </div>
                   </div>

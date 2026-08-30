@@ -81,11 +81,14 @@ export const calculateDeliveryCharge = async (req, res) => {
     }
 
     // 3. Fallback to OutsideValleyFee city pricing or global defaults if no specific route rule
-    const searchCity = (city || to).trim().toUpperCase();
+    const rawSearch = (city || to).trim();
+    const escapedSearch = rawSearch.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    const searchCity = rawSearch.toUpperCase();
     const cityFee = await OutsideValleyFee.findOne({
       $or: [
         { city: searchCity },
-        { city: { $regex: new RegExp(`^${searchCity.split(' ')[0]}`, 'i') } }
+        { city: { $regex: new RegExp(`^${escapedSearch.split(' ')[0]}`, 'i') } },
+        { city: { $regex: new RegExp(escapedSearch, 'i') } }
       ],
       isActive: true
     });
@@ -109,6 +112,21 @@ export const calculateDeliveryCharge = async (req, res) => {
         cityMatched: cityFee ? cityFee.city : null,
       },
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api/delivery-charges/cities
+ * Returns active outside valley delivery cities
+ */
+export const getActiveDeliveryCities = async (req, res) => {
+  try {
+    const cities = await OutsideValleyFee.find({ isActive: true })
+      .select('city fee')
+      .sort({ city: 1 });
+    res.json({ success: true, data: cities });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

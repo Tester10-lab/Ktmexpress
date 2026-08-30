@@ -51,7 +51,17 @@ export const calculateDeliveryFee = async ({ vendorId, outOfValley, city, weight
       baseFee = defaultOutsideRate;
     } else {
       if (city) {
-        const cityFee = await OutsideValleyFee.findOne({ city: city.trim().toUpperCase(), isActive: true });
+        const rawCity = city.trim();
+        const escapedCity = rawCity.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+        const searchCity = rawCity.toUpperCase();
+        const cityFee = await OutsideValleyFee.findOne({
+          $or: [
+            { city: searchCity },
+            { city: { $regex: new RegExp(`^${escapedCity.split(' ')[0]}`, 'i') } },
+            { city: { $regex: new RegExp(escapedCity, 'i') } }
+          ],
+          isActive: true
+        });
         if (cityFee) {
           baseFee = cityFee.fee;
         } else {
