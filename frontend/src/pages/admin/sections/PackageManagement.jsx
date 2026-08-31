@@ -317,8 +317,6 @@ const AdminPackages = () => {
     }
   };
 
-  const statuses = ['Pending', 'Pick Up Requested', 'Picked Up', 'In Warehouse', 'Out for Delivery', 'Delivered', 'Postponed', 'Cancelled', 'Returned', 'Returned to Vendor'];
-
   return (
     <>
       <div className="card-premium animate-fadeIn overflow-hidden">

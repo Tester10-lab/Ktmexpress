@@ -10,7 +10,8 @@ export const ALLOWED_STATUSES = [
   'Picked Up',
   'Postponed',
   'Returned',
-  'Exchange'
+  'Exchange',
+  'Pick Up Requested'
 ];
 
 export const STATUS_CONFIG = {
@@ -24,7 +25,7 @@ export const STATUS_CONFIG = {
   'Dispatch': { label: 'Dispatched', style: 'bg-sky-50 text-sky-800 border-sky-300' },
   'Delivered': { label: 'Delivered', style: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
   'Pending': { label: 'Pending', style: 'bg-amber-50 text-amber-800 border-amber-300' },
-  'Pick Up Requested': { label: 'Pending', style: 'bg-amber-50 text-amber-800 border-amber-300' },
+  'Pick Up Requested': { label: 'Pick Up Requested', style: 'bg-amber-100 text-amber-900 border-amber-400 font-bold' },
   'Picked Up': { label: 'Picked Up', style: 'bg-teal-50 text-teal-800 border-teal-300' },
   'Postponed': { label: 'Postponed', style: 'bg-orange-50 text-orange-800 border-orange-300' },
   'Returned': { label: 'Returned', style: 'bg-rose-50 text-rose-800 border-rose-300' },

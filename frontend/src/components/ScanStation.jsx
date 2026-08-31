@@ -5,23 +5,25 @@ import { Camera, Check, Clock, Edit2, Keyboard, Package, Phone, Copy, CheckCircl
 
 // ─── Role-to-allowed-actions map ─────────────────────────────────────────────
 const ROLE_ACTIONS = {
-  dispatcher: ['Picked Up', 'In Warehouse', 'Sorted', 'Returned to Vendor'],
-  rider:      ['Out for Delivery', 'Delivered', 'Returned'],
-  admin:      ['Picked Up', 'In Warehouse', 'Sorted', 'Out for Delivery', 'Delivered', 'Returned', 'Returned to Vendor', 'Cancelled'],
+  dispatcher: ['Picked Up', 'Warehouse', 'Arrived', 'Dispatched', 'Returned', 'Exchange'],
+  rider:      ['Out for Delivery', 'Delivered', 'Postponed', 'Returned', 'Exchange'],
+  admin:      ['Pending', 'Picked Up', 'Warehouse', 'Arrived', 'Dispatched', 'Out for Delivery', 'Delivered', 'Postponed', 'Returned', 'Exchange'],
 };
 
 const STATUS_COLORS = {
   'Pending':           'bg-amber-100 text-amber-700 ring-amber-500/30',
-  'Pick Up Requested': 'bg-amber-100 text-amber-700 ring-amber-500/30',
-  'Picked Up':         'bg-blue-100 text-blue-700 ring-blue-500/30',
+  'Pick Up Requested': 'bg-amber-100 text-amber-900 ring-amber-500/30',
+  'Picked Up':         'bg-teal-100 text-teal-700 ring-teal-500/30',
+  'Warehouse':         'bg-purple-100 text-purple-700 ring-purple-500/30',
   'In Warehouse':      'bg-purple-100 text-purple-700 ring-purple-500/30',
-  'Sorted':            'bg-cyan-100 text-cyan-700 ring-cyan-500/30',
-  'Out for Delivery':  'bg-orange-100 text-orange-700 ring-orange-500/30',
+  'Arrived':           'bg-indigo-100 text-indigo-700 ring-indigo-500/30',
+  'Dispatched':        'bg-sky-100 text-sky-700 ring-sky-500/30',
+  'Out for Delivery':  'bg-blue-100 text-blue-700 ring-blue-500/30',
   'Delivered':         'bg-emerald-100 text-emerald-700 ring-emerald-500/30',
   'Postponed':         'bg-orange-100 text-orange-700 ring-orange-500/30',
-  'Cancelled':         'bg-red-100 text-red-700 ring-red-500/30',
-  'Returned':          'bg-red-100 text-red-700 ring-red-500/30',
-  'Returned to Vendor':'bg-slate-100 text-slate-700 ring-slate-500/30',
+  'Returned':          'bg-rose-100 text-rose-700 ring-rose-500/30',
+  'Returned to Vendor':'bg-rose-100 text-rose-700 ring-rose-500/30',
+  'Exchange':          'bg-indigo-100 text-indigo-700 ring-indigo-500/30',
 };
 
 function StatusPill({ status }) {

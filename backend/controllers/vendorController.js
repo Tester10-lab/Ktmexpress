@@ -108,9 +108,29 @@ export const getVendorPackages = async (req, res) => {
       if (status === 'pickups') {
         filter.status = { $in: ['Pending', 'Pick Up Requested', 'Picked Up'] };
       } else if (status === 'deliveries') {
-        filter.status = { $in: ['In Warehouse', 'Out for Delivery', 'Delivered', 'Returned to Vendor', 'Returned', 'Cancelled', 'Postponed'] };
+        filter.status = { $in: ['Warehouse', 'In Warehouse', 'Out for Delivery', 'Delivered', 'Returned to Vendor', 'Returned', 'Cancelled', 'Postponed', 'Dispatched', 'Arrived', 'Exchange'] };
       } else if (status === 'history') {
-        filter.status = { $in: ['Delivered', 'Cancelled', 'Returned to Vendor', 'Returned'] };
+        filter.status = { $in: ['Delivered', 'Cancelled', 'Returned to Vendor', 'Returned', 'Exchange'] };
+      } else if (status === 'Pick Up Requested') {
+        const pickupPkgIds = await PickupRequest.find({ vendorId }).distinct('packageId');
+        filter.$or = [
+          { status: 'Pick Up Requested' },
+          { _id: { $in: pickupPkgIds } }
+        ];
+      } else if (status === 'Pending') {
+        filter.status = 'Pending';
+      } else if (status === 'Warehouse') {
+        filter.status = { $in: ['Warehouse', 'In Warehouse', 'Sorted'] };
+      } else if (status === 'Returned') {
+        filter.status = { $in: ['Returned', 'Returned to Vendor', 'Cancelled'] };
+      } else if (status === 'Exchange') {
+        filter.status = { $in: ['Exchange', 'Exchanged'] };
+      } else if (status === 'Arrived') {
+        filter.status = { $in: ['Arrived', 'Arrive'] };
+      } else if (status === 'Dispatched') {
+        filter.status = { $in: ['Dispatched', 'Dispatch'] };
+      } else if (status === 'Out for Delivery') {
+        filter.status = { $in: ['Out for Delivery', 'Out of Delivery'] };
       } else {
         filter.status = status;
       }
@@ -187,10 +207,10 @@ export const createPickupRequest = async (req, res) => {
 
     const now = nowStr();
     for (const pkg of packages) {
-      pkg.status = 'Pending';
+      pkg.status = 'Pick Up Requested';
       appendTimelineEvent(pkg, {
         time: now,
-        status: 'Pending',
+        status: 'Pick Up Requested',
         message: 'Vendor requested courier pickup',
         user: req.user.name || 'Vendor',
       });

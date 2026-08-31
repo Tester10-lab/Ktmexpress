@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { appendTimelineEvent } from '../utils/timelineHelper.js';
 import Package from '../models/Package.js';
 import User from '../models/User.js';
+import PickupRequest from '../models/PickupRequest.js';
 import ScanEvent from '../models/ScanEvent.js';
 import { uniqueTrackingCode, generateInvoiceId, escapeRegex, nowStr } from '../utils/helpers.js';
 import { generateLabelUrls } from '../services/labelService.js';
@@ -13,7 +14,34 @@ export const getAllPackages = async (req, res) => {
     const { status, search, vendor, rider, startDate, endDate, trackingCode, customer, page = 1, limit = 50 } = req.query;
 
     const filter = {};
-    if (status && status !== 'all') filter.status = status;
+    if (status && status !== 'all') {
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      const expandedStatuses = [];
+      for (const st of statuses) {
+        if (st === 'Warehouse' || st === 'In Warehouse') expandedStatuses.push('Warehouse', 'In Warehouse', 'Sorted');
+        else if (st === 'Arrived' || st === 'Arrive') expandedStatuses.push('Arrived', 'Arrive');
+        else if (st === 'Dispatched' || st === 'Dispatch') expandedStatuses.push('Dispatched', 'Dispatch');
+        else if (st === 'Returned' || st === 'Returned to Vendor' || st === 'Cancelled') expandedStatuses.push('Returned', 'Returned to Vendor', 'Cancelled');
+        else if (st === 'Exchange' || st === 'Exchanged') expandedStatuses.push('Exchange', 'Exchanged');
+        else if (st === 'Out for Delivery' || st === 'Out of Delivery') expandedStatuses.push('Out for Delivery', 'Out of Delivery');
+        else if (st === 'Pending') expandedStatuses.push('Pending');
+        else if (st === 'Pick Up Requested') expandedStatuses.push('Pick Up Requested');
+        else expandedStatuses.push(st);
+      }
+
+      if (statuses.includes('Pick Up Requested')) {
+        const pickupPkgIds = await PickupRequest.find({}).distinct('packageId');
+        filter.$and = filter.$and || [];
+        filter.$and.push({
+          $or: [
+            { status: { $in: Array.from(new Set(expandedStatuses)) } },
+            { _id: { $in: pickupPkgIds } }
+          ]
+        });
+      } else {
+        filter.status = { $in: Array.from(new Set(expandedStatuses)) };
+      }
+    }
     if (vendor) filter.vendorId = vendor;
     if (rider) filter.riderId = rider;
 

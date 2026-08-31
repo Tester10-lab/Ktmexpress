@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import PrintLabel from './PrintLabel';
 import api from '../api/axios';
+import { ALLOWED_STATUSES } from './ui/StatusBadge';
 
 /**
  * PrintLabelsModal Component
@@ -285,14 +286,10 @@ export default function PrintLabelsModal({
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="input-field py-1.5 text-xs font-medium"
             >
-              <option value="">🏷️ All Statuses</option>
-              <option value="Dispatched">Dispatched / Out for Delivery</option>
-              <option value="In Warehouse">In Warehouse / Arrived</option>
-              <option value="Picked Up">Picked Up</option>
-              <option value="Pending">Pending</option>
-              <option value="Postponed">Postponed</option>
-              <option value="Delivered">Delivered</option>
-              <option value="Returned">Returned to Vendor</option>
+              <option value="">All Statuses</option>
+              {ALLOWED_STATUSES.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
 
           </div>
