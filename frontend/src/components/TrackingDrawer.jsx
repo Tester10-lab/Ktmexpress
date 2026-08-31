@@ -108,7 +108,7 @@ const TrackingDrawer = () => {
           {shopData ? (
             <div className="p-6 space-y-4">
               <div className="bg-brand-50 border border-brand-200 text-brand-700 rounded-xl p-4 flex items-center justify-between">
-                <p className="font-bold text-sm">{shopData.packages?.length || 0} Pending Packages for {shopData.shopName}</p>
+                <p className="font-bold text-sm">{shopData.packages?.length || 0} Requested Packages for {shopData.shopName}</p>
                 <span className="text-xs font-bold px-2 py-0.5 bg-brand-200/60 rounded-md uppercase tracking-wider">Pickup</span>
               </div>
               <div className="space-y-3">

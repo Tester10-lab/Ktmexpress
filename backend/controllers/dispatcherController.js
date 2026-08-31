@@ -25,7 +25,12 @@ export const getPickupRequests = async (req, res) => {
       .sort({ requestedAt: -1 })
       .lean();
 
-    res.json({ success: true, data: assignedPickups });
+    // Only include packages where status is explicitly 'Pick Up Requested' or already assigned
+    const validPickups = assignedPickups.filter(p => 
+      p.packageId && (p.packageId.status === 'Pick Up Requested' || p.status === 'assigned')
+    );
+
+    res.json({ success: true, data: validPickups });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -439,20 +444,21 @@ export const getAllPackagesForDispatcher = async (req, res) => {
 
     if (status && status !== 'all') {
       const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
-      if (statuses.length === 1) {
-        filter.status = statuses[0];
-      } else if (statuses.length > 1) {
-        filter.status = { $in: statuses };
+      const expandedStatuses = [];
+      for (const st of statuses) {
+        if (st === 'Warehouse' || st === 'In Warehouse') expandedStatuses.push('Warehouse', 'In Warehouse', 'Sorted');
+        else if (st === 'Arrived' || st === 'Arrive') expandedStatuses.push('Arrived', 'Arrive');
+        else if (st === 'Dispatched' || st === 'Dispatch') expandedStatuses.push('Dispatched', 'Dispatch');
+        else if (st === 'Returned' || st === 'Returned to Vendor' || st === 'Cancelled') expandedStatuses.push('Returned', 'Returned to Vendor', 'Cancelled');
+        else if (st === 'Exchange' || st === 'Exchanged') expandedStatuses.push('Exchange', 'Exchanged');
+        else if (st === 'Out for Delivery' || st === 'Out of Delivery') expandedStatuses.push('Out for Delivery', 'Out of Delivery');
+        else if (st === 'Pending') expandedStatuses.push('Pending');
+        else if (st === 'Pick Up Requested') expandedStatuses.push('Pick Up Requested');
+        else expandedStatuses.push(st);
       }
+      filter.status = { $in: Array.from(new Set(expandedStatuses)) };
     } else {
-      const activePickupPkgIds = await PickupRequest.find({}).distinct('packageId');
-      filter.$and = filter.$and || [];
-      filter.$and.push({
-        $or: [
-          { status: { $ne: 'Pending' } },
-          { _id: { $in: activePickupPkgIds } }
-        ]
-      });
+      filter.status = { $ne: 'Pending' };
     }
 
     if (riderId) {
