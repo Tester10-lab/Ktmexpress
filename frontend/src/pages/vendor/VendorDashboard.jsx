@@ -45,7 +45,7 @@ function statusBadge(status) {
   return <StatusBadge status={status} />;
 }
 
-const PackageRow = React.memo(({ pkg, isSelected, handleSelect, setViewPackageDetails, setCommentModal, setEditMode, setEditPackageId, setCreateForm, setDrawerOpen }) => {
+const PackageRow = React.memo(({ pkg, isSelected, handleSelect, setViewPackageDetails, setCommentModal, setEditMode, setEditPackageId, setCreateForm, setDrawerOpen, handleSinglePickup }) => {
   return (
     <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-6 py-4">
@@ -63,7 +63,17 @@ const PackageRow = React.memo(({ pkg, isSelected, handleSelect, setViewPackageDe
       <td className="px-6 py-4 font-bold text-brand-600">Rs. {pkg.amount}</td>
       <td className="px-6 py-4 text-slate-500 font-medium">{new Date(pkg.createdAt).toLocaleDateString()}</td>
       <td className="px-6 py-4 text-right">
-        <div className="flex justify-end gap-1">
+        <div className="flex justify-end items-center gap-1.5">
+          {pkg.status === 'Pending' && handleSinglePickup && (
+            <button 
+              onClick={() => handleSinglePickup(pkg._id)} 
+              className="px-2.5 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shadow-2xs" 
+              title="Request courier pickup for this package"
+            >
+              <MapPin className="w-3.5 h-3.5 text-brand-600" />
+              <span>Pickup</span>
+            </button>
+          )}
           <button onClick={()=>setViewPackageDetails(pkg)} className="p-2 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors" title="View details">
             <Eye className="w-4 h-4" />
           </button>
@@ -541,18 +551,26 @@ const PackageList = () => {
 
   const requestPickup = async () => {
     if (!selected.length) return;
-    
-    // Optimistic Update
-    setPackages(prev => prev.map(p => selected.includes(p._id) ? { ...p, status: 'Pick Up Requested' } : p));
-    
     try { 
-      await api.post('/vendor/pickup-request',{packageIds:selected}); 
-      showToast('Pickup requested!','success'); 
+      const res = await api.post('/vendor/pickup-request', { packageIds: selected }); 
+      showToast(res.data?.message || `✓ Pickup requested for ${selected.length} package(s)!`, 'success'); 
       setSelected([]); 
       fetchPackages(true); 
     }
     catch(e) { 
-      showToast(e.message||'Failed to request pickup','error'); 
+      showToast(e.response?.data?.message || e.message || 'Failed to request pickup', 'error'); 
+      fetchPackages(true);
+    }
+  };
+
+  const handleSinglePickup = async (pkgId) => {
+    try {
+      const res = await api.post('/vendor/pickup-request', { packageIds: [pkgId] });
+      showToast(res.data?.message || '✓ Pickup requested for package!', 'success');
+      setSelected(prev => prev.filter(id => id !== pkgId));
+      fetchPackages(true);
+    } catch(e) {
+      showToast(e.response?.data?.message || e.message || 'Failed to request pickup', 'error');
       fetchPackages(true);
     }
   };
@@ -735,7 +753,7 @@ const PackageList = () => {
           </div>
           <select className="input-field w-full md:w-48 text-sm" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}>
             <option value="all">All Statuses</option>
-            {['Pending','Pick Up Requested','In Warehouse','Out for Delivery','Delivered','Cancelled','Returned to Vendor'].map(s=><option key={s} value={s}>{s}</option>)}
+            {['Pending','Picked Up','Warehouse','Dispatched','Out for Delivery','Delivered','Postponed','Returned','Exchange'].map(s=><option key={s} value={s}>{s}</option>)}
           </select>
         </div>
       </div>
@@ -765,6 +783,7 @@ const PackageList = () => {
                   pkg={pkg} 
                   isSelected={selected.includes(pkg._id)}
                   handleSelect={handleSelect}
+                  handleSinglePickup={handleSinglePickup}
                   setViewPackageDetails={setViewPackageDetails}
                   setCommentModal={setCommentModal}
                   setEditMode={setEditMode}
