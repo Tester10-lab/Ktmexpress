@@ -770,11 +770,11 @@ export const createPackageForVendor = async (req, res) => {
       deliveryDate: deliveryDate ? new Date(deliveryDate) : null,
       vendorId,
       ...labelUrls,
-      status: PACKAGE_STATUS.IN_WAREHOUSE,
+      status: 'Warehouse',
       timeline: [{
         time: new Date().toISOString().replace('T', ' ').substring(0, 16),
-        status: PACKAGE_STATUS.IN_WAREHOUSE,
-        message: 'Package arrived at warehouse.',
+        status: 'Warehouse',
+        message: 'Package directly entered into Warehouse by Admin/Dispatcher.',
         user: req.user.name,
       }]
     });
@@ -869,11 +869,11 @@ export const bulkCreatePackagesForVendor = async (req, res) => {
         deliveryDate: p.deliveryDate ? new Date(p.deliveryDate) : null,
         vendorId,
         ...labelUrls,
-        status: PACKAGE_STATUS.IN_WAREHOUSE,
+        status: 'Warehouse',
         timeline: [{
           time: nowStr(),
-          status: PACKAGE_STATUS.IN_WAREHOUSE,
-          message: 'Package arrived at warehouse.',
+          status: 'Warehouse',
+          message: 'Package directly entered into Warehouse by Admin/Dispatcher.',
           user: req.user.name,
         }]
       });

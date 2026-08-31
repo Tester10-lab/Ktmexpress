@@ -41,6 +41,9 @@ export const getAllPackages = async (req, res) => {
       } else {
         filter.status = { $in: Array.from(new Set(expandedStatuses)) };
       }
+    } else if (!trackingCode) {
+      // Exclude unrequested vendor draft 'Pending' packages from general overview
+      filter.status = { $ne: 'Pending' };
     }
     if (vendor) filter.vendorId = vendor;
     if (rider) filter.riderId = rider;

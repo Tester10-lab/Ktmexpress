@@ -129,8 +129,8 @@ export const processCsvImport = async (filePath, vendorId, creatorName, isAdmin 
             const trackingCode = trackingCodes[i];
             const labelUrls = generateLabelUrls(trackingCode);
 
-            const initialStatus = isAdmin ? 'In Warehouse' : 'Pending';
-            const initialMessage = isAdmin ? 'Package arrived at warehouse.' : 'Package created. Needs pickup request.';
+            const initialStatus = isAdmin ? 'Warehouse' : 'Pending';
+            const initialMessage = isAdmin ? 'Package directly entered into Warehouse.' : 'Package created by vendor.';
 
             const finalInvoiceId = (invoiceId && String(invoiceId).trim()) ? String(invoiceId).trim() : await generateInvoiceId();
 
