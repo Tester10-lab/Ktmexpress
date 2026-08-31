@@ -444,6 +444,15 @@ export const getAllPackagesForDispatcher = async (req, res) => {
       } else if (statuses.length > 1) {
         filter.status = { $in: statuses };
       }
+    } else {
+      const activePickupPkgIds = await PickupRequest.find({}).distinct('packageId');
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { status: { $ne: 'Pending' } },
+          { _id: { $in: activePickupPkgIds } }
+        ]
+      });
     }
 
     if (riderId) {

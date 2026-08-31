@@ -175,24 +175,40 @@ export const createPickupRequest = async (req, res) => {
     const packages = await Package.find({
       _id: { $in: packageIds },
       vendorId,
-      status: 'Pending'
+      status: { $in: ['Pending', 'Pick Up Requested'] }
     });
+
+    if (!packages.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No eligible pending packages found for pickup.',
+      });
+    }
 
     const now = nowStr();
     for (const pkg of packages) {
-      pkg.status = 'Pick Up Requested';
+      pkg.status = 'Pending';
       appendTimelineEvent(pkg, {
         time: now,
-        status: 'Pick Up Requested',
+        status: 'Pending',
         message: 'Vendor requested courier pickup',
-        user: req.user.name,
+        user: req.user.name || 'Vendor',
       });
       await pkg.save();
 
-      const pickup = await PickupRequest.create({
-        packageId: pkg._id,
-        vendorId,
-      });
+      let pickup = await PickupRequest.findOne({ packageId: pkg._id });
+      if (!pickup) {
+        pickup = await PickupRequest.create({
+          packageId: pkg._id,
+          vendorId,
+          status: 'pending',
+          requestedAt: new Date()
+        });
+      } else if (pickup.status !== 'completed' && pickup.status !== 'picked_up') {
+        pickup.status = 'pending';
+        pickup.requestedAt = new Date();
+        await pickup.save();
+      }
 
       results.push({ packageId: pkg._id, trackingCode: pkg.trackingCode, pickupId: pickup._id });
     }
@@ -205,7 +221,7 @@ export const createPickupRequest = async (req, res) => {
       });
     }
 
-    res.status(201).json({ success: true, data: results });
+    res.status(201).json({ success: true, message: `Pickup requested for ${results.length} package(s).`, data: results });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

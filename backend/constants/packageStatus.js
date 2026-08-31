@@ -10,11 +10,11 @@ export const PACKAGE_STATUS = {
   RETURNED: 'Returned',
   EXCHANGE: 'Exchange',
   
-  // Legacy aliases
+  // Legacy & Workflow aliases
+  PICKUP_REQUESTED: 'Pick Up Requested',
   OUT_OF_DELIVERY: 'Out for Delivery',
   ARRIVE: 'Arrived',
   IN_WAREHOUSE: 'Warehouse',
-  PICKUP_REQUESTED: 'Pending',
   RETURNED_TO_VENDOR: 'Returned',
   EXCHANGED: 'Exchange',
   DISPATCH: 'Dispatched',
@@ -35,5 +35,16 @@ export const STRICT_ALLOWED_STATUSES = [
   'Exchange'
 ];
 
-export const PACKAGE_STATUSES = Array.from(new Set(Object.values(PACKAGE_STATUS)));
+export const PACKAGE_STATUSES = Array.from(new Set([
+  ...Object.values(PACKAGE_STATUS),
+  'Pick Up Requested',
+  'In Warehouse',
+  'Out of Delivery',
+  'Arrive',
+  'Returned to Vendor',
+  'Exchanged',
+  'Dispatch',
+  'Cancelled',
+  'Sorted'
+]));
 
