@@ -19,9 +19,9 @@ export const getPickupRequests = async (req, res) => {
     if (vendorId) query.vendorId = vendorId;
 
     const assignedPickups = await PickupRequest.find(query)
-      .populate('packageId', 'trackingCode customerName address vendorId')
-      .populate('vendorId', 'name vendorMeta')
-      .populate('assignedRiderId', 'name')
+      .populate('packageId', 'trackingCode invoiceId customerName customerPhone address city amount status deliveryCharge weight')
+      .populate('vendorId', 'name contact vendorMeta')
+      .populate('assignedRiderId', 'name contact')
       .sort({ requestedAt: -1 })
       .lean();
 
