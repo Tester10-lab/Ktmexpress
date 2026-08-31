@@ -179,7 +179,7 @@ export const bulkAssignPackages = async (req, res) => {
     // Batch fetch all eligible packages in one query
     const packages = await Package.find({
       _id: { $in: packageIds },
-      status: { $in: ['In Warehouse', 'Sorted', 'Postponed'] },
+      status: { $in: ['Warehouse', 'In Warehouse', 'Sorted', 'Postponed', 'Arrived', 'Dispatched', 'Picked Up', 'Pending', 'Pick Up Requested'] },
     });
 
     const updated = [];
@@ -188,7 +188,7 @@ export const bulkAssignPackages = async (req, res) => {
       pkg.status = 'Out for Delivery';
       appendTimelineEvent(pkg, {
         time: nowStr(),
-        status: 'Sent to Delivery',
+        status: 'Out for Delivery',
         message: `Bulk assigned to Rider ${rider.name}`,
         user: req.user.name,
       });

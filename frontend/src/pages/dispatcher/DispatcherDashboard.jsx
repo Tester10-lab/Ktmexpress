@@ -1400,7 +1400,7 @@ const InboundScan = () => {
   };
 
   const bulkSendForDelivery = async () => {
-    const toSend = selected.filter(id => ['In Warehouse', 'Sorted', 'Postponed'].includes(packages.find(p => p._id === id)?.status));
+    const toSend = selected.filter(id => ['In Warehouse', 'Warehouse', 'Sorted', 'Postponed', 'Arrived', 'Dispatched'].includes(packages.find(p => p._id === id)?.status));
     if (!toSend.length) return showToast('No eligible packages selected', 'warning');
     if (!riderId) return showToast('Select a rider first', 'warning');
     setBulkAssigning(true);
@@ -1415,8 +1415,8 @@ const InboundScan = () => {
   };
 
   const selectedPackages = filtered.filter(p => selected.includes(p._id));
-  const hasUnconfirmed = selectedPackages.some(p => p.status !== 'In Warehouse');
-  const hasInWarehouse = selectedPackages.some(p => p.status === 'In Warehouse');
+  const hasUnconfirmed = selectedPackages.some(p => p.status !== 'In Warehouse' && p.status !== 'Warehouse');
+  const hasInWarehouse = selectedPackages.some(p => p.status === 'In Warehouse' || p.status === 'Warehouse');
 
   return (
     <div>
@@ -1527,14 +1527,14 @@ const InboundScan = () => {
                     <td style={{ ...tdStyle, fontWeight: 600 }}>Rs. {p.amount?.toLocaleString()}</td>
                     <td style={tdStyle}><StatusBadge status={p.status} /></td>
                     <td style={tdStyle} onClick={e => e.stopPropagation()}>
-                      {p.status !== 'In Warehouse' ? (
+                      {p.status !== 'In Warehouse' && p.status !== 'Warehouse' ? (
                         <ActionBtn onClick={() => confirmArrival(p._id)} disabled={actionLoading[p._id]} variant="primary" size="sm">
                           {actionLoading[p._id] ? '...' : '✓ Confirm Arrival'}
                         </ActionBtn>
                       ) : (
                         <span style={{ color: '#10b981', fontSize: 12, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
-                          In Warehouse
+                          Warehouse
                         </span>
                       )}
                     </td>

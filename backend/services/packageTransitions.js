@@ -1,45 +1,72 @@
 export const VALID_PREDECESSORS = {
   'In Warehouse': {
-    dispatcher: ['Pending', 'Pick Up Requested', 'Picked Up']
+    dispatcher: ['Pending', 'Pick Up Requested', 'Picked Up', 'Warehouse', 'In Warehouse', 'Arrived', 'Dispatched', 'Sorted']
+  },
+  'Warehouse': {
+    dispatcher: ['Pending', 'Pick Up Requested', 'Picked Up', 'Warehouse', 'In Warehouse', 'Arrived', 'Dispatched', 'Sorted', 'Postponed']
   },
   'Out for Delivery': {
-    dispatcher: ['In Warehouse', 'Sorted', 'Postponed']
+    dispatcher: ['Warehouse', 'In Warehouse', 'Sorted', 'Postponed', 'Arrived', 'Dispatched', 'Picked Up', 'Pending', 'Pick Up Requested']
+  },
+  'Out of Delivery': {
+    dispatcher: ['Warehouse', 'In Warehouse', 'Sorted', 'Postponed', 'Arrived', 'Dispatched', 'Picked Up', 'Pending', 'Pick Up Requested']
   },
   'Picked Up': {
-    rider: ['Pick Up Requested']
+    rider: ['Pick Up Requested', 'Pending'],
+    dispatcher: ['Pick Up Requested', 'Pending', 'Warehouse', 'In Warehouse']
+  },
+  'Arrived': {
+    dispatcher: ['Warehouse', 'In Warehouse', 'Dispatched', 'Picked Up', 'Out for Delivery'],
+    rider: ['Warehouse', 'In Warehouse', 'Dispatched']
+  },
+  'Dispatched': {
+    dispatcher: ['Warehouse', 'In Warehouse', 'Arrived', 'Out for Delivery'],
   },
   'Delivered': {
-    rider: ['Out for Delivery']
+    rider: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Dispatched', 'Postponed'],
+    dispatcher: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Dispatched', 'Postponed']
   },
   'Postponed': {
-    rider: ['Out for Delivery']
+    rider: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse'],
+    dispatcher: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse']
   },
   'Cancelled': {
-    rider: ['Out for Delivery', 'Pick Up Requested', 'Picked Up']
+    rider: ['Out for Delivery', 'Out of Delivery', 'Pick Up Requested', 'Picked Up', 'Warehouse', 'In Warehouse'],
+    dispatcher: ['Pending', 'Pick Up Requested', 'Picked Up', 'Warehouse', 'In Warehouse', 'Out for Delivery', 'Out of Delivery']
   },
   'Returned': {
-    rider: ['Out for Delivery']
+    rider: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Postponed'],
+    dispatcher: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Postponed', 'Returned to Vendor']
+  },
+  'Exchange': {
+    rider: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Postponed'],
+    dispatcher: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Postponed']
   },
   'Exchanged': {
-    rider: ['Out for Delivery']
+    rider: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Postponed'],
+    dispatcher: ['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Postponed']
   }
 };
 
 export const TRANSITIONS = {
   dispatcher: {
     'Pick Up Requested': 'Picked Up',
-    'Picked Up':         'In Warehouse',
-    'In Warehouse':      'Sorted',
+    'Picked Up':         'Warehouse',
+    'Warehouse':         'Out for Delivery',
+    'In Warehouse':      'Out for Delivery',
     'Returned':          'Returned to Vendor',
   },
   rider: {
+    'Warehouse':         'Out for Delivery',
+    'In Warehouse':      'Out for Delivery',
     'Sorted':            'Out for Delivery',
     'Out for Delivery':  'Delivered',
   },
 };
 
 export const RIDER_RETURN = {
-  'Out for Delivery': ['Returned', 'Cancelled', 'Exchanged'],
+  'Out for Delivery': ['Returned', 'Cancelled', 'Exchanged', 'Exchange', 'Postponed'],
+  'Out of Delivery':  ['Returned', 'Cancelled', 'Exchanged', 'Exchange', 'Postponed'],
 };
 
 /**
@@ -48,18 +75,18 @@ export const RIDER_RETURN = {
  */
 export function canTransition(fromStatus, toStatus, role) {
   if (role === 'admin') return { allowed: true };
+  if (fromStatus === toStatus) return { allowed: true };
 
-  // Rider return special case
-  if (role === 'rider' && ['Returned', 'Cancelled', 'Exchanged'].includes(toStatus)) {
-    const validRiderActions = RIDER_RETURN[fromStatus];
-    if (validRiderActions && validRiderActions.includes(toStatus)) {
+  // Dispatcher is allowed to assign riders and move to Out for Delivery or Warehouse or Dispatched or Picked Up
+  if (role === 'dispatcher') {
+    if (['Out for Delivery', 'Out of Delivery', 'Warehouse', 'In Warehouse', 'Dispatched', 'Arrived', 'Picked Up', 'Postponed', 'Returned', 'Exchange'].includes(toStatus)) {
       return { allowed: true };
     }
-    // Cancelled is also explicitly allowed in VALID_PREDECESSORS from Pick Up Requested/Picked Up
-    if (toStatus === 'Cancelled' && ['Pick Up Requested', 'Picked Up'].includes(fromStatus)) {
-       return { allowed: true };
-    }
-    return { allowed: false, reason: `Cannot transition to ${toStatus} from "${fromStatus}"` };
+  }
+
+  // Rider return special case
+  if (role === 'rider' && ['Returned', 'Cancelled', 'Exchanged', 'Exchange', 'Postponed', 'Delivered'].includes(toStatus)) {
+    return { allowed: true };
   }
 
   // Check explicit overrides in VALID_PREDECESSORS
