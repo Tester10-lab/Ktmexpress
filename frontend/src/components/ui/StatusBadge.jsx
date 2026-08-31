@@ -1,8 +1,8 @@
 import React from 'react';
 
 export const ALLOWED_STATUSES = [
-  'Out of Delivery',
-  'Arrive',
+  'Out for Delivery',
+  'Arrived',
   'Warehouse',
   'Delivered',
   'Pending',
@@ -13,10 +13,10 @@ export const ALLOWED_STATUSES = [
 ];
 
 export const STATUS_CONFIG = {
-  'Out of Delivery': { label: 'Out of Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
-  'Out for Delivery': { label: 'Out of Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
-  'Arrive': { label: 'Arrive', style: 'bg-purple-50 text-purple-700 border-purple-300' },
-  'Arrived': { label: 'Arrive', style: 'bg-purple-50 text-purple-700 border-purple-300' },
+  'Out for Delivery': { label: 'Out for Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
+  'Out of Delivery': { label: 'Out for Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
+  'Arrived': { label: 'Arrived', style: 'bg-purple-50 text-purple-700 border-purple-300' },
+  'Arrive': { label: 'Arrived', style: 'bg-purple-50 text-purple-700 border-purple-300' },
   'Warehouse': { label: 'Warehouse', style: 'bg-slate-100 text-slate-800 border-slate-300' },
   'In Warehouse': { label: 'Warehouse', style: 'bg-slate-100 text-slate-800 border-slate-300' },
   'Delivered': { label: 'Delivered', style: 'bg-emerald-50 text-emerald-800 border-emerald-300' },
@@ -28,9 +28,10 @@ export const STATUS_CONFIG = {
   'Returned to Vendor': { label: 'Returned', style: 'bg-rose-50 text-rose-800 border-rose-300' },
   'Exchange': { label: 'Exchange', style: 'bg-indigo-50 text-indigo-800 border-indigo-300' },
   'Exchanged': { label: 'Exchange', style: 'bg-indigo-50 text-indigo-800 border-indigo-300' },
-  'Dispatch': { label: 'Out of Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
-  'Dispatched': { label: 'Out of Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
-  'Cancelled': { label: 'Cancelled', style: 'bg-red-50 text-red-700 border-red-300' },
+  'Dispatch': { label: 'Out for Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
+  'Dispatched': { label: 'Out for Delivery', style: 'bg-blue-50 text-blue-700 border-blue-300' },
+  'Cancelled': { label: 'Returned', style: 'bg-rose-50 text-rose-800 border-rose-300' },
+  'Sorted': { label: 'Warehouse', style: 'bg-slate-100 text-slate-800 border-slate-300' },
 };
 
 export function getStatusBadgeData(status) {
