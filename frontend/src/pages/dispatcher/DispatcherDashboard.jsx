@@ -275,6 +275,18 @@ const DispatcherHome = () => {
           if (p.deliveryVerificationStatus !== 'Pending') return false;
         } else if (statusFilter === 'Postponed') {
           if (p.status !== 'Postponed') return false;
+        } else if (statusFilter === 'Warehouse' || statusFilter === 'In Warehouse') {
+          if (p.status !== 'In Warehouse' && p.status !== 'Warehouse' && p.status !== 'Sorted') return false;
+        } else if (statusFilter === 'Out of Delivery' || statusFilter === 'Out for Delivery') {
+          if (p.status !== 'Out for Delivery' && p.status !== 'Out of Delivery') return false;
+        } else if (statusFilter === 'Arrive' || statusFilter === 'Arrived') {
+          if (p.status !== 'Arrive' && p.status !== 'Arrived') return false;
+        } else if (statusFilter === 'Exchange' || statusFilter === 'Exchanged') {
+          if (p.status !== 'Exchange' && p.status !== 'Exchanged') return false;
+        } else if (statusFilter === 'Returned' || statusFilter === 'Returned to Vendor') {
+          if (p.status !== 'Returned' && p.status !== 'Returned to Vendor') return false;
+        } else if (statusFilter === 'Pick Up Requested' || statusFilter === 'Pickups') {
+          if (!['Pending', 'Pick Up Requested', 'Picked Up'].includes(p.status)) return false;
         } else if (p.status !== statusFilter) {
           return false;
         }
@@ -361,8 +373,8 @@ const DispatcherHome = () => {
 
   // Status counts
   const countVerificationPending = packages.filter(p => p.deliveryVerificationStatus === 'Pending').length;
-  const countInWarehouse = packages.filter(p => p.status === 'In Warehouse').length;
-  const countOutForDelivery = packages.filter(p => p.status === 'Out for Delivery').length;
+  const countInWarehouse = packages.filter(p => p.status === 'In Warehouse' || p.status === 'Warehouse' || p.status === 'Sorted').length;
+  const countOutForDelivery = packages.filter(p => p.status === 'Out for Delivery' || p.status === 'Out of Delivery').length;
   const countDelivered = packages.filter(p => p.status === 'Delivered').length;
   const countPostponed = packages.filter(p => p.status === 'Postponed').length;
   const countPickups = packages.filter(p => ['Pending', 'Pick Up Requested', 'Picked Up'].includes(p.status)).length;
@@ -646,7 +658,7 @@ const DispatcherHome = () => {
                     />
                   </td>
                 </tr>
-              ) : filteredPackages.slice(0, 100).map(p => (
+              ) : filteredPackages.slice(0, 500).map(p => (
                 <tr key={p._id} style={{ transition: 'background 0.1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

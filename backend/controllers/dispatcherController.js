@@ -98,6 +98,7 @@ export const confirmWarehouseArrival = async (req, res) => {
     }
 
     pkg.status = 'In Warehouse';
+    pkg.riderId = null;
     appendTimelineEvent(pkg, {
       time: nowStr(),
       status: 'Arrived in Warehouse',
@@ -307,6 +308,9 @@ export const bulkStatusUpdate = async (req, res) => {
 
     for (const pkg of packages) {
       pkg.status = status;
+      if (['In Warehouse', 'Warehouse', 'Arrived', 'Arrive'].includes(status)) {
+        pkg.riderId = null;
+      }
       if (status === 'Delivered') {
         pkg.deliveryDate = new Date();
       }
@@ -350,9 +354,15 @@ export const updateDispatcherPackageStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Package not found.' });
     }
 
-    if (riderId) {
-      const rider = await User.findOne({ _id: riderId, role: 'rider' });
-      if (rider) pkg.riderId = rider._id;
+    if (riderId !== undefined) {
+      if (!riderId || riderId === 'null') {
+        pkg.riderId = null;
+      } else {
+        const rider = await User.findOne({ _id: riderId, role: 'rider' });
+        if (rider) pkg.riderId = rider._id;
+      }
+    } else if (['In Warehouse', 'Warehouse', 'Arrived', 'Arrive'].includes(status)) {
+      pkg.riderId = null;
     }
 
     pkg.status = status;
@@ -514,11 +524,11 @@ export const getAllPackagesForDispatcher = async (req, res) => {
       ];
     }
 
-    const maxLimit = Math.min(parseInt(limit) || 500, 1000);
+    const maxLimit = Math.min(parseInt(limit) || 1500, 3000);
     const packages = await Package.find(filter)
       .populate('vendorId', 'name email vendorMeta')
       .populate('riderId', 'name contact phone')
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1, createdAt: -1 })
       .limit(maxLimit)
       .lean();
 
