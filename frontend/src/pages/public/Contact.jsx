@@ -25,28 +25,28 @@ const Contact = () => {
       <PublicNav />
 
       {/* Header Banner */}
-      <section className="relative bg-[#002B49] text-white py-16 lg:py-20 overflow-hidden">
+      <section className="relative bg-[#002B49] text-white py-12 sm:py-16 lg:py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#002B49] via-[#002035] to-[#001422] opacity-95 pointer-events-none" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 text-center">
-          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-4">
+          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-3">
             Contact Us
           </span>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight mb-3">
             Get in Touch With Our Team
           </h1>
-          <p className="text-base sm:text-lg text-slate-200 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base lg:text-lg text-slate-200 max-w-2xl mx-auto">
             Have questions about shipments, merchant onboarding, bulk freight, or branch pickups? We are here to assist you 7 days a week.
           </p>
         </div>
       </section>
 
-      <main className="flex-1 py-16 lg:py-20">
+      <main className="flex-1 py-10 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
             
             {/* Left Contact Details Card */}
-            <div className="lg:col-span-5 bg-[#002B49] text-white rounded-2xl p-8 sm:p-10 shadow-xl relative overflow-hidden space-y-8">
+            <div className="lg:col-span-5 bg-[#002B49] text-white rounded-2xl p-6 sm:p-10 shadow-xl relative overflow-hidden space-y-7">
               <div className="absolute top-0 right-0 -mr-16 -mt-16 w-48 h-48 bg-[#E31837]/20 rounded-full blur-2xl pointer-events-none" />
 
               <div>

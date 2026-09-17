@@ -91,36 +91,36 @@ const Pricing = () => {
       <PublicNav />
 
       {/* Header Banner */}
-      <section className="relative bg-[#002B49] text-white py-16 lg:py-20 overflow-hidden">
+      <section className="relative bg-[#002B49] text-white py-12 sm:py-16 lg:py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#002B49] via-[#002035] to-[#001422] opacity-95 pointer-events-none" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 text-center">
-          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-4">
+          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-3">
             Transparent Pricing
           </span>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight mb-3">
             Simple Rates. Zero Hidden Costs.
           </h1>
-          <p className="text-base sm:text-lg text-slate-200 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base lg:text-lg text-slate-200 max-w-2xl mx-auto">
             Affordable delivery rates tailored for individuals, growing online businesses, and high-volume corporate enterprises.
           </p>
         </div>
       </section>
 
       {/* Interactive Shipping Cost Calculator */}
-      <section className="py-12 -mt-10 relative z-20">
+      <section className="py-8 sm:py-12 -mt-6 sm:-mt-10 relative z-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-6 sm:p-10">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl p-5 sm:p-10">
             <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
-              <div className="p-3 bg-red-50 text-[#E31837] rounded-xl">
-                <Calculator className="w-6 h-6" />
+              <div className="p-3 bg-red-50 text-[#E31837] rounded-xl shrink-0">
+                <Calculator className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-[#002B49]">Instant Shipping Rate Estimator</h2>
+                <h2 className="text-lg sm:text-xl font-bold text-[#002B49]">Instant Shipping Rate Estimator</h2>
                 <p className="text-xs text-slate-500">Calculate estimated delivery charges across Nepal based on destination & weight.</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 items-end">
               {/* Destination */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
@@ -129,7 +129,7 @@ const Pricing = () => {
                 <select
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#002B49] focus:bg-white transition-all"
+                  className="w-full px-3.5 py-2.5 sm:py-3 bg-slate-50 border border-slate-300 rounded-lg text-sm sm:text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#002B49] focus:bg-white transition-all"
                 >
                   <option value="ktm">Kathmandu Valley (KTM/Lalitpur/Bhaktapur)</option>
                   <option value="major">Major Highway Hubs (Pokhara, Chitwan, Butwal, Biratnagar)</option>

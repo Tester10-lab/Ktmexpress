@@ -25,7 +25,9 @@
   }
   
   a {
-    @apply text-slate-900 hover:text-slate-600 transition-colors duration-150;
+    color: inherit;
+    text-decoration: inherit;
+    transition: color 0.15s ease-in-out;
   }
   
   /* Scrollbar */

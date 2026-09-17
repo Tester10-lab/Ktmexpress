@@ -37,14 +37,14 @@ const Tracking = () => {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <PublicNav active="/track" />
 
-      <section className="relative bg-[#002B49] text-white py-16 px-6 text-center shadow-inner overflow-hidden">
+      <section className="relative bg-[#002B49] text-white py-10 sm:py-16 px-4 sm:px-6 text-center shadow-inner overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#002B49] via-[#002035] to-[#001422] opacity-95 pointer-events-none" />
         <div className="max-w-2xl mx-auto relative z-10">
-          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-4">
+          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-3">
             Live Dispatch Tracking
           </span>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-white mb-3 tracking-tight">Track Your Shipment</h1>
-          <p className="text-slate-300 text-sm sm:text-base mb-8">Enter your 7-character tracking code or Invoice / Order ID</p>
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-white mb-2 tracking-tight">Track Your Shipment</h1>
+          <p className="text-slate-200 text-xs sm:text-base mb-6 sm:mb-8">Enter your 7-character tracking code or Invoice / Order ID</p>
           
           <div className="flex bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/20 shadow-xl">
             <input 
@@ -53,15 +53,15 @@ const Tracking = () => {
               onChange={e => setCode(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && doTrack()}
               placeholder="e.g. KTM9823 or INV-1002..."
-              className="flex-1 bg-white border-none outline-none px-5 py-3 rounded-xl text-slate-900 font-mono tracking-wider font-semibold placeholder:text-slate-400 placeholder:font-sans placeholder:font-normal"
+              className="flex-1 bg-white border-none outline-none px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-xl text-slate-900 font-mono tracking-wider font-semibold text-sm sm:text-base placeholder:text-slate-400 placeholder:font-sans placeholder:font-normal"
             />
             <button 
-              className="ml-2 px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-[#E31837] hover:bg-[#c1122d] text-white transition-colors shadow uppercase text-xs tracking-wider"
+              className="ml-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-bold flex items-center gap-1.5 sm:gap-2 bg-[#E31837] hover:bg-[#c1122d] text-white transition-colors shadow uppercase text-xs sm:text-sm tracking-wider shrink-0"
               onClick={() => doTrack()} 
               disabled={loading}
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
-              <span className="hidden sm:inline">Track</span>
+              {loading ? <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" /> : <Search className="w-4 h-4 sm:w-5 sm:h-5" />}
+              <span>Track</span>
             </button>
           </div>
         </div>

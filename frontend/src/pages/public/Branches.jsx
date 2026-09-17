@@ -125,24 +125,24 @@ const Branches = () => {
       <PublicNav />
 
       {/* Header Banner */}
-      <section className="relative bg-[#002B49] text-white py-16 lg:py-20 overflow-hidden">
+      <section className="relative bg-[#002B49] text-white py-12 sm:py-16 lg:py-20 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-[#002B49] via-[#002035] to-[#001422] opacity-95 pointer-events-none" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10 text-center">
-          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-4">
+          <span className="inline-flex items-center gap-1.5 bg-[#E31837] text-white px-3.5 py-1 rounded-full text-xs font-extrabold uppercase tracking-widest mb-3">
             Our Network
           </span>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight mb-3">
             Nationwide Hubs & Branches
           </h1>
-          <p className="text-base sm:text-lg text-slate-200 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base lg:text-lg text-slate-200 max-w-2xl mx-auto">
             Locate your nearest KDM Express drop-off station, regional sorting hub, or pickup counter across Nepal.
           </p>
         </div>
       </section>
 
       {/* Search & Region Filter Bar */}
-      <section className="py-8 bg-white border-b border-slate-200 sticky top-[73px] z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <section className="py-4 sm:py-6 bg-white border-b border-slate-200 sticky top-[64px] sm:top-[80px] z-20 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row gap-3 sm:gap-4 items-center justify-between">
           
           {/* Search Box */}
           <div className="relative w-full md:w-80">
@@ -152,17 +152,17 @@ const Branches = () => {
               placeholder="Search branch, city, or district..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#002B49] focus:bg-white transition-all"
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-lg text-sm sm:text-base text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#002B49] focus:bg-white transition-all"
             />
           </div>
 
-          {/* Region Tabs */}
-          <div className="flex flex-wrap gap-2 justify-center w-full md:w-auto">
+          {/* Region Tabs (scrollable on mobile) */}
+          <div className="flex overflow-x-auto no-scrollbar w-full md:w-auto gap-2 pb-1 sm:pb-0 items-center">
             {regions.map((reg) => (
               <button
                 key={reg}
                 onClick={() => setSelectedRegion(reg)}
-                className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                className={`px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold whitespace-nowrap transition-all shrink-0 ${
                   selectedRegion === reg
                     ? 'bg-[#002B49] text-white shadow'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
