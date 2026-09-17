@@ -88,7 +88,7 @@ const PublicNav = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 sm:gap-3 shrink-0">
             <img
-              src="/cargohub/images/kdm-logo.png"
+              src="/images/kdm-logo.png"
               alt="KDM Express"
               className="h-9 sm:h-12 w-auto object-contain"
               fetchpriority="high"

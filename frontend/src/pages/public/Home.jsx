@@ -65,7 +65,7 @@ const Home = () => {
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-800">
       <PublicNav />
 
-      {/* Hero Banner with CargoHub Styling */}
+      {/* Hero Banner */}
       <section className="relative bg-[#002B49] text-white py-12 sm:py-20 lg:py-28 overflow-hidden">
         {/* Subtle Background Overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-[#002B49] via-[#002035] to-[#001422] opacity-95 pointer-events-none" />

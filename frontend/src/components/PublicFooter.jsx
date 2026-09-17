@@ -15,7 +15,7 @@ const PublicFooter = () => {
           <div className="lg:col-span-4 space-y-4">
             <Link to="/" className="inline-block bg-white p-2.5 rounded-xl shadow-md">
               <img
-                src="/cargohub/images/kdm-logo.png"
+                src="/images/kdm-logo.png"
                 alt="KDM Express"
                 className="h-10 w-auto object-contain"
                 loading="lazy"
