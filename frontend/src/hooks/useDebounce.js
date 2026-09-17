@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 
-export default function useDebounce(value, delay) {
+/**
+ * Custom hook to debounce any fast-changing value (e.g. search query input).
+ *
+ * @param {any} value - The input value to debounce
+ * @param {number} delay - Delay in milliseconds (default 300ms)
+ * @returns {any} - The debounced value
+ */
+export function useDebounce(value, delay = 300) {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
@@ -15,3 +22,5 @@ export default function useDebounce(value, delay) {
 
   return debouncedValue;
 }
+
+export default useDebounce;

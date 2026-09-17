@@ -85,6 +85,8 @@ app.use(hpp());
 
 // ─── Performance Middleware ───────────────────────────────────────────────────
 app.use(compression({
+  level: 6,
+  threshold: 512,
   filter: (req, res) => {
     if (req.headers['x-no-compression']) {
       return false;

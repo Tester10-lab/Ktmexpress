@@ -7,6 +7,7 @@ import PublicFooter from '../../components/PublicFooter';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { TrackingSkeleton } from '../../components/ui/Skeleton';
 
 const Tracking = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -70,7 +71,9 @@ const Tracking = () => {
       <main className="flex-1 px-4 sm:px-6 lg:px-8 py-12 -mt-8 relative z-20">
         <div className="max-w-3xl mx-auto">
           
-          {error && (
+          {loading && <TrackingSkeleton />}
+
+          {error && !loading && (
             <div className="bg-white border border-red-200 rounded-xl p-5 mb-8 flex gap-4 shadow-sm">
               <Info className="w-6 h-6 text-red-500 shrink-0" />
               <div>
@@ -80,7 +83,7 @@ const Tracking = () => {
             </div>
           )}
 
-          {pkg && (
+          {pkg && !loading && (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
               {/* Header */}
               <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center gap-4 flex-wrap bg-slate-50">

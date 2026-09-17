@@ -41,7 +41,8 @@ const expenseSchema = new mongoose.Schema(
 
 // Indexes
 expenseSchema.index({ date: -1 });
-expenseSchema.index({ riderId: 1 });
+expenseSchema.index({ riderId: 1, date: -1 });
+expenseSchema.index({ status: 1, date: -1 });
 expenseSchema.index({ deletedAt: 1 });
 
 // Soft delete query middleware

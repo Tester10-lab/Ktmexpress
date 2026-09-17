@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { MapPin, Phone, Mail, Map, Search, Building2, CheckCircle2, Clock } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { MapPin, Phone, Mail, Map, Search, Building2, Clock } from 'lucide-react';
 import PublicNav from '../../components/PublicNav';
 import PublicFooter from '../../components/PublicFooter';
+import useDebounce from '../../hooks/useDebounce';
 
 const branchesData = [
   {
@@ -110,15 +111,19 @@ const regions = ['All Branches', 'Kathmandu Valley', 'Gandaki & Lumbini', 'Koshi
 const Branches = () => {
   const [selectedRegion, setSelectedRegion] = useState('All Branches');
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 250);
 
-  const filteredBranches = branchesData.filter((b) => {
-    const matchesRegion = selectedRegion === 'All Branches' || b.region === selectedRegion;
-    const matchesSearch =
-      b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      b.region.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesRegion && matchesSearch;
-  });
+  const filteredBranches = useMemo(() => {
+    return branchesData.filter((b) => {
+      const matchesRegion = selectedRegion === 'All Branches' || b.region === selectedRegion;
+      const matchesSearch =
+        !debouncedSearch.trim() ||
+        b.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        b.address.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        b.region.toLowerCase().includes(debouncedSearch.toLowerCase());
+      return matchesRegion && matchesSearch;
+    });
+  }, [selectedRegion, debouncedSearch]);
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 font-sans text-slate-800">

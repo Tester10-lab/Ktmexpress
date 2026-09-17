@@ -18,6 +18,8 @@ const PublicFooter = () => {
                 src="/cargohub/images/kdm-logo.png"
                 alt="KDM Express"
                 className="h-10 w-auto object-contain"
+                loading="lazy"
+                decoding="async"
                 onError={(e) => { e.currentTarget.src = brandLogo; }}
               />
             </Link>

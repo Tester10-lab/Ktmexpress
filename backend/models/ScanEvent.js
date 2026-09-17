@@ -69,6 +69,7 @@ const scanEventSchema = new mongoose.Schema(
 );
 
 // Indexes for fast querying
+scanEventSchema.index({ trackingCode: 1, createdAt: -1 });
 scanEventSchema.index({ packageId: 1, createdAt: -1 });
 scanEventSchema.index({ scannedBy: 1, createdAt: -1 });
 scanEventSchema.index({ action: 1, createdAt: -1 });

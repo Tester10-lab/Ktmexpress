@@ -1059,36 +1059,43 @@ export const getSettlements = async (req, res) => {
       Settlement.countDocuments()
     ]);
 
-    // Populate package details and add summary for each settlement
-    const enhancedSettlements = await Promise.all(
-      settlements.map(async (settlement) => {
-        const packages = await Package.find({ _id: { $in: settlement.packageIds } }).lean();
-        
-        const summary = {
-          totalPackages: packages.length,
-          totalCOD: packages.reduce((sum, pkg) => sum + (pkg.amount || 0), 0),
-          totalDeliveryCharges: packages.reduce((sum, pkg) => sum + (pkg.deliveryCharge || 0), 0),
-          netPayable: settlement.requestedAmount,
-          deductions: packages.reduce((sum, pkg) => sum + (pkg.deliveryCharge || 0), 0)
-        };
-        
-        return {
-          ...settlement,
-          packages: packages.map(pkg => ({
-            _id: pkg._id,
-            trackingCode: pkg.trackingCode,
-            customerName: pkg.customerName,
-            address: pkg.address,
-            amount: pkg.amount,
-            deliveryCharge: pkg.deliveryCharge,
-            status: pkg.status,
-            settlementStatus: pkg.settlementStatus,
-            deliveredAt: pkg.updatedAt
-          })),
-          summary
-        };
-      })
-    );
+    // Single batch query to eliminate N+1 database queries
+    const allPackageIds = settlements.flatMap(s => s.packageIds || []);
+    const allPackages = allPackageIds.length > 0 
+      ? await Package.find({ _id: { $in: allPackageIds } }).lean() 
+      : [];
+    const pkgMap = new Map(allPackages.map(p => [String(p._id), p]));
+
+    const enhancedSettlements = settlements.map((settlement) => {
+      const packages = (settlement.packageIds || [])
+        .map(id => pkgMap.get(String(id)))
+        .filter(Boolean);
+      
+      const totalDeliveryCharges = packages.reduce((sum, pkg) => sum + (pkg.deliveryCharge || 0), 0);
+      const summary = {
+        totalPackages: packages.length,
+        totalCOD: packages.reduce((sum, pkg) => sum + (pkg.amount || 0), 0),
+        totalDeliveryCharges,
+        netPayable: settlement.requestedAmount,
+        deductions: totalDeliveryCharges
+      };
+      
+      return {
+        ...settlement,
+        packages: packages.map(pkg => ({
+          _id: pkg._id,
+          trackingCode: pkg.trackingCode,
+          customerName: pkg.customerName,
+          address: pkg.address,
+          amount: pkg.amount,
+          deliveryCharge: pkg.deliveryCharge,
+          status: pkg.status,
+          settlementStatus: pkg.settlementStatus,
+          deliveredAt: pkg.updatedAt
+        })),
+        summary
+      };
+    });
 
     res.json({
       success: true,

@@ -35,6 +35,12 @@ services:
       - SMTP_PASSWORD=${SMTP_PASSWORD:-${REPORT_EMAIL_APP_PASSWORD:-}}
     depends_on:
       - mongodb
+    healthcheck:
+      test: ["CMD-SHELL", "node -e 'fetch(\"http://127.0.0.1:5000/health\").then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
     volumes:
       - ./backend/logs:/app/logs

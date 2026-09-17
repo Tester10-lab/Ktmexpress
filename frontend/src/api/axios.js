@@ -11,6 +11,23 @@ const tokenStore = {};
 // Map of in-flight refresh requests to avoid concurrent duplicate requests
 const refreshPromises = {};
 
+// Client-side in-memory response cache for GET requests
+const responseCache = new Map();
+// Client-side in-flight GET requests map to deduplicate concurrent calls
+const inFlightRequests = new Map();
+
+export const clearApiCache = (urlPattern) => {
+  if (!urlPattern) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (key.includes(urlPattern)) {
+      responseCache.delete(key);
+    }
+  }
+};
+
 export const setAccessToken = (role, token) => {
   if (token) {
     tokenStore[role] = token;
@@ -37,14 +54,34 @@ api.interceptors.request.use(
     const activeRole = getActiveRole();
     const token = getAccessToken(activeRole);
     if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    // Automatic cache busting on write operations
+    if (['post', 'put', 'patch', 'delete'].includes((config.method || '').toLowerCase())) {
+      clearApiCache();
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor — handle 401 globally
+// Response interceptor — handle 401 globally & cache management
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const config = response.config;
+    if ((config.method || '').toLowerCase() === 'get' && config.cache !== false) {
+      const ttl = typeof config.cache === 'number' ? config.cache : 15000; // default 15s cache
+      const cacheKey = `${config.url}:${JSON.stringify(config.params || {})}`;
+      responseCache.set(cacheKey, {
+        data: response.data,
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+        expires: Date.now() + ttl,
+      });
+    }
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     const url = originalRequest?.url || '';
@@ -93,5 +130,43 @@ api.interceptors.response.use(
     });
   }
 );
+
+/**
+ * Enhanced GET helper with in-memory caching and request deduplication
+ */
+const originalGet = api.get.bind(api);
+api.get = function (url, config = {}) {
+  const method = 'get';
+  const shouldCache = config.cache !== false && !config.bypassCache;
+  const cacheKey = `${url}:${JSON.stringify(config.params || {})}`;
+
+  if (shouldCache && responseCache.has(cacheKey)) {
+    const cached = responseCache.get(cacheKey);
+    if (cached.expires > Date.now()) {
+      return Promise.resolve({
+        data: cached.data,
+        status: cached.status,
+        statusText: cached.statusText,
+        headers: cached.headers,
+        config,
+        cached: true,
+      });
+    } else {
+      responseCache.delete(cacheKey);
+    }
+  }
+
+  // Deduplicate in-flight concurrent requests for the exact same endpoint
+  if (inFlightRequests.has(cacheKey)) {
+    return inFlightRequests.get(cacheKey);
+  }
+
+  const requestPromise = originalGet(url, config).finally(() => {
+    inFlightRequests.delete(cacheKey);
+  });
+
+  inFlightRequests.set(cacheKey, requestPromise);
+  return requestPromise;
+};
 
 export default api;
