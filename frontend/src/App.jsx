@@ -17,6 +17,8 @@ const Home = lazy(() => import('./pages/public/Home'));
 const Pricing = lazy(() => import('./pages/public/Pricing'));
 const Branches = lazy(() => import('./pages/public/Branches'));
 const Contact = lazy(() => import('./pages/public/Contact'));
+const Services = lazy(() => import('./pages/public/Services'));
+const About = lazy(() => import('./pages/public/About'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 // Role-based dashboards
@@ -44,6 +46,8 @@ function App() {
                   <Routes>
               {/* Public */}
               <Route path="/" element={<Home />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/about" element={<About />} />
               <Route path="/login" element={<Login />} />
               <Route path="/track" element={<TrackPackage />} />
               <Route path="/track/:trackingCode" element={<TrackPackage />} />
